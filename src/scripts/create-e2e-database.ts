@@ -26,13 +26,26 @@ function fail(message: string, exitCode: number): never {
   process.exit(exitCode);
 }
 
-function quoteIdentifier(name: string): string {
-  if (!ALLOWED_NAME_PATTERN.test(name) || !TEST_TOKEN.test(name) || FORBIDDEN_TOKEN.test(name)) {
+/** Database names must CLEARLY mark a disposable test/e2e environment. */
+function validateDatabaseName(name: string): string {
+  if (
+    !ALLOWED_NAME_PATTERN.test(name) ||
+    !TEST_TOKEN.test(name) ||
+    FORBIDDEN_TOKEN.test(name)
+  ) {
     fail(
       `Refusing unsafe database name. The name must be alphanumeric/underscore, ` +
         `contain an E2E/TEST/CI token, and never look production-like.`,
       2,
     );
+  }
+  return `[${name.replace(/]/g, ']]')}]`;
+}
+
+/** Login/user identifiers: safe charset + bracket quoting (no E2E token needed). */
+function quoteIdentifier(name: string): string {
+  if (!ALLOWED_NAME_PATTERN.test(name) || FORBIDDEN_TOKEN.test(name)) {
+    fail(`Refusing unsafe login/user identifier.`, 2);
   }
   return `[${name.replace(/]/g, ']]')}]`;
 }
@@ -51,7 +64,7 @@ async function main(): Promise<void> {
   if (!adminUser || !adminPass) fail('DB_ADMIN_USERNAME/DB_ADMIN_PASSWORD (or app credentials) are required.', 2);
   if (!appUser || !appPass) fail('DB_USERNAME/DB_PASSWORD are required (the app login to provision).', 2);
 
-  const quotedDb = quoteIdentifier(dbName);
+  const quotedDb = validateDatabaseName(dbName);
   const encrypt = (process.env.DB_ENCRYPT ?? 'false') !== 'false';
   const dbNameSqlLiteral = `N'${dbName.replace(/'/g, "''")}'`;
 
