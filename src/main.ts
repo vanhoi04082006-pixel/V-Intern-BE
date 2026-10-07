@@ -44,8 +44,10 @@ async function bootstrap(): Promise<void> {
 
   const swaggerConfig = new DocumentBuilder()
     .setTitle('V-Intern API')
-    .setDescription('V-Intern NestJS backend — platform core (Phase 1). Auth: bearer JWT; refresh via HttpOnly cookie scoped to /api/v1/auth.')
-    .setVersion('1.0')
+    .setDescription(
+      'V-Intern NestJS backend — platform core (Phase 1) + academic core (Phase 2: classes, internship sessions, projects, transactional assignments, intern workspace). Auth: bearer JWT; refresh via HttpOnly cookie scoped to /api/v1/auth.',
+    )
+    .setVersion('2.0')
     .addBearerAuth()
     .build();
   SwaggerModule.setup('api/docs', app, SwaggerModule.createDocument(app, swaggerConfig));

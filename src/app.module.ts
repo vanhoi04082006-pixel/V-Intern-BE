@@ -8,12 +8,17 @@ import { ENTITIES } from './database/entities';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { PermissionsGuard } from './common/guards/permissions.guard';
 import { AuditModule } from './audit/audit.module';
+import { AssignmentsModule } from './assignments/assignments.module';
 import { AuthModule } from './auth/auth.module';
 import { CatalogsModule } from './catalogs/catalogs.module';
+import { ClassesModule } from './classes/classes.module';
 import { GroupsModule } from './groups/groups.module';
 import { HealthModule } from './health/health.module';
+import { InternModule } from './intern/intern.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { ProjectsModule } from './projects/projects.module';
 import { RbacModule } from './rbac/rbac.module';
+import { SessionsModule } from './sessions/sessions.module';
 import { SettingsModule } from './settings/settings.module';
 import { UsersModule } from './users/users.module';
 
@@ -56,6 +61,12 @@ import { UsersModule } from './users/users.module';
     AuditModule,
     NotificationsModule,
     HealthModule,
+    // Phase 2 — academic core
+    ClassesModule,
+    SessionsModule,
+    ProjectsModule,
+    AssignmentsModule,
+    InternModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },
