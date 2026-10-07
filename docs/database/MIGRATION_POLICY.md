@@ -156,3 +156,21 @@ fails.
   FKs to their sources so financial/credential records survive any source
   lifecycle action.
 - From the first green Phase 5 CI run, this migration is FROZEN too.
+
+## Phase 6 addition (2026-10)
+
+- `1760304000000-CreateAiMentorAssistanceRecommendationTables` adds the
+  AI mentor + AI evaluation assistance + AI recommendation schema:
+  ai_mentor_conversations, ai_mentor_messages,
+  evaluation_ai_suggestions, ai_recommendation_snapshots.
+- Phase 1-5 migrations remain FROZEN and untouched. Cascade-path lessons
+  applied again: the ONLY CASCADE is
+  ai_mentor_conversations→ai_mentor_messages (single path, content
+  ownership); every `users` FK and the
+  evaluation_ai_suggestions.evaluationId FK are NO ACTION (users are
+  deactivated, never deleted; AI workspace rows must never block or
+  cascade into the authoritative evaluation lifecycle).
+- ai_runs is deliberately NOT duplicated: all three Phase-6 features
+  reference AIRun provenance through plain indexed columns (aiRunId),
+  consistent with Phase 4.
+- From the first green Phase 6 CI run, this migration is FROZEN too.
