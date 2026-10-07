@@ -2,14 +2,31 @@ import { DataSource } from 'typeorm';
 import { Permission } from '../rbac/entities/permission.entity';
 import { Role } from '../rbac/entities/role.entity';
 import { RolePermission } from '../rbac/entities/role-permission.entity';
-import { ensureRbac, PERMISSION_CATALOG } from './ensure-rbac';
+import { ensureRbac, PERMISSION_CATALOG, ROLE_CATALOG } from './ensure-rbac';
 
 /**
- * RBAC bootstrap tests (spec 35): idempotent, never rewrites existing
- * permission/role IDs, never duplicates grants, role mapping is exact.
+ * RBAC bootstrap tests (spec 35/36): idempotent, never rewrites existing
+ * permission/role IDs, never duplicates grants, role mapping is exact,
+ * and the Phase 3 upgrade path adds ONLY the new sprint/task codes.
  */
 
 type RepoFactory = () => Record<string, jest.Mock>;
+
+/** Grants implied by the catalog for a role code (single source of truth). */
+function grantsFor(roleCode: string): string[] {
+  const def = ROLE_CATALOG.find((r) => r.code === roleCode);
+  if (!def) throw new Error(`role ${roleCode} missing from catalog`);
+  return def.grantAll ? PERMISSION_CATALOG.map((p) => p.code) : def.grantCodes ?? [];
+}
+
+const PHASE_3_CODES = [
+  'sprints.view',
+  'sprints.manage',
+  'tasks.view',
+  'tasks.manage',
+  'tasks.view.own',
+  'tasks.update.own',
+];
 
 function makeDs(overrides?: { perm?: RepoFactory; role?: RepoFactory; rp?: RepoFactory }): {
   ds: DataSource;
@@ -52,7 +69,7 @@ function perm(id: string, code: string): Permission {
   return { id, code } as Permission;
 }
 
-describe('ensureRbac (Phase 2 catalog)', () => {
+describe('ensureRbac (Phase 3 catalog)', () => {
   it('creates missing roles/permissions and grants admin everything, instructor/intern their exact sets', async () => {
     const { ds, roleRepo, permRepo, rpRepo } = makeDs();
 
@@ -70,27 +87,18 @@ describe('ensureRbac (Phase 2 catalog)', () => {
     const grants = rpRepo.insert.mock.calls[0][0] as Array<{ roleId: string; permissionId: string }>;
     // admin gets every permission:
     expect(grants.filter((g) => g.roleId === 'role-admin').length).toBe(PERMISSION_CATALOG.length);
-    // instructor gets exactly its manage/view set:
+    // instructor gets exactly its catalog-defined manage/view set:
     const instructorCodes = grants
       .filter((g) => g.roleId === 'role-instructor')
       .map((g) => g.permissionId.replace('perm-', ''));
-    expect(instructorCodes.sort()).toEqual(
-      [
-        'classes.view',
-        'classes.manage',
-        'sessions.view',
-        'sessions.manage',
-        'projects.view',
-        'projects.manage',
-        'assignments.view',
-        'assignments.manage',
-      ].sort(),
-    );
-    // intern gets ONLY the workspace view:
+    expect(instructorCodes.sort()).toEqual(grantsFor('instructor').sort());
+    // intern gets ONLY the workspace view + own-task permissions (spec 24):
     const internCodes = grants
       .filter((g) => g.roleId === 'role-intern')
       .map((g) => g.permissionId.replace('perm-', ''));
-    expect(internCodes).toEqual(['intern.workspace.view']);
+    expect(internCodes.sort()).toEqual(grantsFor('intern').sort());
+    expect(internCodes).not.toContain('tasks.manage');
+    expect(internCodes).not.toContain('sprints.manage');
   });
 
   it('is idempotent on rerun: no role/permission rewrites, no duplicate grants', async () => {
@@ -116,22 +124,7 @@ describe('ensureRbac (Phase 2 catalog)', () => {
     // Pre-existing grants = exactly what the catalog wants → nothing to add.
     const wanted: Array<{ roleId: string; permissionId: string }> = [];
     for (const r of existingRoles.values()) {
-      const codes =
-        r.code === 'admin'
-          ? PERMISSION_CATALOG.map((p) => p.code)
-          : r.code === 'instructor'
-            ? [
-                'classes.view',
-                'classes.manage',
-                'sessions.view',
-                'sessions.manage',
-                'projects.view',
-                'projects.manage',
-                'assignments.view',
-                'assignments.manage',
-              ]
-            : ['intern.workspace.view'];
-      for (const code of codes) wanted.push({ roleId: r.id, permissionId: `perm-${code}` });
+      for (const code of grantsFor(r.code)) wanted.push({ roleId: r.id, permissionId: `perm-${code}` });
     }
     rpRepo.find.mockImplementation(async ({ where }: { where: Array<{ roleId: string; permissionId: string }> }) =>
       wanted.filter((g) => where.some((w) => w.roleId === g.roleId && w.permissionId === g.permissionId)),
@@ -172,7 +165,84 @@ describe('ensureRbac (Phase 2 catalog)', () => {
     expect(result.rolePermissionsAdded).toBe(grants.length);
   });
 
-  it('Phase 2 catalog contains exactly the spec-34 codes with no duplicates', () => {
+  it('Phase 3 upgrade: a Phase 2 database gains exactly the 6 new sprint/task permissions and 12 new grants, rewriting nothing', async () => {
+    // DB state as of Phase 2: all roles exist, only the 9 Phase 2 permissions exist.
+    const phase2Codes = [
+      'users.read',
+      'users.create',
+      'users.update',
+      'users.status',
+      'roles.read',
+      'permissions.read',
+      'groups.read',
+      'groups.manage',
+      'catalogs.read',
+      'catalogs.manage',
+      'settings.read',
+      'settings.update',
+      'audit.read',
+      'activity.read',
+      'classes.view',
+      'classes.manage',
+      'sessions.view',
+      'sessions.manage',
+      'projects.view',
+      'projects.manage',
+      'assignments.view',
+      'assignments.manage',
+      'intern.workspace.view',
+    ];
+    const existingRoles = new Map<string, Role>([
+      ['admin', role('role-admin', 'admin')],
+      ['instructor', role('role-instructor', 'instructor')],
+      ['intern', role('role-intern', 'intern')],
+    ]);
+    const existingPerms = new Map<string, Permission>(phase2Codes.map((c) => [c, perm(`perm-${c}`, c)]));
+
+    const { ds, roleRepo, permRepo, rpRepo } = makeDs();
+    roleRepo.findOne.mockImplementation(async ({ where }: { where: { code: string } }) => existingRoles.get(where.code));
+    roleRepo.save.mockImplementation(async () => {
+      throw new Error('must not rewrite existing roles');
+    });
+    permRepo.findOne.mockImplementation(async ({ where }: { where: { code: string } }) =>
+      existingPerms.get(where.code),
+    );
+    permRepo.save.mockImplementation(async (p: Permission) => {
+      const created = perm(`perm-${p.code}`, p.code);
+      existingPerms.set(p.code, created);
+      return created;
+    });
+    // Pre-existing grants = the full Phase 2 mapping.
+    const existingGrants = new Set<string>();
+    for (const r of existingRoles.values()) {
+      for (const code of phase2Codes) {
+        if (r.code === 'admin' || grantsFor(r.code).includes(code)) existingGrants.add(`${r.id}:perm-${code}`);
+      }
+    }
+    rpRepo.find.mockImplementation(async ({ where }: { where: Array<{ roleId: string; permissionId: string }> }) =>
+      where
+        .filter((w) => existingGrants.has(`${w.roleId}:${w.permissionId}`))
+        .map((w) => ({ roleId: w.roleId, permissionId: w.permissionId }) as RolePermission),
+    );
+
+    const result = await ensureRbac(ds);
+
+    expect(result.rolesCreated).toBe(0);
+    expect(result.permissionsCreated).toBe(6);
+    const grants = rpRepo.insert.mock.calls[0][0] as Array<{ roleId: string; permissionId: string }>;
+    // admin ×6, instructor ×4 (sprints.view/manage + tasks.view/manage), intern ×2 (own view/update)
+    expect(grants.length).toBe(12);
+    expect(grants.filter((g) => g.roleId === 'role-admin').length).toBe(6);
+    expect(grants.filter((g) => g.roleId === 'role-instructor').length).toBe(4);
+    expect(grants.filter((g) => g.roleId === 'role-intern').map((g) => g.permissionId.replace('perm-', '')).sort())
+      .toEqual(['tasks.update.own', 'tasks.view.own']);
+    // no existing (roleId, permissionId) pair is re-inserted
+    for (const g of grants) {
+      expect(existingGrants.has(`${g.roleId}:${g.permissionId}`)).toBe(false);
+    }
+  });
+
+  it('catalog contains exactly the Phase 2 + Phase 3 spec codes with no duplicates', () => {
     const codes = PERMISSION_CATALOG.map((p) => p.code);
     const expected = new Set([
       'classes.view',
@@ -184,8 +254,12 @@ describe('ensureRbac (Phase 2 catalog)', () => {
       'assignments.view',
       'assignments.manage',
       'intern.workspace.view',
+      ...PHASE_3_CODES,
     ]);
     for (const code of expected) expect(codes).toContain(code);
     expect(new Set(codes).size).toBe(codes.length);
+    // spec 24: intern NEVER receives manage-scope codes
+    expect(grantsFor('intern')).not.toContain('tasks.manage');
+    expect(grantsFor('intern')).not.toContain('sprints.manage');
   });
 });
