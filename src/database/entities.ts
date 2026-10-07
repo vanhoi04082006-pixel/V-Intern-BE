@@ -35,6 +35,17 @@ import { InterviewSessionQuestion } from '../recruitment/entities/interview-sess
 import { InterviewAnswer } from '../recruitment/entities/interview-answer.entity';
 import { RecruitmentResult } from '../recruitment/entities/recruitment-result.entity';
 import { AiRun } from '../ai/entities/ai-run.entity';
+import { EvaluationCycle } from '../evaluation/entities/evaluation-cycle.entity';
+import { EvaluationCriterion } from '../evaluation/entities/evaluation-criterion.entity';
+import { Evaluation } from '../evaluation/entities/evaluation.entity';
+import { EvaluationScore } from '../evaluation/entities/evaluation-score.entity';
+import { EvaluationRevision } from '../evaluation/entities/evaluation-revision.entity';
+import { KpiPeriod } from '../kpi/entities/kpi-period.entity';
+import { KpiResult } from '../kpi/entities/kpi-result.entity';
+import { KpiMetricResult } from '../kpi/entities/kpi-metric-result.entity';
+import { VirtualSalaryLedger } from '../salary/entities/virtual-salary-ledger.entity';
+import { CertificatePolicy } from '../certificates/entities/certificate-policy.entity';
+import { Certificate } from '../certificates/entities/certificate.entity';
 
 /** Single source of truth for the platform + academic-core entity list. */
 export const ENTITIES = [
@@ -79,4 +90,16 @@ export const ENTITIES = [
   InterviewAnswer,
   RecruitmentResult,
   AiRun,
+  // Phase 5 — evaluation + performance + KPI + virtual salary + certificates
+  EvaluationCycle,
+  EvaluationCriterion,
+  Evaluation,
+  EvaluationScore,
+  EvaluationRevision,
+  KpiPeriod,
+  KpiResult,
+  KpiMetricResult,
+  VirtualSalaryLedger,
+  CertificatePolicy,
+  Certificate,
 ];

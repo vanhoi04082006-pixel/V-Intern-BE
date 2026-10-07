@@ -47,6 +47,43 @@ const PHASE4_TABLES = [
   'ai_runs',
 ];
 
+const PHASE5_TABLES = [
+  'evaluation_cycles', 'evaluation_criteria', 'evaluations',
+  'evaluation_scores', 'evaluation_revisions', 'kpi_periods', 'kpi_results',
+  'kpi_metric_results', 'virtual_salary_ledger', 'certificate_policies',
+  'certificates',
+];
+
+const PHASE5_CHECKS = [
+  'CK_evaluation_cycles_type', 'CK_evaluation_cycles_status',
+  'CK_evaluation_cycles_dates', 'CK_evaluation_criteria_weight',
+  'CK_evaluation_criteria_maxScore', 'CK_evaluations_status',
+  'CK_evaluations_overall', 'CK_evaluation_scores_value',
+  'CK_kpi_periods_status', 'CK_kpi_periods_dates',
+  'CK_kpi_results_status', 'CK_kpi_results_finalScore',
+  'CK_kpi_metric_results_code', 'CK_virtual_salary_ledger_type',
+  'CK_virtual_salary_ledger_amount', 'CK_certificate_policies_minEvaluation',
+  'CK_certificate_policies_minKpi', 'CK_certificates_status',
+  'CK_certificates_revoked',
+];
+
+/** Phase 5 unique indexes (idempotency + identity hard guarantees). */
+const PHASE5_UNIQUE_INDEXES = [
+  { name: 'UX_evaluation_cycles_code', table: 'evaluation_cycles' },
+  { name: 'UX_evaluation_criteria_cycle_code', table: 'evaluation_criteria' },
+  { name: 'UX_evaluations_cycle_intern_evaluator', table: 'evaluations' },
+  { name: 'UX_evaluation_scores_evaluation_criterion', table: 'evaluation_scores' },
+  { name: 'UX_evaluation_revisions_evaluation_revision', table: 'evaluation_revisions' },
+  { name: 'UX_kpi_periods_code', table: 'kpi_periods' },
+  { name: 'UX_kpi_results_period_user', table: 'kpi_results' },
+  { name: 'UX_kpi_metric_results_result_code', table: 'kpi_metric_results' },
+  { name: 'UX_virtual_salary_ledger_idempotencyKey', table: 'virtual_salary_ledger' },
+  { name: 'UX_certificate_policies_code_version', table: 'certificate_policies' },
+  { name: 'UX_certificates_number', table: 'certificates' },
+  { name: 'UX_certificates_verificationCode', table: 'certificates' },
+  { name: 'UX_certificates_user_policy', table: 'certificates' },
+];
+
 const PHASE4_CHECKS = [
   'CK_recruitment_profiles_status', 'CK_recruitment_profiles_attemptCount',
   'CK_interview_questions_category', 'CK_interview_questions_difficulty',
@@ -140,6 +177,28 @@ const TYPE_CONTRACT: Array<{
   { table: 'ai_runs', column: 'status', type: 'nvarchar' },
   { table: 'ai_runs', column: 'resourceType', type: 'nvarchar' },
   { table: 'ai_runs', column: 'promptVersion', type: 'nvarchar' },
+  // Phase 5 type contract (decimal precision + nvarchar everywhere)
+  { table: 'evaluation_cycles', column: 'id', type: 'uniqueidentifier' },
+  { table: 'evaluation_cycles', column: 'code', type: 'nvarchar' },
+  { table: 'evaluation_cycles', column: 'status', type: 'nvarchar' },
+  { table: 'evaluation_cycles', column: 'startDate', type: 'datetime2' },
+  { table: 'evaluation_criteria', column: 'weight', type: 'decimal' },
+  { table: 'evaluations', column: 'overallScore', type: 'decimal', nullable: true },
+  { table: 'evaluations', column: 'status', type: 'nvarchar' },
+  { table: 'evaluations', column: 'finalizedAt', type: 'datetime2', nullable: true },
+  { table: 'evaluation_scores', column: 'score', type: 'decimal' },
+  { table: 'kpi_periods', column: 'status', type: 'nvarchar' },
+  { table: 'kpi_periods', column: 'ruleVersion', type: 'nvarchar' },
+  { table: 'kpi_results', column: 'finalScore', type: 'decimal', nullable: true },
+  { table: 'kpi_results', column: 'calculatedAt', type: 'datetime2' },
+  { table: 'kpi_metric_results', column: 'configuredWeight', type: 'decimal' },
+  { table: 'kpi_metric_results', column: 'weightedContribution', type: 'decimal', nullable: true },
+  { table: 'virtual_salary_ledger', column: 'amount', type: 'decimal' },
+  { table: 'virtual_salary_ledger', column: 'idempotencyKey', type: 'nvarchar' },
+  { table: 'certificates', column: 'certificateNumber', type: 'nvarchar' },
+  { table: 'certificates', column: 'verificationCode', type: 'nvarchar' },
+  { table: 'certificates', column: 'status', type: 'nvarchar' },
+  { table: 'certificates', column: 'issuedAt', type: 'datetime2' },
 ];
 
 interface Check {
@@ -151,8 +210,14 @@ async function main(): Promise<void> {
   const phase3 = phase3Arg ? phase3Arg.split('=')[1] : 'present';
   const phase4Arg = process.argv.find((a) => a.startsWith('--phase4='));
   const phase4 = phase4Arg ? phase4Arg.split('=')[1] : 'present';
+  const phase5Arg = process.argv.find((a) => a.startsWith('--phase5='));
+  const phase5 = phase5Arg ? phase5Arg.split('=')[1] : 'present';
+  if (phase5 !== 'present' && phase5 !== 'absent') {
+    console.error('[audit-schema] usage: audit-schema [--phase3=..] [--phase4=..] [--phase5=present|absent]');
+    process.exit(2);
+  }
   if (phase3 !== 'present' && phase3 !== 'absent') {
-    console.error('[audit-schema] usage: audit-schema [--phase3=present|absent] [--phase4=present|absent]');
+    console.error('[audit-schema] usage: audit-schema [--phase3=present|absent] [--phase4=present|absent] [--phase5=present|absent]');
     process.exit(2);
   }
 
@@ -184,7 +249,7 @@ async function main(): Promise<void> {
 
   try {
     await ds.initialize();
-    console.log(`[audit-schema] database=${dbName} phase3=${phase3} phase4=${phase4} (read-only)`);
+    console.log(`[audit-schema] database=${dbName} phase3=${phase3} phase4=${phase4} phase5=${phase5} (read-only)`);
 
     // ── Tables ─────────────────────────────────────────────────────────
     const tableRows = (await ds.query(
@@ -203,12 +268,23 @@ async function main(): Promise<void> {
       else check(present.has(t), `table ${t} (Phase 4)`);
     }
 
+    for (const t of PHASE5_TABLES) {
+      if (phase5 === 'absent') check(!present.has(t), `table ${t} ABSENT after Phase 5 rollback`);
+      else check(present.has(t), `table ${t} (Phase 5)`);
+    }
+
     // ── SEQUENCE ───────────────────────────────────────────────────────
     const seqRows = (await ds.query(
       `SELECT name FROM sys.sequences WHERE name = N'task_code_seq';`,
     )) as Array<{ name: string }>;
     if (phase3 === 'absent') check(seqRows.length === 0, 'sequence task_code_seq ABSENT after rollback');
     else check(seqRows.length === 1, 'sequence task_code_seq exists (Phase 3)');
+
+    const certSeqRows = (await ds.query(
+      `SELECT name FROM sys.sequences WHERE name = N'certificate_number_seq';`,
+    )) as Array<{ name: string }>;
+    if (phase5 === 'absent') check(certSeqRows.length === 0, 'sequence certificate_number_seq ABSENT after Phase 5 rollback');
+    else check(certSeqRows.length === 1, 'sequence certificate_number_seq exists (Phase 5)');
 
     // ── Filtered unique indexes (spec 14/26) ───────────────────────────
     const indexRows = (await ds.query(
@@ -264,10 +340,30 @@ async function main(): Promise<void> {
       }
     }
 
+    // ── Phase 5 unique indexes (idempotency + identity, spec 68) ────────
+    const uniqIndexRows5 = (await ds.query(
+      `SELECT i.name, OBJECT_NAME(i.object_id) AS tableName
+         FROM sys.indexes i
+        WHERE i.is_unique = 1
+          AND i.name IN (${PHASE5_UNIQUE_INDEXES.map((n) => `N'${n.name}'`).join(',')});`,
+    )) as Array<{ name: string; tableName: string }>;
+    const uniqByName5 = new Map(uniqIndexRows5.map((r) => [r.name, r]));
+    for (const spec of PHASE5_UNIQUE_INDEXES) {
+      const found = uniqByName5.get(spec.name);
+      if (phase5 === 'absent') {
+        check(!found, `unique index ${spec.name} ABSENT after Phase 5 rollback`);
+      } else {
+        check(
+          Boolean(found) && found!.tableName === spec.table,
+          `unique index ${spec.name} on ${spec.table} (Phase 5)`,
+        );
+      }
+    }
+
     // ── CHECK constraints (spec 14) ────────────────────────────────────
     const checkRows = (await ds.query(
       `SELECT name FROM sys.check_constraints WHERE is_ms_shipped = 0
-        AND name IN (${[...PHASE2_CHECKS, ...PHASE3_CHECKS, ...PHASE4_CHECKS]
+        AND name IN (${[...PHASE2_CHECKS, ...PHASE3_CHECKS, ...PHASE4_CHECKS, ...PHASE5_CHECKS]
           .map((n) => `N'${n}'`)
           .join(',')});`,
     )) as Array<{ name: string }>;
@@ -281,9 +377,13 @@ async function main(): Promise<void> {
       if (phase4 === 'absent') check(!checkNames.has(name), `CHECK ${name} ABSENT after Phase 4 rollback`);
       else check(checkNames.has(name), `CHECK constraint ${name} (Phase 4)`);
     }
+    for (const name of PHASE5_CHECKS) {
+      if (phase5 === 'absent') check(!checkNames.has(name), `CHECK ${name} ABSENT after Phase 5 rollback`);
+      else check(checkNames.has(name), `CHECK constraint ${name} (Phase 5)`);
+    }
 
     // ── Column type contract (spec 15) ─────────────────────────────────
-    const allTables = [...PHASE1_TABLES, ...PHASE2_TABLES, ...PHASE3_TABLES, ...PHASE4_TABLES];
+    const allTables = [...PHASE1_TABLES, ...PHASE2_TABLES, ...PHASE3_TABLES, ...PHASE4_TABLES, ...PHASE5_TABLES];
     const colRows = (await ds.query(
       `SELECT t.name AS tableName, c.name AS columnName, ty.name AS typeName, c.is_nullable
          FROM sys.columns c
@@ -299,6 +399,7 @@ async function main(): Promise<void> {
     for (const spec of TYPE_CONTRACT) {
       if (phase3 === 'absent' && PHASE3_TABLES.includes(spec.table)) continue;
       if (phase4 === 'absent' && PHASE4_TABLES.includes(spec.table)) continue;
+      if (phase5 === 'absent' && PHASE5_TABLES.includes(spec.table)) continue;
       const found = colMap.get(colKey(spec.table, spec.column));
       const exists = Boolean(found);
       const typeOk = exists && found!.typeName === spec.type;

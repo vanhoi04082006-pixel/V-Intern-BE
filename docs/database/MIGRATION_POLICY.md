@@ -139,3 +139,20 @@ fails.
   sessions→answers, profiles→results second paths are NO ACTION by design).
 - From the first green Phase 4 CI run, this migration is FROZEN too — all
   later changes are NEW migrations.
+
+## Phase 5 addition (2026-10)
+
+- `1760217600000-CreateEvaluationKpiSalaryCertificateTables` adds the
+  evaluation + KPI + virtual-salary + certificate schema
+  (evaluation_cycles, evaluation_criteria, evaluations,
+  evaluation_scores, evaluation_revisions, kpi_periods, kpi_results,
+  kpi_metric_results, virtual_salary_ledger, certificate_policies,
+  certificates) plus the `certificate_number_seq` SEQUENCE.
+- Phase 1-4 migrations remain FROZEN and untouched. Cascade-path lessons
+  applied: exactly one CASCADE parent per child table
+  (cycles→criteria, evaluations→scores, evaluations→revisions,
+  kpi_results→metric_results); every `users` FK is NO ACTION (users are
+  deactivated, never deleted); the ledger and certificates carry NO ACTION
+  FKs to their sources so financial/credential records survive any source
+  lifecycle action.
+- From the first green Phase 5 CI run, this migration is FROZEN too.
