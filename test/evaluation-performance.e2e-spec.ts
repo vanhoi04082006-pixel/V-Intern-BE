@@ -472,15 +472,19 @@ describe('Phase 5 evaluation + performance e2e (spec 80/81)', () => {
   });
 
   it('performance: period filter [from, to) is deterministic', async () => {
-    // February window contains all 5 tasks; a January window contains none.
-    const feb = await request(apiBase())
-      .get(`/api/v1/performance/interns/${i1UserId}?from=2026-02-01T00:00:00.000Z&to=2026-03-01T00:00:00.000Z`)
+    // Tasks are created "now" at runtime — the window is derived from the
+    // same clock (inclusive start / exclusive end, UTC).
+    const from = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    const to = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+    const current = await request(apiBase())
+      .get(`/api/v1/performance/interns/${i1UserId}?from=${from}&to=${to}`)
       .set('Authorization', `Bearer ${si}`);
-    expect(feb.body.metrics.totalTaskCount).toBe(5);
-    const jan = await request(apiBase())
+    expect(current.body.metrics.totalTaskCount).toBe(5);
+    // A closed past window contains none of them.
+    const past = await request(apiBase())
       .get(`/api/v1/performance/interns/${i1UserId}?from=2026-01-01T00:00:00.000Z&to=2026-02-01T00:00:00.000Z`)
       .set('Authorization', `Bearer ${si}`);
-    expect(jan.body.metrics.totalTaskCount).toBe(0);
-    expect(jan.body.metrics.taskCompletionRate).toBeNull();
+    expect(past.body.metrics.totalTaskCount).toBe(0);
+    expect(past.body.metrics.taskCompletionRate).toBeNull();
   });
 });

@@ -1,4 +1,4 @@
-import { ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, EntityManager, Repository } from 'typeorm';
 import { randomBytes } from 'crypto';
@@ -36,8 +36,6 @@ const conflict = (code: string, message: string, details?: Record<string, unknow
   new ConflictException({ statusCode: 409, code, message, ...(details ? { details } : {}) });
 const notFound = (code: string, message: string, details?: Record<string, unknown>) =>
   new NotFoundException({ statusCode: 404, code, message, ...(details ? { details } : {}) });
-const forbidden = (code: string, message: string) =>
-  new ForbiddenException({ statusCode: 403, code, message });
 
 /**
  * CertificatesService (Phase 5, spec 41-54) — deterministic eligibility
@@ -314,7 +312,9 @@ export class CertificatesService {
     const certificate = await this.certificates.findOne({ where: { id } });
     if (!certificate) throw notFound('CERTIFICATE_NOT_FOUND', 'Certificate not found.');
     if (!principal.isAdmin && certificate.userId !== principal.userId) {
-      throw forbidden('CERTIFICATE_SCOPE_FORBIDDEN', 'You can only access your own certificate.');
+      // 404-safe for foreign certificates — never leak existence (the same
+      // rule as every other intern self-view in this codebase).
+      throw notFound('CERTIFICATE_NOT_FOUND', 'Certificate not found.');
     }
     // Documented rule: the PDF is served for ISSUED certificates only — a
     // revoked certificate is communicated via the public verify endpoint.
