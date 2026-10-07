@@ -11,3 +11,16 @@ export function isUniqueViolation(err: unknown): boolean {
   }
   return false;
 }
+
+/**
+ * SQL Server deadlock victim (1205) — mapped to 409 ASSIGNMENT_CONFLICT by
+ * the assignment transaction so a losing concurrent writer never surfaces
+ * as a generic 500.
+ */
+export function isDeadlockViolation(err: unknown): boolean {
+  if (err instanceof QueryFailedError) {
+    const driverError = err.driverError as { number?: number } | undefined;
+    return driverError?.number === 1205;
+  }
+  return false;
+}
