@@ -115,7 +115,9 @@ beforeAll(async () => {
   app.setGlobalPrefix('api');
   app.enableVersioning({ type: VersioningType.URI, defaultVersion: '1' });
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }));
-  await app.init();
+  // Bind ONCE on an ephemeral port — supertest addresses it by URL and
+  // never listens/closes the shared server per request (race-free).
+  await app.listen(0);
 
   // 4) Idempotent RBAC + dedicated e2e users (admin / instructor / 2 interns).
   await ensureRbac(dataSource);
@@ -154,8 +156,14 @@ afterAll(async () => {
   await dataSource?.destroy();
 });
 
+/** Base URL of the once-bound server (ephemeral port from listen(0)). */
+function apiBase(): string {
+  const addr = app.getHttpServer().address() as { port: number };
+  return `http://127.0.0.1:${addr.port}`;
+}
+
 async function login(email: string): Promise<string> {
-  const res = await request(app.getHttpServer())
+  const res = await request(apiBase())
     .post('/api/v1/auth/login')
     .send({ email, password: 'E2e-Password-1' });
   if (res.status !== 200) throw new Error(`login failed for ${email}: ${res.status} ${JSON.stringify(res.body)}`);
@@ -176,7 +184,7 @@ describe('Phase 2 academic core e2e — Waiting → Active (spec 30)', () => {
     intern = await login('e2e-intern@vintern.test');
     await login('e2e-intern-2@vintern.test'); // second intern account must be loginable
 
-    const res = await request(app.getHttpServer())
+    const res = await request(apiBase())
       .get('/api/v1/intern/me/workspace')
       .set('Authorization', `Bearer ${intern}`);
     expect(res.status).toBe(200);
@@ -192,7 +200,7 @@ describe('Phase 2 academic core e2e — Waiting → Active (spec 30)', () => {
   });
 
   it('instructor creates a session (upcoming) → activates it', async () => {
-    const created = await request(app.getHttpServer())
+    const created = await request(apiBase())
       .post('/api/v1/sessions')
       .set('Authorization', `Bearer ${instructor}`)
       .send({
@@ -206,14 +214,14 @@ describe('Phase 2 academic core e2e — Waiting → Active (spec 30)', () => {
     sessionId = created.body.id;
 
     // Illegal transition first: upcoming → completed must 409 (spec 43).
-    const illegal = await request(app.getHttpServer())
+    const illegal = await request(apiBase())
       .patch(`/api/v1/sessions/${sessionId}`)
       .set('Authorization', `Bearer ${instructor}`)
       .send({ status: 'completed' });
     expect(illegal.status).toBe(409);
     expect(illegal.body.code).toBe('INVALID_SESSION_TRANSITION');
 
-    const activated = await request(app.getHttpServer())
+    const activated = await request(apiBase())
       .patch(`/api/v1/sessions/${sessionId}`)
       .set('Authorization', `Bearer ${instructor}`)
       .send({ status: 'active' });
@@ -222,7 +230,7 @@ describe('Phase 2 academic core e2e — Waiting → Active (spec 30)', () => {
   });
 
   it('instructor creates an ACTIVE project with capacity 1', async () => {
-    const created = await request(app.getHttpServer())
+    const created = await request(apiBase())
       .post('/api/v1/projects')
       .set('Authorization', `Bearer ${instructor}`)
       .send({
@@ -241,7 +249,7 @@ describe('Phase 2 academic core e2e — Waiting → Active (spec 30)', () => {
 
   it('assignment transaction commits → workspace becomes ACTIVE (steps 7-13)', async () => {
     const internRow = await dataSource.getRepository(User).findOneOrFail({ where: { email: 'e2e-intern@vintern.test' } });
-    const created = await request(app.getHttpServer())
+    const created = await request(apiBase())
       .post('/api/v1/assignments')
       .set('Authorization', `Bearer ${instructor}`)
       .send({ internId: internRow.id, projectId, sessionId });
@@ -250,7 +258,7 @@ describe('Phase 2 academic core e2e — Waiting → Active (spec 30)', () => {
     assignmentId = created.body.id;
 
     // Notification exists (type=assignment):
-    const notif = await request(app.getHttpServer())
+    const notif = await request(apiBase())
       .get('/api/v1/notifications')
       .set('Authorization', `Bearer ${intern}`);
     expect(notif.status).toBe(200);
@@ -258,21 +266,21 @@ describe('Phase 2 academic core e2e — Waiting → Active (spec 30)', () => {
     expect(assignmentNotification).toBeTruthy();
 
     // Audit exists (assignment.created):
-    const audit = await request(app.getHttpServer())
+    const audit = await request(apiBase())
       .get('/api/v1/audit-logs?action=assignment.created')
       .set('Authorization', `Bearer ${admin}`);
     expect(audit.status).toBe(200);
     expect((audit.body.data as unknown[]).length).toBeGreaterThan(0);
 
     // Activity exists (intern.assigned):
-    const activity = await request(app.getHttpServer())
+    const activity = await request(apiBase())
       .get('/api/v1/activity-events?module=assignments')
       .set('Authorization', `Bearer ${admin}`);
     expect(activity.status).toBe(200);
     expect((activity.body.data as Array<{ action: string }>).some((e) => e.action === 'intern.assigned')).toBe(true);
 
     // Workspace is now ACTIVE — DB-driven, no source change:
-    const workspace = await request(app.getHttpServer())
+    const workspace = await request(apiBase())
       .get('/api/v1/intern/me/workspace')
       .set('Authorization', `Bearer ${intern}`);
     expect(workspace.status).toBe(200);
@@ -288,14 +296,14 @@ describe('Phase 2 academic core e2e — Waiting → Active (spec 30)', () => {
     // reported as PROJECT_CAPACITY_FULL (also true). For a deterministic
     // ASSIGNMENT_CONFLICT, attempt the duplicate against a NON-full project:
     // the intern-level invariant (at most one ACTIVE assignment) fires.
-    const other = await request(app.getHttpServer())
+    const other = await request(apiBase())
       .post('/api/v1/projects')
       .set('Authorization', `Bearer ${instructor}`)
       .send({ code: `E2E-P2-${RUN}`, name: 'Đồ án phụ e2e', description: 'duplicate-scenario project', status: 'active', capacity: 2 });
     expect(other.status).toBe(201);
 
     const internRow = await dataSource.getRepository(User).findOneOrFail({ where: { email: 'e2e-intern@vintern.test' } });
-    const res = await request(app.getHttpServer())
+    const res = await request(apiBase())
       .post('/api/v1/assignments')
       .set('Authorization', `Bearer ${instructor}`)
       .send({ internId: internRow.id, projectId: other.body.id, sessionId });
@@ -307,7 +315,7 @@ describe('Phase 2 academic core e2e — Waiting → Active (spec 30)', () => {
     const intern2Row = await dataSource
       .getRepository(User)
       .findOneOrFail({ where: { email: 'e2e-intern-2@vintern.test' } });
-    const res = await request(app.getHttpServer())
+    const res = await request(apiBase())
       .post('/api/v1/assignments')
       .set('Authorization', `Bearer ${instructor}`)
       .send({ internId: intern2Row.id, projectId, sessionId });
@@ -317,14 +325,14 @@ describe('Phase 2 academic core e2e — Waiting → Active (spec 30)', () => {
 
   it('RBAC negatives: intern cannot assign self, cannot manage sessions (spec 43)', async () => {
     const internRow = await dataSource.getRepository(User).findOneOrFail({ where: { email: 'e2e-intern@vintern.test' } });
-    const selfAssign = await request(app.getHttpServer())
+    const selfAssign = await request(apiBase())
       .post('/api/v1/assignments')
       .set('Authorization', `Bearer ${intern}`)
       .send({ internId: internRow.id, projectId, sessionId });
     expect(selfAssign.status).toBe(403);
     expect(selfAssign.body.code).toBe('PERMISSION_DENIED');
 
-    const manageSession = await request(app.getHttpServer())
+    const manageSession = await request(apiBase())
       .post('/api/v1/sessions')
       .set('Authorization', `Bearer ${intern}`)
       .send({
@@ -338,7 +346,7 @@ describe('Phase 2 academic core e2e — Waiting → Active (spec 30)', () => {
   });
 
   it('complete assignment → history preserved; workspace returns to unassigned', async () => {
-    const completed = await request(app.getHttpServer())
+    const completed = await request(apiBase())
       .post(`/api/v1/assignments/${assignmentId}/complete`)
       .set('Authorization', `Bearer ${instructor}`);
     // NestJS POST lifecycle endpoint → 201 Created (accepted 200 too).
@@ -346,7 +354,7 @@ describe('Phase 2 academic core e2e — Waiting → Active (spec 30)', () => {
     expect(completed.body.status).toBe('completed');
     expect(completed.body.completedAt).toBeTruthy();
 
-    const workspace = await request(app.getHttpServer())
+    const workspace = await request(apiBase())
       .get('/api/v1/intern/me/workspace')
       .set('Authorization', `Bearer ${intern}`);
     expect(workspace.status).toBe(200);
@@ -355,7 +363,7 @@ describe('Phase 2 academic core e2e — Waiting → Active (spec 30)', () => {
     expect(workspace.body.status).toBe('unassigned');
 
     // Double completion is an illegal transition → 409:
-    const again = await request(app.getHttpServer())
+    const again = await request(apiBase())
       .post(`/api/v1/assignments/${assignmentId}/complete`)
       .set('Authorization', `Bearer ${instructor}`);
     expect(again.status).toBe(409);

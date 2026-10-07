@@ -114,7 +114,9 @@ beforeAll(async () => {
     .build();
   SwaggerModule.setup('api/docs', app, SwaggerModule.createDocument(app, swaggerConfig));
 
-  await app.init();
+  // Bind ONCE on an ephemeral port — supertest addresses it by URL and
+  // never listens/closes the shared server per request (race-free).
+  await app.listen(0);
 
   // Idempotent RBAC + a dedicated e2e admin (not the production bootstrap admin).
   const rbac = await ensureRbac(dataSource);
@@ -160,23 +162,29 @@ afterAll(async () => {
   await dataSource?.destroy();
 });
 
+/** Base URL of the once-bound server (ephemeral port from listen(0)). */
+function apiBase(): string {
+  const addr = app.getHttpServer().address() as { port: number };
+  return `http://127.0.0.1:${addr.port}`;
+}
+
 async function login(email: string, password: string) {
-  return request(app.getHttpServer()).post('/api/v1/auth/login').send({ email, password });
+  return request(apiBase()).post('/api/v1/auth/login').send({ email, password });
 }
 
 describe('Platform core e2e — auth + RBAC + pagination + health', () => {
   it('health is honest (ok with DB available)', async () => {
-    const res = await request(app.getHttpServer()).get('/api/v1/health');
+    const res = await request(apiBase()).get('/api/v1/health');
     expect(res.status).toBe(200);
     expect(res.body.checks.database).toBe('ok');
   });
 
   it('swagger runtime: /api/docs serves UI, /api/docs-json serves the OpenAPI document', async () => {
-    const ui = await request(app.getHttpServer()).get('/api/docs');
+    const ui = await request(apiBase()).get('/api/docs');
     expect(ui.status).toBe(200);
     expect(ui.text).toContain('swagger-ui');
 
-    const json = await request(app.getHttpServer()).get('/api/docs-json');
+    const json = await request(apiBase()).get('/api/docs-json');
     expect(json.status).toBe(200);
     expect(String(json.body.openapi)).toMatch(/^3\./);
     expect(json.body.info?.title).toBe('V-Intern API');
@@ -202,7 +210,7 @@ describe('Platform core e2e — auth + RBAC + pagination + health', () => {
     // create + lock a disposable user via the API (admin token)
     const admin = await login('e2e-admin@vintern.test', 'E2e-Password-1');
     const token = admin.body.accessToken as string;
-    const created = await request(app.getHttpServer())
+    const created = await request(apiBase())
       .post('/api/v1/users')
       .set('Authorization', `Bearer ${token}`)
       .send({
@@ -213,7 +221,7 @@ describe('Platform core e2e — auth + RBAC + pagination + health', () => {
       });
     expect(created.status).toBe(201);
     const userId = created.body.id as string;
-    const locked = await request(app.getHttpServer())
+    const locked = await request(apiBase())
       .patch(`/api/v1/users/${userId}/status`)
       .set('Authorization', `Bearer ${token}`)
       .send({ status: 'locked' });
@@ -227,14 +235,14 @@ describe('Platform core e2e — auth + RBAC + pagination + health', () => {
     const first = await login('e2e-admin@vintern.test', 'E2e-Password-1');
     const cookie = (first.headers['set-cookie'] as unknown as string[])[0].split(';')[0];
 
-    const second = await request(app.getHttpServer())
+    const second = await request(apiBase())
       .post('/api/v1/auth/refresh')
       .set('Cookie', cookie);
     expect(second.status).toBe(200);
     expect(second.body.accessToken).toBeTruthy();
 
     // replay the SAME (now-revoked) token → family revoked
-    const replay = await request(app.getHttpServer())
+    const replay = await request(apiBase())
       .post('/api/v1/auth/refresh')
       .set('Cookie', cookie);
     expect(replay.status).toBe(401);
@@ -242,14 +250,14 @@ describe('Platform core e2e — auth + RBAC + pagination + health', () => {
   });
 
   it('users API: unauthenticated → 401', async () => {
-    const res = await request(app.getHttpServer()).get('/api/v1/users');
+    const res = await request(apiBase()).get('/api/v1/users');
     expect(res.status).toBe(401);
     expect(res.body.code).toBe('UNAUTHENTICATED');
   });
 
   it('users API: intern → 403 PERMISSION_DENIED', async () => {
     const intern = await login('e2e-intern@vintern.test', 'E2e-Password-1');
-    const res = await request(app.getHttpServer())
+    const res = await request(apiBase())
       .get('/api/v1/users')
       .set('Authorization', `Bearer ${intern.body.accessToken}`);
     expect(res.status).toBe(403);
@@ -258,7 +266,7 @@ describe('Platform core e2e — auth + RBAC + pagination + health', () => {
 
   it('users API: admin → 200 with unified pagination meta', async () => {
     const admin = await login('e2e-admin@vintern.test', 'E2e-Password-1');
-    const res = await request(app.getHttpServer())
+    const res = await request(apiBase())
       .get('/api/v1/users?page=1&pageSize=10')
       .set('Authorization', `Bearer ${admin.body.accessToken}`);
     expect(res.status).toBe(200);
@@ -269,7 +277,7 @@ describe('Platform core e2e — auth + RBAC + pagination + health', () => {
 
   it('validation rejects malformed body → 400 VALIDATION_ERROR (whitelist + forbid)', async () => {
     const admin = await login('e2e-admin@vintern.test', 'E2e-Password-1');
-    const res = await request(app.getHttpServer())
+    const res = await request(apiBase())
       .post('/api/v1/users')
       .set('Authorization', `Bearer ${admin.body.accessToken}`)
       .send({ email: 'not-an-email', username: 'x', password: 'short', unexpectedField: 1 });
@@ -280,7 +288,7 @@ describe('Platform core e2e — auth + RBAC + pagination + health', () => {
   it('audit trail records sensitive actions (user.created present after creation)', async () => {
     const admin = await login('e2e-admin@vintern.test', 'E2e-Password-1');
     const token = admin.body.accessToken as string;
-    await request(app.getHttpServer())
+    await request(apiBase())
       .post('/api/v1/users')
       .set('Authorization', `Bearer ${token}`)
       .send({
@@ -289,7 +297,7 @@ describe('Platform core e2e — auth + RBAC + pagination + health', () => {
         displayName: 'E2E Audited',
         password: 'E2e-Password-1',
       });
-    const res = await request(app.getHttpServer())
+    const res = await request(apiBase())
       .get('/api/v1/audit-logs?action=user.created&page=1&pageSize=5')
       .set('Authorization', `Bearer ${token}`);
     expect(res.status).toBe(200);
@@ -312,7 +320,7 @@ describe('Platform core e2e — auth + RBAC + pagination + health', () => {
     }
     expect(notif).toBeTruthy();
     const admin = await login('e2e-admin@vintern.test', 'E2e-Password-1');
-    const res = await request(app.getHttpServer())
+    const res = await request(apiBase())
       .post(`/api/v1/notifications/${notif!.id}/read`)
       .set('Authorization', `Bearer ${admin.body.accessToken}`);
     expect(res.status).toBe(403);

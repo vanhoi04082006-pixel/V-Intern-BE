@@ -125,7 +125,9 @@ beforeAll(async () => {
   app.setGlobalPrefix('api');
   app.enableVersioning({ type: VersioningType.URI, defaultVersion: '1' });
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }));
-  await app.init();
+  // Bind ONCE on an ephemeral port — supertest addresses it by URL and
+  // never listens/closes the shared server per request (race-free).
+  await app.listen(0);
 
   await ensureRbac(dataSource);
   const roles = dataSource.getRepository(Role);
@@ -163,8 +165,14 @@ afterAll(async () => {
   await dataSource?.destroy();
 });
 
+/** Base URL of the once-bound server (ephemeral port from listen(0)). */
+function apiBase(): string {
+  const addr = app.getHttpServer().address() as { port: number };
+  return `http://127.0.0.1:${addr.port}`;
+}
+
 async function login(email: string): Promise<string> {
-  const res = await request(app.getHttpServer())
+  const res = await request(apiBase())
     .post('/api/v1/auth/login')
     .send({ email, password: 'E2e-Password-1' });
   if (res.status !== 200) throw new Error(`login failed for ${email}: ${res.status} ${JSON.stringify(res.body)}`);
@@ -187,7 +195,7 @@ describe('Phase 3 sprint/task e2e — plan → activate → task → review → 
     intern = await login('e2e-st-intern@vintern.test');
     await login('e2e-st-intern-2@vintern.test'); // second intern account must be loginable
 
-    const res = await request(app.getHttpServer())
+    const res = await request(apiBase())
       .get('/api/v1/intern/me/workspace')
       .set('Authorization', `Bearer ${intern}`);
     expect(res.status).toBe(200);
@@ -198,7 +206,7 @@ describe('Phase 3 sprint/task e2e — plan → activate → task → review → 
   });
 
   it('instructor creates session + project + assignment (intern ready)', async () => {
-    const session = await request(app.getHttpServer())
+    const session = await request(apiBase())
       .post('/api/v1/sessions')
       .set('Authorization', `Bearer ${instructor}`)
       .send({
@@ -210,7 +218,7 @@ describe('Phase 3 sprint/task e2e — plan → activate → task → review → 
     expect(session.status).toBe(201);
     sessionId = session.body.id;
     // Real contract (sessions.controller): status changes via PATCH /sessions/:id.
-    await request(app.getHttpServer())
+    await request(apiBase())
       .patch(`/api/v1/sessions/${sessionId}`)
       .set('Authorization', `Bearer ${instructor}`)
       .send({ status: 'active' })
@@ -218,14 +226,14 @@ describe('Phase 3 sprint/task e2e — plan → activate → task → review → 
         if (![200, 201].includes(r.status)) throw new Error(`session activation failed: ${r.status} ${r.text}`);
       });
 
-    const project = await request(app.getHttpServer())
+    const project = await request(apiBase())
       .post('/api/v1/projects')
       .set('Authorization', `Bearer ${instructor}`)
       .send({ code: `E2E-P-${RUN}`, name: 'Đồ án e2e sprint', description: 'Phase 3 e2e', status: 'active', capacity: 2 });
     expect(project.status).toBe(201);
     projectId = project.body.id;
 
-    const assigned = await request(app.getHttpServer())
+    const assigned = await request(apiBase())
       .post('/api/v1/assignments')
       .set('Authorization', `Bearer ${instructor}`)
       .send({ internId: (await dataSource.getRepository(User).findOneByOrFail({ email: 'e2e-st-intern@vintern.test' })).id, projectId, sessionId });
@@ -233,7 +241,7 @@ describe('Phase 3 sprint/task e2e — plan → activate → task → review → 
   });
 
   it('teacher creates a sprint (planned)', async () => {
-    const res = await request(app.getHttpServer())
+    const res = await request(apiBase())
       .post('/api/v1/sprints')
       .set('Authorization', `Bearer ${instructor}`)
       .send({
@@ -251,14 +259,14 @@ describe('Phase 3 sprint/task e2e — plan → activate → task → review → 
   });
 
   it('teacher activates the sprint; second activation → 409 SPRINT_ACTIVE_EXISTS', async () => {
-    const res = await request(app.getHttpServer())
+    const res = await request(apiBase())
       .post(`/api/v1/sprints/${sprintId}/status`)
       .set('Authorization', `Bearer ${instructor}`)
       .send({ status: 'active' });
     expect(res.status).toBe(201);
     expect(res.body.status).toBe('active');
 
-    const other = await request(app.getHttpServer())
+    const other = await request(apiBase())
       .post('/api/v1/sprints')
       .set('Authorization', `Bearer ${instructor}`)
       .send({
@@ -269,7 +277,7 @@ describe('Phase 3 sprint/task e2e — plan → activate → task → review → 
         endDate: '2026-03-14T00:00:00.000Z',
       });
     expect(other.status).toBe(201);
-    const conflict = await request(app.getHttpServer())
+    const conflict = await request(apiBase())
       .post(`/api/v1/sprints/${other.body.id}/status`)
       .set('Authorization', `Bearer ${instructor}`)
       .send({ status: 'active' });
@@ -279,7 +287,7 @@ describe('Phase 3 sprint/task e2e — plan → activate → task → review → 
 
   it('teacher creates a task assigned to the intern', async () => {
     const internId = (await dataSource.getRepository(User).findOneByOrFail({ email: 'e2e-st-intern@vintern.test' })).id;
-    const res = await request(app.getHttpServer())
+    const res = await request(apiBase())
       .post('/api/v1/tasks')
       .set('Authorization', `Bearer ${instructor}`)
       .send({
@@ -298,13 +306,13 @@ describe('Phase 3 sprint/task e2e — plan → activate → task → review → 
   });
 
   it('task for an unrelated project → 409 SPRINT_PROJECT_MISMATCH', async () => {
-    const other = await request(app.getHttpServer())
+    const other = await request(apiBase())
       .post('/api/v1/projects')
       .set('Authorization', `Bearer ${instructor}`)
       .send({ code: `E2E-PX-${RUN}`, name: 'Đồ án khác', description: 'khác', status: 'active', capacity: 2 });
     expect(other.status).toBe(201);
     otherProjectId = other.body.id;
-    const res = await request(app.getHttpServer())
+    const res = await request(apiBase())
       .post('/api/v1/tasks')
       .set('Authorization', `Bearer ${instructor}`)
       .send({ title: 'Task sai dự án', projectId: otherProjectId, sprintId });
@@ -313,7 +321,7 @@ describe('Phase 3 sprint/task e2e — plan → activate → task → review → 
   });
 
   it('intern lists OWN tasks (mine=true) and sees the task', async () => {
-    const res = await request(app.getHttpServer())
+    const res = await request(apiBase())
       .get('/api/v1/tasks?mine=true')
       .set('Authorization', `Bearer ${intern}`);
     expect(res.status).toBe(200);
@@ -322,14 +330,14 @@ describe('Phase 3 sprint/task e2e — plan → activate → task → review → 
   });
 
   it('intern starts the task (todo→doing) and submits review (doing→review)', async () => {
-    const start = await request(app.getHttpServer())
+    const start = await request(apiBase())
       .patch(`/api/v1/tasks/${taskId}/my`)
       .set('Authorization', `Bearer ${intern}`)
       .send({ status: 'doing' });
     expect(start.status).toBe(200);
     expect(start.body.status).toBe('doing');
 
-    const review = await request(app.getHttpServer())
+    const review = await request(apiBase())
       .patch(`/api/v1/tasks/${taskId}/my`)
       .set('Authorization', `Bearer ${intern}`)
       .send({ status: 'review' });
@@ -338,7 +346,7 @@ describe('Phase 3 sprint/task e2e — plan → activate → task → review → 
   });
 
   it('intern CANNOT approve (review→done) — 409 INVALID_TASK_TRANSITION', async () => {
-    const res = await request(app.getHttpServer())
+    const res = await request(apiBase())
       .patch(`/api/v1/tasks/${taskId}/my`)
       .set('Authorization', `Bearer ${intern}`)
       .send({ status: 'done' });
@@ -347,7 +355,7 @@ describe('Phase 3 sprint/task e2e — plan → activate → task → review → 
   });
 
   it('teacher approves done (review→done) → progress forced to 100', async () => {
-    const res = await request(app.getHttpServer())
+    const res = await request(apiBase())
       .patch(`/api/v1/tasks/${taskId}`)
       .set('Authorization', `Bearer ${instructor}`)
       .send({ status: 'done', reason: 'Duyệt hồ sơ hoàn thành' });
@@ -357,7 +365,7 @@ describe('Phase 3 sprint/task e2e — plan → activate → task → review → 
   });
 
   it('history contains ALL transitions: null→todo, todo→doing, doing→review, review→done', async () => {
-    const res = await request(app.getHttpServer())
+    const res = await request(apiBase())
       .get(`/api/v1/tasks/${taskId}/history`)
       .set('Authorization', `Bearer ${instructor}`);
     expect(res.status).toBe(200);
@@ -368,7 +376,7 @@ describe('Phase 3 sprint/task e2e — plan → activate → task → review → 
   });
 
   it('notifications created for the intern (task assigned / completed)', async () => {
-    const res = await request(app.getHttpServer())
+    const res = await request(apiBase())
       .get('/api/v1/notifications')
       .set('Authorization', `Bearer ${intern}`);
     expect(res.status).toBe(200);
@@ -378,7 +386,7 @@ describe('Phase 3 sprint/task e2e — plan → activate → task → review → 
 
   it('audit trail contains sprint + task actions (admin view)', async () => {
     // Real route contract: GET /api/v1/audit-logs (audit.controller).
-    const res = await request(app.getHttpServer())
+    const res = await request(apiBase())
       .get('/api/v1/audit-logs?action=task.status_changed&pageSize=5')
       .set('Authorization', `Bearer ${admin}`);
     expect(res.status).toBe(200);
@@ -389,17 +397,17 @@ describe('Phase 3 sprint/task e2e — plan → activate → task → review → 
     const intern2Id = (await dataSource.getRepository(User).findOneByOrFail({ email: 'e2e-st-intern-2@vintern.test' })).id;
     // The assignee boundary requires an ACTIVE assignment on THIS project —
     // give intern-2 one, then create their task (spec 27).
-    const assigned = await request(app.getHttpServer())
+    const assigned = await request(apiBase())
       .post('/api/v1/assignments')
       .set('Authorization', `Bearer ${instructor}`)
       .send({ internId: intern2Id, projectId, sessionId });
     expect([200, 201]).toContain(assigned.status);
-    const second = await request(app.getHttpServer())
+    const second = await request(apiBase())
       .post('/api/v1/tasks')
       .set('Authorization', `Bearer ${instructor}`)
       .send({ title: 'Task của intern 2', projectId, sprintId, assigneeId: intern2Id });
     expect(second.status).toBe(201);
-    const res = await request(app.getHttpServer())
+    const res = await request(apiBase())
       .patch(`/api/v1/tasks/${second.body.id}/my`)
       .set('Authorization', `Bearer ${intern}`)
       .send({ status: 'doing' });
@@ -409,12 +417,12 @@ describe('Phase 3 sprint/task e2e — plan → activate → task → review → 
 
   it('duplicate/illegal transition → 409 (todo→done by manage is still illegal)', async () => {
     const internId = (await dataSource.getRepository(User).findOneByOrFail({ email: 'e2e-st-intern@vintern.test' })).id;
-    const fresh = await request(app.getHttpServer())
+    const fresh = await request(apiBase())
       .post('/api/v1/tasks')
       .set('Authorization', `Bearer ${instructor}`)
       .send({ title: 'Task mới todo', projectId, sprintId, assigneeId: internId });
     expect(fresh.status).toBe(201);
-    const res = await request(app.getHttpServer())
+    const res = await request(apiBase())
       .patch(`/api/v1/tasks/${fresh.body.id}`)
       .set('Authorization', `Bearer ${instructor}`)
       .send({ status: 'done' });
@@ -423,14 +431,14 @@ describe('Phase 3 sprint/task e2e — plan → activate → task → review → 
   });
 
   it('sprint completion rule: open tasks → 409 SPRINT_HAS_OPEN_TASKS; override completes (audited)', async () => {
-    const blocked = await request(app.getHttpServer())
+    const blocked = await request(apiBase())
       .post(`/api/v1/sprints/${sprintId}/status`)
       .set('Authorization', `Bearer ${instructor}`)
       .send({ status: 'completed' });
     expect(blocked.status).toBe(409);
     expect(blocked.body.code).toBe('SPRINT_HAS_OPEN_TASKS');
 
-    const override = await request(app.getHttpServer())
+    const override = await request(apiBase())
       .post(`/api/v1/sprints/${sprintId}/status`)
       .set('Authorization', `Bearer ${instructor}`)
       .send({ status: 'completed', allowOpenTasks: true });
@@ -439,14 +447,14 @@ describe('Phase 3 sprint/task e2e — plan → activate → task → review → 
   });
 
   it('sprint board + completion endpoints serve REAL grouped data', async () => {
-    const board = await request(app.getHttpServer())
+    const board = await request(apiBase())
       .get(`/api/v1/sprints/${sprintId}/board`)
       .set('Authorization', `Bearer ${instructor}`);
     expect(board.status).toBe(200);
     expect(board.body.columns.length).toBe(4);
     expect(board.body.total).toBeGreaterThanOrEqual(2);
 
-    const completion = await request(app.getHttpServer())
+    const completion = await request(apiBase())
       .get(`/api/v1/sprints/${sprintId}/completion`)
       .set('Authorization', `Bearer ${instructor}`);
     expect(completion.status).toBe(200);
@@ -454,7 +462,7 @@ describe('Phase 3 sprint/task e2e — plan → activate → task → review → 
   });
 
   it('RBAC negatives: intern cannot create sprints/tasks (spec 33)', async () => {
-    const sprint = await request(app.getHttpServer())
+    const sprint = await request(apiBase())
       .post('/api/v1/sprints')
       .set('Authorization', `Bearer ${intern}`)
       .send({
@@ -467,7 +475,7 @@ describe('Phase 3 sprint/task e2e — plan → activate → task → review → 
     expect(sprint.status).toBe(403);
     expect(sprint.body.code).toBe('PERMISSION_DENIED');
 
-    const task = await request(app.getHttpServer())
+    const task = await request(apiBase())
       .post('/api/v1/tasks')
       .set('Authorization', `Bearer ${intern}`)
       .send({ title: 'Không được', projectId });
