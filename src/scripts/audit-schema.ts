@@ -54,6 +54,17 @@ const PHASE5_TABLES = [
   'certificates',
 ];
 
+const PHASE6_TABLES = [
+  'ai_mentor_conversations', 'ai_mentor_messages',
+  'evaluation_ai_suggestions', 'ai_recommendation_snapshots',
+];
+
+const PHASE6_CHECKS = [
+  'CK_ai_mentor_conversations_status', 'CK_ai_mentor_messages_role',
+  'CK_ai_mentor_messages_content_length', 'CK_evaluation_ai_suggestions_status',
+  'CK_evaluation_ai_suggestions_acceptance',
+];
+
 const PHASE5_CHECKS = [
   'CK_evaluation_cycles_type', 'CK_evaluation_cycles_status',
   'CK_evaluation_cycles_dates', 'CK_evaluation_criteria_weight',
@@ -199,6 +210,22 @@ const TYPE_CONTRACT: Array<{
   { table: 'certificates', column: 'verificationCode', type: 'nvarchar' },
   { table: 'certificates', column: 'status', type: 'nvarchar' },
   { table: 'certificates', column: 'issuedAt', type: 'datetime2' },
+  // Phase 6 type contract (bounded nvarchar business text + provenance)
+  { table: 'ai_mentor_conversations', column: 'userId', type: 'uniqueidentifier' },
+  { table: 'ai_mentor_conversations', column: 'status', type: 'nvarchar' },
+  { table: 'ai_mentor_conversations', column: 'lastMessageAt', type: 'datetime2', nullable: true },
+  { table: 'ai_mentor_messages', column: 'conversationId', type: 'uniqueidentifier' },
+  { table: 'ai_mentor_messages', column: 'role', type: 'nvarchar' },
+  { table: 'ai_mentor_messages', column: 'content', type: 'nvarchar' },
+  { table: 'ai_mentor_messages', column: 'aiRunId', type: 'uniqueidentifier', nullable: true },
+  { table: 'evaluation_ai_suggestions', column: 'evaluationId', type: 'uniqueidentifier' },
+  { table: 'evaluation_ai_suggestions', column: 'promptVersion', type: 'nvarchar' },
+  { table: 'evaluation_ai_suggestions', column: 'status', type: 'nvarchar' },
+  { table: 'evaluation_ai_suggestions', column: 'suggestionJson', type: 'nvarchar' },
+  { table: 'ai_recommendation_snapshots', column: 'userId', type: 'uniqueidentifier' },
+  { table: 'ai_recommendation_snapshots', column: 'sourceHash', type: 'nvarchar' },
+  { table: 'ai_recommendation_snapshots', column: 'promptVersion', type: 'nvarchar' },
+  { table: 'ai_recommendation_snapshots', column: 'recommendationsJson', type: 'nvarchar' },
 ];
 
 interface Check {
@@ -212,12 +239,14 @@ async function main(): Promise<void> {
   const phase4 = phase4Arg ? phase4Arg.split('=')[1] : 'present';
   const phase5Arg = process.argv.find((a) => a.startsWith('--phase5='));
   const phase5 = phase5Arg ? phase5Arg.split('=')[1] : 'present';
-  if (phase5 !== 'present' && phase5 !== 'absent') {
-    console.error('[audit-schema] usage: audit-schema [--phase3=..] [--phase4=..] [--phase5=present|absent]');
+  const phase6Arg = process.argv.find((a) => a.startsWith('--phase6='));
+  const phase6 = phase6Arg ? phase6Arg.split('=')[1] : 'present';
+  if (phase5 !== 'present' && phase5 !== 'absent' || phase6 !== 'present' && phase6 !== 'absent') {
+    console.error('[audit-schema] usage: audit-schema [--phase3=..] [--phase4=..] [--phase5=..] [--phase6=present|absent]');
     process.exit(2);
   }
   if (phase3 !== 'present' && phase3 !== 'absent') {
-    console.error('[audit-schema] usage: audit-schema [--phase3=present|absent] [--phase4=present|absent] [--phase5=present|absent]');
+    console.error('[audit-schema] usage: audit-schema [--phase3=present|absent] [--phase4=present|absent] [--phase5=present|absent] [--phase6=present|absent]');
     process.exit(2);
   }
 
@@ -249,7 +278,7 @@ async function main(): Promise<void> {
 
   try {
     await ds.initialize();
-    console.log(`[audit-schema] database=${dbName} phase3=${phase3} phase4=${phase4} phase5=${phase5} (read-only)`);
+    console.log(`[audit-schema] database=${dbName} phase3=${phase3} phase4=${phase4} phase5=${phase5} phase6=${phase6} (read-only)`);
 
     // ── Tables ─────────────────────────────────────────────────────────
     const tableRows = (await ds.query(
@@ -271,6 +300,11 @@ async function main(): Promise<void> {
     for (const t of PHASE5_TABLES) {
       if (phase5 === 'absent') check(!present.has(t), `table ${t} ABSENT after Phase 5 rollback`);
       else check(present.has(t), `table ${t} (Phase 5)`);
+    }
+
+    for (const t of PHASE6_TABLES) {
+      if (phase6 === 'absent') check(!present.has(t), `table ${t} ABSENT after Phase 6 rollback`);
+      else check(present.has(t), `table ${t} (Phase 6)`);
     }
 
     // ── SEQUENCE ───────────────────────────────────────────────────────
@@ -381,9 +415,13 @@ async function main(): Promise<void> {
       if (phase5 === 'absent') check(!checkNames.has(name), `CHECK ${name} ABSENT after Phase 5 rollback`);
       else check(checkNames.has(name), `CHECK constraint ${name} (Phase 5)`);
     }
+    for (const name of PHASE6_CHECKS) {
+      if (phase6 === 'absent') check(!checkNames.has(name), `CHECK ${name} ABSENT after Phase 6 rollback`);
+      else check(checkNames.has(name), `CHECK constraint ${name} (Phase 6)`);
+    }
 
     // ── Column type contract (spec 15) ─────────────────────────────────
-    const allTables = [...PHASE1_TABLES, ...PHASE2_TABLES, ...PHASE3_TABLES, ...PHASE4_TABLES, ...PHASE5_TABLES];
+    const allTables = [...PHASE1_TABLES, ...PHASE2_TABLES, ...PHASE3_TABLES, ...PHASE4_TABLES, ...PHASE5_TABLES, ...PHASE6_TABLES];
     const colRows = (await ds.query(
       `SELECT t.name AS tableName, c.name AS columnName, ty.name AS typeName, c.is_nullable
          FROM sys.columns c
@@ -400,6 +438,7 @@ async function main(): Promise<void> {
       if (phase3 === 'absent' && PHASE3_TABLES.includes(spec.table)) continue;
       if (phase4 === 'absent' && PHASE4_TABLES.includes(spec.table)) continue;
       if (phase5 === 'absent' && PHASE5_TABLES.includes(spec.table)) continue;
+      if (phase6 === 'absent' && PHASE6_TABLES.includes(spec.table)) continue;
       const found = colMap.get(colKey(spec.table, spec.column));
       const exists = Boolean(found);
       const typeOk = exists && found!.typeName === spec.type;
