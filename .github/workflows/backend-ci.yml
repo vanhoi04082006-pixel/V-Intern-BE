@@ -17,7 +17,8 @@
 #          + AI mentor/evaluation-assistance/recommendations (TestAIProvider —
 #            CI makes ZERO external AI network calls, spec 80)
 #   -> migration:revert (Phase 6) -> audit --phase6=absent -> reapply -> audit
-#   -> migration:revert (Phase 5) -> audit --phase5=absent -> reapply -> audit
+#   -> migration:revert (Phase 6 again, then Phase 5)
+#      -> audit --phase5=absent --phase6=absent -> reapply both -> audit
 #
 # Secrets: NONE required. All credentials are ephemeral, generated at job
 # runtime, immediately masked and never echoed. The container/database is
@@ -270,6 +271,13 @@ jobs:
           DB_PASSWORD: ${{ env.APP_PASSWORD }}
         run: npm run audit:schema
 
+      # TypeORM reverts only the latest migration. Phase 6 was reapplied
+      # above, so remove it again before testing the Phase 5 rollback.
+      - name: Revert Phase 6 again before Phase 5 rollback
+        env:
+          DB_PASSWORD: ${{ env.APP_PASSWORD }}
+        run: npm run migration:revert
+
       - name: Revert Phase 5 (proves Phase 5 rollback still clean under Phase 6 schema history)
         env:
           DB_PASSWORD: ${{ env.APP_PASSWORD }}
@@ -280,7 +288,7 @@ jobs:
           DB_PASSWORD: ${{ env.APP_PASSWORD }}
         run: npm run audit:schema -- --phase5=absent --phase6=absent
 
-      - name: Reapply Phase 5 (fresh reapply must succeed)
+      - name: Reapply Phases 5 and 6 (fresh reapply must succeed)
         env:
           DB_PASSWORD: ${{ env.APP_PASSWORD }}
         run: npm run migration:run
