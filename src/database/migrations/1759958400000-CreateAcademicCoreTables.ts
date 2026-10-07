@@ -220,8 +220,8 @@ export class CreateAcademicCoreTables1759958400000 implements MigrationInterface
           REFERENCES projects (id) ON DELETE CASCADE,
         CONSTRAINT FK_assignments_session FOREIGN KEY (sessionId)
           REFERENCES internship_sessions (id) ON DELETE CASCADE,
-        // SQL Server 1785/1750 repair (see REPAIR RECORD above): the second
-        // FK to users must not add a second cascade path from users.
+        -- Phase 3.5 repair (error 1785 multi-cascade-path): see REPAIR RECORD
+        -- in the header — the second FK to users must be a restrict.
         CONSTRAINT FK_assignments_assignedBy FOREIGN KEY (assignedById)
           REFERENCES users (id) ON DELETE NO ACTION
       );`);
