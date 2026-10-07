@@ -14,7 +14,7 @@ export class InternController {
   @RequirePermissions('intern.workspace.view')
   @ApiOperation({
     summary:
-      'Current-intern workspace — identity = authenticated principal (never a FE-supplied userId); status driven by DB assignment state: {status:"unassigned", assignment:null} | {status:"active", assignment:{id, project, session, assignedAt}}',
+      'Current-intern workspace — identity = authenticated principal (never a FE-supplied userId); status driven by DB assignment state; Phase 3 adds REAL sprint/task data: currentSprint, taskSummary, focusedTask (null/zero when unassigned)',
   })
   async workspace(@CurrentUser('userId') userId: string) {
     return this.internService.workspace(userId);
