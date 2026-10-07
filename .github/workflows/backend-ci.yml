@@ -7,13 +7,14 @@
 #   -> disposable SQL Server 2019 container (runtime-generated, masked SA password)
 #   -> deterministic readiness polling (SELECT 1)
 #   -> create disposable E2E database (validated, never production-like)
-#   -> migration:run (Phase 1 + 2 + 3 + 4, from EMPTY database)
-#   -> migration:show -> schema audit (tables/sequence/filtered indexes/CHECKs/types)
+#   -> migration:run (Phase 1 + 2 + 3 + 4 + 5, from EMPTY database)
+#   -> migration:show -> schema audit (tables/sequences/unique indexes/CHECKs/types)
 #   -> bootstrap admin x2 + idempotency counts
 #   -> boot the real API -> poll /api/v1/health -> /api/docs + /api/docs-json
 #   -> seed:recruitment (idempotent question bank, spec 50)
-#   -> e2e: platform + academic + sprint/task + recruitment + SQL Server concurrency/rollback
-#   -> migration:revert (Phase 3) -> audit --phase3=absent -> migration:run -> audit
+#   -> e2e: platform + academic + sprint/task + recruitment + evaluation/performance
+#          + KPI/virtual-salary/certificates + SQL Server concurrency/rollback
+#   -> migration:revert (Phase 5) -> audit --phase5=absent -> migration:run -> audit
 #
 # Secrets: NONE required. All credentials are ephemeral, generated at job
 # runtime, immediately masked and never echoed. The container/database is
@@ -124,7 +125,7 @@ jobs:
         run: npm run db:create:e2e
 
       # ── Fresh-database migration run (spec 12/13) ─────────────────────
-      - name: Apply ALL migrations to the EMPTY database (Phase 1 + 2 + 3 + 4)
+      - name: Apply ALL migrations to the EMPTY database (Phase 1 + 2 + 3 + 4 + 5)
         env:
           DB_PASSWORD: ${{ env.APP_PASSWORD }}
         run: npm run migration:run
@@ -240,23 +241,23 @@ jobs:
           kill "$(cat /tmp/api.pid)" 2>/dev/null || true
 
       # ── E2E against REAL SQL Server (spec 21/22/23/25/26/27) ──────────
-      - name: E2E — platform + academic + sprint/task + recruitment + concurrency
+      - name: E2E — platform + academic + sprint/task + recruitment + evaluation/performance/kpi/salary/certificates + concurrency
         env:
           DB_PASSWORD: ${{ env.APP_PASSWORD }}
         run: npm run test:e2e
 
       # ── Migration rollback verification (spec 16) ─────────────────────
-      - name: Revert Phase 4 (latest migration) on the disposable database
+      - name: Revert Phase 5 (latest migration) on the disposable database
         env:
           DB_PASSWORD: ${{ env.APP_PASSWORD }}
         run: npm run migration:revert
 
-      - name: Audit after rollback (Phase 4 objects GONE, Phase 1/2/3 intact)
+      - name: Audit after rollback (Phase 5 objects GONE, Phase 1/2/3/4 intact)
         env:
           DB_PASSWORD: ${{ env.APP_PASSWORD }}
-        run: npm run audit:schema -- --phase4=absent
+        run: npm run audit:schema -- --phase5=absent
 
-      - name: Reapply Phase 4 (fresh reapply must succeed)
+      - name: Reapply Phase 5 (fresh reapply must succeed)
         env:
           DB_PASSWORD: ${{ env.APP_PASSWORD }}
         run: npm run migration:run
