@@ -180,7 +180,7 @@ describe('Phase 5 evaluation + performance e2e (spec 80/81)', () => {
     expect(session.status).toBe(201);
     sessionId = session.body.id;
     const activated = await request(apiBase()).patch(`/api/v1/sessions/${sessionId}`).set('Authorization', `Bearer ${admin}`).send({ status: 'active' });
-    expect(activated.status).toBe(201); // Nest POST default
+    expect(activated.status).toBe(200); // PATCH default
 
     const project = await request(apiBase()).post('/api/v1/projects').set('Authorization', `Bearer ${admin}`).send({
       code: `E2E-E5-P-${RUN}`, name: 'Phase 5 project', description: 'Deterministic e2e project', status: 'active', mentorId: undefined, technologies: [],

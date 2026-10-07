@@ -267,7 +267,7 @@ describe('Phase 5 KPI + virtual salary + certificates e2e (spec 82-87)', () => {
     const criteria = await request(apiBase()).get(`/api/v1/evaluation-cycles/${cycleId}/criteria`).set('Authorization', `Bearer ${si}`);
     for (const c of criteria.body.items) criterionIds[c.code] = c.id;
     const opened = await request(apiBase()).post(`/api/v1/evaluation-cycles/${cycleId}/status`).set('Authorization', `Bearer ${si}`).send({ status: 'open' });
-    expect(opened.status).toBe(200);
+    expect(opened.status).toBe(201); // Nest POST default
 
     // Recruitment PASSED fixtures (k1/k2/k3); i2 stays NOT recruited.
     await ensureRecruitedProfile(dataSource, k1Id);
