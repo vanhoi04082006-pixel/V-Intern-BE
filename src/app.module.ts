@@ -43,8 +43,12 @@ import { UsersModule } from './users/users.module';
         username: cs.get<string>('DB_USERNAME', 'vintern_app'),
         password: cs.get<string>('DB_PASSWORD', ''),
         options: {
-          encrypt: cs.get<boolean>('DB_ENCRYPT', false),
-          trustServerCertificate: cs.get<boolean>('DB_TRUST_SERVER_CERTIFICATE', true),
+          // Env vars are STRINGS — ConfigService returns them raw, and
+          // mssql@11 rejects non-boolean encrypt/trustServerCertificate.
+          // Convert with the same semantics as src/database/data-source.ts
+          // (Phase 3.5: latent runtime bug exposed by the CI API smoke boot).
+          encrypt: cs.get<string>('DB_ENCRYPT', 'false') !== 'false',
+          trustServerCertificate: cs.get<string>('DB_TRUST_SERVER_CERTIFICATE', 'true') !== 'false',
         },
         entities: ENTITIES,
         // Migrations are the ONLY schema mechanism (production-safe).
