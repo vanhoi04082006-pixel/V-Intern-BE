@@ -36,6 +36,13 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  *   becomes a restrict — users are deactivated via status in this platform
  *   (never hard-deleted through normal flows). Identical class of repair as
  *   FK_assignments_assignedBy. No other object was altered.
+ * - 2026-10-07 — FK_tasks_sprint changed ON DELETE SET NULL → NO ACTION.
+ *   Same CI run: projects→tasks (direct CASCADE) AND projects→sprints
+ *   (CASCADE) → tasks (SET NULL) form a second multi-cascade-path pair
+ *   (error 1785 again). The strong ownership (project → tasks CASCADE) is
+ *   kept; the scheduling grouping becomes a restrict — sprints end their
+ *   lifecycle via completed/cancelled transitions, never hard-deleted by
+ *   any product flow. No other object was altered.
  */
 export class CreateSprintTaskCoreTables1760044800000 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
@@ -107,7 +114,7 @@ export class CreateSprintTaskCoreTables1760044800000 implements MigrationInterfa
         CONSTRAINT FK_tasks_project FOREIGN KEY (projectId)
           REFERENCES projects (id) ON DELETE CASCADE,
         CONSTRAINT FK_tasks_sprint FOREIGN KEY (sprintId)
-          REFERENCES sprints (id) ON DELETE SET NULL,
+          REFERENCES sprints (id) ON DELETE NO ACTION,
         CONSTRAINT FK_tasks_assignee FOREIGN KEY (assigneeId)
           REFERENCES users (id) ON DELETE SET NULL,
         -- Phase 3.5 repair (error 1785 multi-cascade-path): see REPAIR RECORD
