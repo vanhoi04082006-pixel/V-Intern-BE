@@ -291,7 +291,7 @@ describe('Phase 2 academic core e2e — Waiting → Active (spec 30)', () => {
     const other = await request(app.getHttpServer())
       .post('/api/v1/projects')
       .set('Authorization', `Bearer ${instructor}`)
-      .send({ code: `E2E-P2-${RUN}`, name: 'Đồ án phụ e2e', description: 'duplicate-scenario project', capacity: 2 });
+      .send({ code: `E2E-P2-${RUN}`, name: 'Đồ án phụ e2e', description: 'duplicate-scenario project', status: 'active', capacity: 2 });
     expect(other.status).toBe(201);
 
     const internRow = await dataSource.getRepository(User).findOneOrFail({ where: { email: 'e2e-intern@vintern.test' } });

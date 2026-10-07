@@ -294,6 +294,7 @@ describe('Phase 3.5 — real SQL Server concurrency, filtered indexes, rollback 
           code: `E2E-CONC-${suffix}-${RUN}`,
           name: `Đồ án concurrency ${suffix}`,
           description: 'Phase 3.5 concurrency e2e',
+          status: 'active',
           capacity,
         });
       expect(project.status).toBe(201);

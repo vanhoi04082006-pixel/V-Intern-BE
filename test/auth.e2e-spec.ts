@@ -3,6 +3,7 @@ import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { hash } from 'bcryptjs';
 import { INestApplication, ValidationPipe, VersioningType } from '@nestjs/common';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import { DataSource } from 'typeorm';
@@ -102,6 +103,17 @@ beforeAll(async () => {
   app.setGlobalPrefix('api');
   app.enableVersioning({ type: VersioningType.URI, defaultVersion: '1' });
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }));
+
+  // Register Swagger EXACTLY like main.ts so the runtime swagger test
+  // exercises the same code path (Phase 3.5 spec 20 — no compile-only gap).
+  const swaggerConfig = new DocumentBuilder()
+    .setTitle('V-Intern API')
+    .setDescription('V-Intern NestJS backend — e2e runtime document.')
+    .setVersion('2.0')
+    .addBearerAuth()
+    .build();
+  SwaggerModule.setup('api/docs', app, SwaggerModule.createDocument(app, swaggerConfig));
+
   await app.init();
 
   // Idempotent RBAC + a dedicated e2e admin (not the production bootstrap admin).

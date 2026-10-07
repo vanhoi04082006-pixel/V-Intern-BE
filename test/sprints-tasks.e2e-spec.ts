@@ -221,7 +221,7 @@ describe('Phase 3 sprint/task e2e — plan → activate → task → review → 
     const project = await request(app.getHttpServer())
       .post('/api/v1/projects')
       .set('Authorization', `Bearer ${instructor}`)
-      .send({ code: `E2E-P-${RUN}`, name: 'Đồ án e2e sprint', description: 'Phase 3 e2e', capacity: 2 });
+      .send({ code: `E2E-P-${RUN}`, name: 'Đồ án e2e sprint', description: 'Phase 3 e2e', status: 'active', capacity: 2 });
     expect(project.status).toBe(201);
     projectId = project.body.id;
 
@@ -301,7 +301,7 @@ describe('Phase 3 sprint/task e2e — plan → activate → task → review → 
     const other = await request(app.getHttpServer())
       .post('/api/v1/projects')
       .set('Authorization', `Bearer ${instructor}`)
-      .send({ code: `E2E-PX-${RUN}`, name: 'Đồ án khác', description: 'khác', capacity: 2 });
+      .send({ code: `E2E-PX-${RUN}`, name: 'Đồ án khác', description: 'khác', status: 'active', capacity: 2 });
     expect(other.status).toBe(201);
     otherProjectId = other.body.id;
     const res = await request(app.getHttpServer())
