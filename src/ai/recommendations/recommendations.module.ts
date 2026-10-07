@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { AiModule } from '../ai.module';
 import { AuditModule } from '../../audit/audit.module';
 import { PerformanceModule } from '../../performance/performance.module';
+import { RbacModule } from '../../rbac/rbac.module';
 import { Evaluation } from '../../evaluation/entities/evaluation.entity';
 import { EvaluationCriterion } from '../../evaluation/entities/evaluation-criterion.entity';
 import { EvaluationScore } from '../../evaluation/entities/evaluation-score.entity';
@@ -24,6 +25,7 @@ import { RecommendationsController } from './recommendations.controller';
     AiModule,
     AuditModule,
     PerformanceModule,
+    RbacModule,
     TypeOrmModule.forFeature([
       AiRecommendationSnapshot,
       Evaluation,
