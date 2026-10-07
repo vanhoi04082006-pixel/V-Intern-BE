@@ -33,12 +33,11 @@ concurrency:
   group: backend-ci-${{ github.ref }}
   cancel-in-progress: true
 
-timeout-minutes: 20
-
 jobs:
   sqlserver-2019-release-gate:
     name: Backend + SQL Server 2019 release gate
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     env:
       # Disposable test database — never production (spec 8).
       E2E_DB_NAME: VIntern_E2E
