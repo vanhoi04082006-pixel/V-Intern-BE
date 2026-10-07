@@ -1,0 +1,262 @@
+# PHASE 3.5 (spec 6-31) — the AUTHORITATIVE integration environment.
+#
+# The sandbox has no Docker/SQL Server, so GitHub Actions is where the
+# backend is PROVEN against a real Microsoft SQL Server 2019:
+#
+#   npm ci -> lint -> unit tests -> build
+#   -> disposable SQL Server 2019 container (runtime-generated, masked SA password)
+#   -> deterministic readiness polling (SELECT 1)
+#   -> create disposable E2E database (validated, never production-like)
+#   -> migration:run (Phase 1 + 2 + 3, from EMPTY database)
+#   -> migration:show -> schema audit (tables/sequence/filtered indexes/CHECKs/types)
+#   -> bootstrap admin x2 + idempotency counts
+#   -> boot the real API -> poll /api/v1/health -> /api/docs + /api/docs-json
+#   -> e2e: platform + academic + sprint/task + SQL Server concurrency/rollback
+#   -> migration:revert (Phase 3) -> audit --phase3=absent -> migration:run -> audit
+#
+# Secrets: NONE required. All credentials are ephemeral, generated at job
+# runtime, immediately masked and never echoed. The container/database is
+# destroyed with the job (spec 24). No AI provider is contacted (spec 31).
+
+name: backend-ci
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - feat/full-product-sqlserver-core
+  workflow_dispatch:
+
+concurrency:
+  group: backend-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+timeout-minutes: 20
+
+jobs:
+  sqlserver-2019-release-gate:
+    name: Backend + SQL Server 2019 release gate
+    runs-on: ubuntu-latest
+    env:
+      # Disposable test database — never production (spec 8).
+      E2E_DB_NAME: VIntern_E2E
+      DB_HOST: 127.0.0.1
+      DB_PORT: '1433'
+      DB_ENCRYPT: 'false'
+      DB_TRUST_SERVER_CERTIFICATE: 'true'
+      DB_NAME: VIntern_E2E
+      DB_USERNAME: vintern_app
+      NODE_ENV: test
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node 22 (npm cache enabled — no DB/env caching)
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+      # ── SQL Server 2019 (spec 7/9) ────────────────────────────────────
+      - name: Generate ephemeral credentials (masked, never echoed)
+        run: |
+          set -euo pipefail
+          SA_PASSWORD="S3cure!$(openssl rand -hex 16)Aa1"
+          APP_PASSWORD="S3cure!$(openssl rand -hex 16)Aa1"
+          JWT_SECRET="$(openssl rand -hex 32)"
+          echo "::add-mask::$SA_PASSWORD"
+          echo "::add-mask::$APP_PASSWORD"
+          echo "::add-mask::$JWT_SECRET"
+          {
+            echo "SA_PASSWORD=$SA_PASSWORD"
+            echo "APP_PASSWORD=$APP_PASSWORD"
+            echo "JWT_SECRET=$JWT_SECRET"
+          } >> "$GITHUB_ENV"
+
+      - name: Start disposable SQL Server 2019 container
+        run: |
+          set -euo pipefail
+          docker run -d --name vintern-mssql-e2e \
+            -e ACCEPT_EULA=Y \
+            -e MSSQL_PID=Developer \
+            -e MSSQL_SA_PASSWORD="$SA_PASSWORD" \
+            -p 1433:1433 \
+            mcr.microsoft.com/mssql/server:2019-latest
+
+      - name: Wait for SQL Server readiness (deterministic poll, no blind sleep)
+        run: |
+          set -euo pipefail
+          deadline=$((SECONDS + 180))
+          while [ "$SECONDS" -lt "$deadline" ]; do
+            if docker exec vintern-mssql-e2e /opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P "$SA_PASSWORD" -Q "SELECT 1" -h -1 >/dev/null 2>&1 \
+               || docker exec vintern-mssql-e2e /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P "$SA_PASSWORD" -Q "SELECT 1" -h -1 >/dev/null 2>&1; then
+              echo "SQL Server 2019 is accepting connections"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "SQL SERVER STARTUP FAILED (no connection within 180s)"
+          exit 1
+
+      # ── Disposable E2E database (spec 8/10) ───────────────────────────
+      - name: Create disposable E2E database + app login (validated, safe)
+        env:
+          DB_ADMIN_USERNAME: sa
+          DB_ADMIN_PASSWORD: ${{ env.SA_PASSWORD }}
+          DB_PASSWORD: ${{ env.APP_PASSWORD }}
+        run: npm run db:create:e2e
+
+      # ── Fresh-database migration run (spec 12/13) ─────────────────────
+      - name: Apply ALL migrations to the EMPTY database (Phase 1 + 2 + 3)
+        env:
+          DB_PASSWORD: ${{ env.APP_PASSWORD }}
+        run: npm run migration:run
+
+      - name: Show migration status
+        env:
+          DB_PASSWORD: ${{ env.APP_PASSWORD }}
+        run: npm run migration:show
+
+      # ── Schema audit (spec 14/15) ─────────────────────────────────────
+      - name: Audit schema (tables, sequence, filtered indexes, CHECKs, types)
+        env:
+          DB_PASSWORD: ${{ env.APP_PASSWORD }}
+        run: npm run audit:schema
+
+      # ── Bootstrap idempotency (spec 18) ───────────────────────────────
+      - name: Bootstrap admin (first run)
+        env:
+          DB_PASSWORD: ${{ env.APP_PASSWORD }}
+          BOOTSTRAP_ADMIN_EMAIL: ci-admin@vintern.test
+          BOOTSTRAP_ADMIN_PASSWORD: ${{ env.APP_PASSWORD }}
+        run: npm run bootstrap:admin
+
+      - name: Snapshot baseline counts
+        env:
+          DB_PASSWORD: ${{ env.APP_PASSWORD }}
+        run: |
+          set -euo pipefail
+          node -e "
+            const sql = require('mssql');
+            (async () => {
+              const c = new sql.ConnectionPool({ server: '127.0.0.1', port: 1433, database: 'VIntern_E2E', user: 'vintern_app', password: process.env.DB_PASSWORD, options: { encrypt: false, trustServerCertificate: true } });
+              await c.connect();
+              const n = async (s) => (await c.request().query(s)).recordset[0].n;
+              const counts = {
+                roles: await n('SELECT COUNT(*) AS n FROM roles'),
+                permissions: await n('SELECT COUNT(*) AS n FROM permissions'),
+                rolePermissions: await n('SELECT COUNT(*) AS n FROM role_permissions'),
+                users: await n('SELECT COUNT(*) AS n FROM users'),
+                bootstrapAdmin: await n(\"SELECT COUNT(*) AS n FROM users WHERE email = 'ci-admin@vintern.test'\"),
+              };
+              console.log(JSON.stringify(counts));
+              await c.close();
+            })().catch(() => process.exit(1));
+          " > /tmp/bootstrap-counts-1.json
+          cat /tmp/bootstrap-counts-1.json
+
+      - name: Bootstrap admin (second run — MUST be idempotent)
+        env:
+          DB_PASSWORD: ${{ env.APP_PASSWORD }}
+          BOOTSTRAP_ADMIN_EMAIL: ci-admin@vintern.test
+          BOOTSTRAP_ADMIN_PASSWORD: ${{ env.APP_PASSWORD }}
+        run: npm run bootstrap:admin
+
+      - name: Verify bootstrap idempotency (counts identical, admin unique)
+        env:
+          DB_PASSWORD: ${{ env.APP_PASSWORD }}
+        run: |
+          set -euo pipefail
+          node -e "
+            const sql = require('mssql');
+            (async () => {
+              const c = new sql.ConnectionPool({ server: '127.0.0.1', port: 1433, database: 'VIntern_E2E', user: 'vintern_app', password: process.env.DB_PASSWORD, options: { encrypt: false, trustServerCertificate: true } });
+              await c.connect();
+              const n = async (s) => (await c.request().query(s)).recordset[0].n;
+              const counts = {
+                roles: await n('SELECT COUNT(*) AS n FROM roles'),
+                permissions: await n('SELECT COUNT(*) AS n FROM permissions'),
+                rolePermissions: await n('SELECT COUNT(*) AS n FROM role_permissions'),
+                users: await n('SELECT COUNT(*) AS n FROM users'),
+                bootstrapAdmin: await n(\"SELECT COUNT(*) AS n FROM users WHERE email = 'ci-admin@vintern.test'\"),
+              };
+              console.log(JSON.stringify(counts));
+              await c.close();
+            })().catch(() => process.exit(1));
+          " > /tmp/bootstrap-counts-2.json
+          diff /tmp/bootstrap-counts-1.json /tmp/bootstrap-counts-2.json || {
+            echo 'BOOTSTRAP NOT IDEMPOTENT — counts diverged between runs'
+            exit 1
+          }
+          node -e "const c=require('/tmp/bootstrap-counts-2.json'); if (c.bootstrapAdmin !== 1) { console.error('bootstrap admin must exist exactly once'); process.exit(1); } console.log('bootstrap idempotent — no duplicates');"
+
+      # ── Real runtime boot (spec 19/20) ────────────────────────────────
+      - name: Boot the real API — poll /api/v1/health, then /api/docs + OpenAPI
+        env:
+          PORT: '8080'
+          DB_PASSWORD: ${{ env.APP_PASSWORD }}
+        run: |
+          set -euo pipefail
+          node dist/main.js > /tmp/api-smoke.log 2>&1 &
+          echo $! > /tmp/api.pid
+          deadline=$((SECONDS + 60))
+          ok=0
+          while [ "$SECONDS" -lt "$deadline" ]; do
+            if curl -sf http://127.0.0.1:8080/api/v1/health -o /tmp/health.json; then ok=1; break; fi
+            sleep 2
+          done
+          if [ "$ok" -ne 1 ]; then
+            echo "API HEALTH CHECK FAILED"
+            cat /tmp/api-smoke.log
+            exit 1
+          fi
+          node -e "const h=require('/tmp/health.json'); if (h.status !== 'ok' || h.checks.database !== 'ok') { console.error('health not ok:', JSON.stringify(h)); process.exit(1); } console.log('health: status=ok database=ok latencyMs=' + h.checks.dbLatencyMs);"
+          curl -sf http://127.0.0.1:8080/api/docs > /dev/null || { echo 'SWAGGER UI FAILED'; exit 1; }
+          curl -sf http://127.0.0.1:8080/api/docs-json -o /tmp/openapi.json || { echo 'OPENAPI JSON FAILED'; exit 1; }
+          node -e "const j=require('/tmp/openapi.json'); if (!/^3\./.test(String(j.openapi))) { console.error('bad openapi version'); process.exit(1); } console.log('openapi', j.openapi, '—', j.info.title);"
+          kill "$(cat /tmp/api.pid)" 2>/dev/null || true
+
+      # ── E2E against REAL SQL Server (spec 21/22/23/25/26/27) ──────────
+      - name: E2E — platform + academic + sprint/task + SQL Server concurrency
+        env:
+          DB_PASSWORD: ${{ env.APP_PASSWORD }}
+        run: npm run test:e2e
+
+      # ── Migration rollback verification (spec 16) ─────────────────────
+      - name: Revert Phase 3 (latest migration) on the disposable database
+        env:
+          DB_PASSWORD: ${{ env.APP_PASSWORD }}
+        run: npm run migration:revert
+
+      - name: Audit after rollback (Phase 3 objects GONE, Phase 1/2 intact)
+        env:
+          DB_PASSWORD: ${{ env.APP_PASSWORD }}
+        run: npm run audit:schema -- --phase3=absent
+
+      - name: Reapply Phase 3 (fresh reapply must succeed)
+        env:
+          DB_PASSWORD: ${{ env.APP_PASSWORD }}
+        run: npm run migration:run
+
+      - name: Audit after reapply (full schema present again)
+        env:
+          DB_PASSWORD: ${{ env.APP_PASSWORD }}
+        run: npm run audit:schema
+
+      # The disposable SQL Server container + VIntern_E2E database die with
+      # the job — nothing persists (spec 24). No seed snapshot is committed.
