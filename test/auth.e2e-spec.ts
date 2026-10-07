@@ -8,6 +8,7 @@ import request from 'supertest';
 import { DataSource } from 'typeorm';
 import { AppModule } from '../src/app.module';
 import { ensureRbac } from '../src/bootstrap/ensure-rbac';
+import { ENTITIES } from '../src/database/entities';
 import { Role } from '../src/rbac/entities/role.entity';
 import { User } from '../src/users/entities/user.entity';
 import { UserRole } from '../src/rbac/entities/user-role.entity';
@@ -88,7 +89,9 @@ beforeAll(async () => {
     options: { encrypt: (process.env.DB_ENCRYPT ?? 'false') !== 'false', trustServerCertificate: true },
     synchronize: false,
     logging: false,
-    entities: [],
+    // Entities REQUIRED here: ensureRbac below resolves Role/User metadata
+    // through THIS DataSource (Phase 3.5: surfaced by the first real-DB run).
+    entities: ENTITIES,
     migrationsRun: false,
   });
   await dataSource.initialize();

@@ -209,8 +209,9 @@ describe('Phase 3 sprint/task e2e — plan → activate → task → review → 
       });
     expect(session.status).toBe(201);
     sessionId = session.body.id;
+    // Real contract (sessions.controller): status changes via PATCH /sessions/:id.
     await request(app.getHttpServer())
-      .post(`/api/v1/sessions/${sessionId}/status`)
+      .patch(`/api/v1/sessions/${sessionId}`)
       .set('Authorization', `Bearer ${instructor}`)
       .send({ status: 'active' })
       .expect((r) => {
@@ -376,8 +377,9 @@ describe('Phase 3 sprint/task e2e — plan → activate → task → review → 
   });
 
   it('audit trail contains sprint + task actions (admin view)', async () => {
+    // Real route contract: GET /api/v1/audit-logs (audit.controller).
     const res = await request(app.getHttpServer())
-      .get('/api/v1/audit/logs?action=task.status_changed&pageSize=5')
+      .get('/api/v1/audit-logs?action=task.status_changed&pageSize=5')
       .set('Authorization', `Bearer ${admin}`);
     expect(res.status).toBe(200);
     expect(res.body.meta.total).toBeGreaterThanOrEqual(1);

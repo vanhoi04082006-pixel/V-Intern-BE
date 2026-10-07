@@ -274,8 +274,9 @@ describe('Phase 3.5 — real SQL Server concurrency, filtered indexes, rollback 
       });
     expect(session.status).toBe(201);
     sessionId = session.body.id;
+    // Real contract (sessions.controller): status changes via PATCH /sessions/:id.
     const activated = await request(app.getHttpServer())
-      .post(`/api/v1/sessions/${sessionId}/status`)
+      .patch(`/api/v1/sessions/${sessionId}`)
       .set('Authorization', `Bearer ${instructor}`)
       .send({ status: 'active' });
     expect([200, 201]).toContain(activated.status);
