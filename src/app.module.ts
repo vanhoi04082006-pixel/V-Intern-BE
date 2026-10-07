@@ -20,6 +20,9 @@ import { InternModule } from './intern/intern.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { ProjectsModule } from './projects/projects.module';
 import { AiModule } from './ai/ai.module';
+import { AiMentorModule } from './ai/mentor/ai-mentor.module';
+import { EvaluationAssistanceModule } from './ai/evaluation-assistance/evaluation-assistance.module';
+import { RecommendationsModule } from './ai/recommendations/recommendations.module';
 import { RecruitmentModule } from './recruitment/recruitment.module';
 import { RbacModule } from './rbac/rbac.module';
 import { SessionsModule } from './sessions/sessions.module';
@@ -94,6 +97,11 @@ import { CertificatesModule } from './certificates/certificates.module';
     KpiModule,
     VirtualSalaryModule,
     CertificatesModule,
+    // Phase 6 — AI mentor + AI evaluation assistance + AI recommendations
+    // (advisory only — the deterministic domain services stay authoritative)
+    AiMentorModule,
+    EvaluationAssistanceModule,
+    RecommendationsModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },
