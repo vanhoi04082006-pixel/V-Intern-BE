@@ -38,6 +38,8 @@ export interface AppConfig {
     timeoutMs: number;
     maxRetries: number;
   };
+  /** Phase 5 certificates (spec 51/52): verification URL base — configurable, never a hardcoded host. */
+  certificates: { verifyBaseUrl: string };
   /** Phase 4 recruitment policy (spec 14/18/19 — documented defaults). */
   recruitment: {
     interviewDurationMinutes: number; // default 30 (approved copy: "30 phút")
@@ -94,6 +96,9 @@ export function appConfig(env: NodeJS.ProcessEnv): AppConfig {
       model: env.AI_MODEL ?? '',
       timeoutMs: Number(env.AI_TIMEOUT_MS ?? 60_000),
       maxRetries: Number(env.AI_MAX_RETRIES ?? 2),
+    },
+    certificates: {
+      verifyBaseUrl: env.CERTIFICATE_VERIFY_BASE_URL ?? 'http://localhost:8080/api/v1/certificates/verify',
     },
     recruitment: {
       interviewDurationMinutes: Number(env.RECRUITMENT_INTERVIEW_DURATION_MINUTES ?? 30),

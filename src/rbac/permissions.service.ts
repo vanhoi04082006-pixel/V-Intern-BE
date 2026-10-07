@@ -38,6 +38,14 @@ export class PermissionsService {
     return [...new Set([...direct.map((r) => r.roleId), ...inherited.map((r) => r.roleId)])];
   }
 
+  /** True when the user holds the named role DIRECTLY or via a group. */
+  async hasRole(userId: string, roleCode: string): Promise<boolean> {
+    const roleIds = await this.getEffectiveRoleIds(userId);
+    if (roleIds.length === 0) return false;
+    const roles = await this.roles.find({ where: roleIds.map((id) => ({ id })) });
+    return roles.some((r) => r.code === roleCode);
+  }
+
   /** Effective permission codes (Set for O(1) guard checks). */
   async getEffectivePermissionCodes(userId: string): Promise<Set<string>> {
     const roleIds = await this.getEffectiveRoleIds(userId);

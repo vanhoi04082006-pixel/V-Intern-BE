@@ -12,6 +12,9 @@ export const NOTIFICATION_CATEGORIES = [
   'evaluation',
   'announcement',
   'recruitment', // Phase 4 (spec 77): recruitment/interview/evaluation events
+  'kpi', // Phase 5: KPI finalized
+  'salary', // Phase 5: virtual salary generated/adjusted
+  'certificate', // Phase 5: certificate issued/revoked
 ] as const;
 export type NotificationCategory = (typeof NOTIFICATION_CATEGORIES)[number];
 

@@ -49,6 +49,22 @@ export const PERMISSION_CATALOG: Array<{ code: string; name: string; description
   { code: 'recruitment.submit.own', name: 'Nộp phỏng vấn của tôi', description: 'Thực tập sinh nộp bài và yêu cầu đánh giá lại khi được phép' },
   { code: 'recruitment.view', name: 'Xem tuyển dụng ứng viên', description: 'Giảng viên/quản trị xem trạng thái tuyển dụng của ứng viên' },
   { code: 'recruitment.manage', name: 'Quản trị tuyển dụng', description: 'Quản trị quy trình tuyển dụng (giai đoạn sau; Phase 4 chỉ đọc)' },
+  // ── Phase 5 — evaluation + performance + KPI + virtual salary + certificates ──
+  { code: 'evaluations.view', name: 'Xem đánh giá', description: 'Danh sách và chi tiết đánh giá của giảng viên' },
+  { code: 'evaluations.manage', name: 'Quản trị đánh giá', description: 'Tạo/nộp/chốt/điều chỉnh đánh giá (theo phạm vi sở hữu)' },
+  { code: 'evaluations.view.own', name: 'Xem đánh giá của tôi', description: 'Thực tập sinh xem đánh giá đã chốt của mình' },
+  { code: 'performance.view', name: 'Xem hiệu suất', description: 'Chỉ số hiệu suất tất định của thực tập sinh' },
+  { code: 'performance.view.own', name: 'Xem hiệu suất của tôi', description: 'Thực tập sinh xem chỉ số của chính mình' },
+  { code: 'kpi.view', name: 'Xem KPI', description: 'Kỳ KPI và kết quả KPI' },
+  { code: 'kpi.manage', name: 'Quản trị KPI', description: 'Tạo/tính toán/chốt kỳ KPI (chính sách quản trị)' },
+  { code: 'kpi.view.own', name: 'Xem KPI của tôi', description: 'Thực tập sinh xem kết quả KPI của mình' },
+  { code: 'virtual_salary.view', name: 'Xem lương ảo', description: 'Sổ cái lương ảo toàn hệ thống (quản trị)' },
+  { code: 'virtual_salary.manage', name: 'Quản trị lương ảo', description: 'Sinh lương theo KPI, thưởng/phạt/điều chỉnh (quản trị)' },
+  { code: 'virtual_salary.view.own', name: 'Xem lương ảo của tôi', description: 'Thực tập sinh xem số dư và sổ cái của mình' },
+  { code: 'certificates.view', name: 'Xem chứng nhận', description: 'Danh sách và chi tiết chứng nhận' },
+  { code: 'certificates.manage', name: 'Quản trị chứng nhận', description: 'Cấp/thu hồi chứng nhận (quản trị)' },
+  { code: 'certificates.view.own', name: 'Xem chứng nhận của tôi', description: 'Thực tập sinh xem/tải chứng nhận của mình' },
+  { code: 'certificates.verify', name: 'Xác minh chứng nhận', description: 'Tra cứu xác minh công khai (dự phòng cho route public)' },
 ];
 
 /**
@@ -88,6 +104,15 @@ export const ROLE_CATALOG: Array<{
       'tasks.manage',
       // Phase 4 — recruitment candidate read (view-only, spec 44)
       'recruitment.view',
+      // Phase 5 — evaluation/performance within OWN session/project scope
+      // (service-level ownership checks enforce the boundary, spec 61);
+      // KPI + salary + certificate ISSUE/REVOKE stay admin-only policies.
+      'evaluations.view',
+      'evaluations.manage',
+      'performance.view',
+      'kpi.view',
+      'certificates.view',
+      'certificates.verify',
     ],
   },
   {
@@ -104,6 +129,12 @@ export const ROLE_CATALOG: Array<{
       'recruitment.start.own',
       'recruitment.answer.own',
       'recruitment.submit.own',
+      // Phase 5 — own views only (spec 60: interns never manage)
+      'evaluations.view.own',
+      'performance.view.own',
+      'kpi.view.own',
+      'virtual_salary.view.own',
+      'certificates.view.own',
     ],
   },
 ];

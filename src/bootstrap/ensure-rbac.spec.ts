@@ -228,22 +228,32 @@ describe('ensureRbac (Phase 3 catalog)', () => {
     const result = await ensureRbac(ds);
 
     expect(result.rolesCreated).toBe(0);
-    // Phase 3 (6) + Phase 4 (6) — a Phase 2 database upgrades to the FULL catalogue.
-    expect(result.permissionsCreated).toBe(12);
+    // Phase 3 (6) + Phase 4 (6) + Phase 5 (15) — a Phase 2 database
+    // upgrades to the FULL catalogue (count derived from the catalog so
+    // future phases only extend, never silently rewrite, this test).
+    expect(result.permissionsCreated).toBe(PERMISSION_CATALOG.length - phase2Codes.length);
     const grants = rpRepo.insert.mock.calls[0][0] as Array<{ roleId: string; permissionId: string }>;
-    // admin ×12 (grantAll), instructor ×5 (4 sprint/task + recruitment.view), intern ×6
-    expect(grants.length).toBe(23);
-    expect(grants.filter((g) => g.roleId === 'role-admin').length).toBe(12);
-    expect(grants.filter((g) => g.roleId === 'role-instructor').length).toBe(5);
+    const newPerms = PERMISSION_CATALOG.filter((p) => !phase2Codes.includes(p.code)).map((p) => p.code);
+    const newFor = (roleCode: string) => grantsFor(roleCode).filter((c) => !phase2Codes.includes(c));
+    expect(grants.length).toBe(newPerms.length + newFor('instructor').length + newFor('intern').length);
+    expect(grants.filter((g) => g.roleId === 'role-admin').length).toBe(newPerms.length);
+    expect(grants.filter((g) => g.roleId === 'role-instructor').map((g) => g.permissionId.replace('perm-', '')).sort())
+      .toEqual(newFor('instructor').sort());
     expect(grants.filter((g) => g.roleId === 'role-intern').map((g) => g.permissionId.replace('perm-', '')).sort())
-      .toEqual([
-        'recruitment.answer.own',
-        'recruitment.start.own',
-        'recruitment.submit.own',
-        'recruitment.view.own',
-        'tasks.update.own',
-        'tasks.view.own',
-      ]);
+      .toEqual(newFor('intern').sort());
+    expect(newFor('intern').sort()).toEqual([
+      'certificates.view.own',
+      'evaluations.view.own',
+      'kpi.view.own',
+      'performance.view.own',
+      'recruitment.answer.own',
+      'recruitment.start.own',
+      'recruitment.submit.own',
+      'recruitment.view.own',
+      'tasks.update.own',
+      'tasks.view.own',
+      'virtual_salary.view.own',
+    ]);
     // no existing (roleId, permissionId) pair is re-inserted
     for (const g of grants) {
       expect(existingGrants.has(`${g.roleId}:${g.permissionId}`)).toBe(false);
