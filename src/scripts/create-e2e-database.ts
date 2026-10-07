@@ -94,9 +94,12 @@ async function main(): Promise<void> {
         appUser,
       ])) as Array<{ one: number }>;
       if (loginRows.length === 0) {
+        // T-SQL does not allow parameters in CREATE LOGIN DDL — the password
+        // MUST be an inlined literal. It is escaped here and never logged;
+        // the value only ever exists inside this disposable CI process.
+        const passwordLiteral = `N'${appPass.replace(/'/g, "''")}'`;
         await master.query(
-          `CREATE LOGIN ${quoteIdentifier(appUser)} WITH PASSWORD = @0;`,
-          [appPass],
+          `CREATE LOGIN ${quoteIdentifier(appUser)} WITH PASSWORD = ${passwordLiteral}, CHECK_POLICY = OFF;`,
         );
         console.log('[create-e2e-database] app login created (password never logged).');
       } else {
