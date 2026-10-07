@@ -13,6 +13,7 @@ import { CreateSprintTaskCoreTables1760044800000 } from '../src/database/migrati
 import { Role } from '../src/rbac/entities/role.entity';
 import { User } from '../src/users/entities/user.entity';
 import { UserRole } from '../src/rbac/entities/user-role.entity';
+import { ensureRecruitedProfile, userIdByEmail } from './recruitment-fixtures';
 
 /**
  * PHASE 3 e2e — Sprint / Task core (spec 37).
@@ -157,6 +158,12 @@ beforeAll(async () => {
       );
       await userRoles.insert({ userId: created.id, roleId: spec.roleId });
     }
+  }
+
+  // Phase 4 (spec 47): seed PASSED recruitment profiles — Phase 3 semantics
+  // (workspace + sprints + tasks) are tested on recruitable interns.
+  for (const email of ['e2e-st-intern@vintern.test', 'e2e-st-intern-2@vintern.test']) {
+    await ensureRecruitedProfile(dataSource, await userIdByEmail(dataSource, email));
   }
 }, 120_000);
 

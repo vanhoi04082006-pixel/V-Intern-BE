@@ -14,6 +14,7 @@ import { CreateSprintTaskCoreTables1760044800000 } from '../src/database/migrati
 import { Role } from '../src/rbac/entities/role.entity';
 import { User } from '../src/users/entities/user.entity';
 import { UserRole } from '../src/rbac/entities/user-role.entity';
+import { ensureRecruitedProfile, userIdByEmail } from './recruitment-fixtures';
 import { Assignment } from '../src/assignments/entities/assignment.entity';
 import { Sprint } from '../src/sprints/entities/sprint.entity';
 import { Task } from '../src/tasks/entities/task.entity';
@@ -233,6 +234,12 @@ beforeAll(async () => {
       );
       await userRoles.insert({ userId: created.id, roleId: spec.roleId });
     }
+  }
+
+  // Phase 4 (spec 47/49): the INTERN_NOT_RECRUITED precondition must not
+  // interfere with concurrency scenarios — seed PASSED profiles.
+  for (const email of INTERN_EMAILS) {
+    await ensureRecruitedProfile(dataSource, await userIdByEmail(dataSource, email));
   }
 }, 120_000);
 

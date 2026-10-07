@@ -12,6 +12,7 @@ import { CreateAcademicCoreTables1759958400000 } from '../src/database/migration
 import { Role } from '../src/rbac/entities/role.entity';
 import { User } from '../src/users/entities/user.entity';
 import { UserRole } from '../src/rbac/entities/user-role.entity';
+import { ensureRecruitedProfile, userIdByEmail } from './recruitment-fixtures';
 
 /**
  * PHASE 2 e2e — the Waiting → Active acceptance scenario (spec 30/43).
@@ -148,6 +149,13 @@ beforeAll(async () => {
       );
       await userRoles.insert({ userId: created.id, roleId: spec.roleId });
     }
+  }
+
+  // Phase 4 (spec 47): recruitment now GATES the workspace — seed PASSED
+  // profiles for this suite's interns so Phase 2/3 semantics remain the
+  // subject under test (the recruitment e2e proves the gate itself).
+  for (const email of ['e2e-intern@vintern.test', 'e2e-intern-2@vintern.test']) {
+    await ensureRecruitedProfile(dataSource, await userIdByEmail(dataSource, email));
   }
 }, 120_000);
 
