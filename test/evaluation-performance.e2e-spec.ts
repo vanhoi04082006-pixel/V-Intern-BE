@@ -6,6 +6,7 @@ import request from 'supertest';
 import { DataSource } from 'typeorm';
 import { AppModule } from '../src/app.module';
 import { ensureRbac } from '../src/bootstrap/ensure-rbac';
+import { ensureRecruitedProfile } from './recruitment-fixtures';
 import { ENTITIES } from '../src/database/entities';
 import { Role } from '../src/rbac/entities/role.entity';
 import { User } from '../src/users/entities/user.entity';
@@ -187,9 +188,13 @@ describe('Phase 5 evaluation + performance e2e (spec 80/81)', () => {
     expect(project.status).toBe(201);
     projectId = project.body.id;
 
-    for (const internToken of [i1, i2]) {
+    // Phase 4 lifecycle (spec 46): assignment REQUIRES a passed recruitment
+    // profile — the suites seed it directly (same pattern as Phase 2/3 e2e).
+    await ensureRecruitedProfile(dataSource, i1UserId);
+    await ensureRecruitedProfile(dataSource, i2UserId);
+    for (const internUserId of [i1UserId, i2UserId]) {
       const created = await request(apiBase()).post('/api/v1/assignments').set('Authorization', `Bearer ${admin}`).send({
-        internId: internToken === i1 ? i1UserId : i2UserId,
+        internId: internUserId,
         projectId,
         sessionId,
       });

@@ -277,7 +277,10 @@ describe('Phase 5 KPI + virtual salary + certificates e2e (spec 82-87)', () => {
     await assignIntern(k1Id);
     await assignIntern(k2Id);
     await assignIntern(k3Id);
-    await assignIntern(i2Id); // assigned but NOT recruited → excluded from KPI eligibility
+    // i2 is deliberately NEVER recruited and NEVER assigned: KPI eligibility
+    // filters recruitment FIRST, so a non-recruited account must not even be
+    // calculable — and the assignment precondition (409 INTERN_NOT_RECRUITED)
+    // is exactly the Phase 4 lifecycle doing its job.
   });
 
   it('KPI source facts: k1 delivery 80 + quality 90 + NO due dates; k3 task rate + timeliness; k2 nothing', async () => {
