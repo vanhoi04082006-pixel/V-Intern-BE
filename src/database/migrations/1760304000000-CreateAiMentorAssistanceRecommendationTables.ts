@@ -114,7 +114,7 @@ export class CreateAiMentorAssistanceRecommendationTables1760304000000 implement
           REFERENCES users (id) ON DELETE NO ACTION
       );`);
     await S(
-      `CREATE INDEX IX_evaluation_ai_suggestions_evaluation_createdAt ON evaluation_ai_suggestions (evaluationId, createdAt);`,
+      `CREATE INDEX IX_evaluation_ai_suggestions_evaluation_createdAt ON evaluation_ai_suggestions (evaluationId, generatedAt);`,
     );
 
     // ── AI recommendation snapshots (deterministic + explainable) ─────────
