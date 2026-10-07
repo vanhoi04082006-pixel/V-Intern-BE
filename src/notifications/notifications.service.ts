@@ -11,6 +11,7 @@ export const NOTIFICATION_CATEGORIES = [
   'session',
   'evaluation',
   'announcement',
+  'recruitment', // Phase 4 (spec 77): recruitment/interview/evaluation events
 ] as const;
 export type NotificationCategory = (typeof NOTIFICATION_CATEGORIES)[number];
 

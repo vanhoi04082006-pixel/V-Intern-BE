@@ -18,7 +18,32 @@ export interface AppConfig {
   jwt: { secret: string; expiresIn: string };
   refresh: { ttlDays: number; cookieName: string; cookiePath: string };
   corsOrigins: string[];
-  throttle: { limitPerMin: number; authPerMin: number };
+  throttle: {
+    limitPerMin: number;
+    authPerMin: number;
+    /** Phase 4 (spec 56): stricter AI-cost protection on interview routes. */
+    interviewStartPerMin: number;
+    interviewSubmitPerMin: number;
+    evaluationPerMin: number;
+  };
+  /**
+   * Phase 4 AI core (spec 26). AI is OPTIONAL infrastructure: when
+   * AI_PROVIDER is unset every AI call fails honestly with
+   * AI_PROVIDER_UNAVAILABLE — there is NEVER a fake-score fallback (spec 25).
+   */
+  ai: {
+    provider: string; // '' = unconfigured
+    apiKey: string; // server-only, never returned by any API (spec 26)
+    model: string;
+    timeoutMs: number;
+    maxRetries: number;
+  };
+  /** Phase 4 recruitment policy (spec 14/18/19 — documented defaults). */
+  recruitment: {
+    interviewDurationMinutes: number; // default 30 (approved copy: "30 phút")
+    maxAttempts: number; // default 3
+    retakeCooldownHours: number; // default 24 after a failed evaluation
+  };
 }
 
 export function appConfig(env: NodeJS.ProcessEnv): AppConfig {
@@ -59,6 +84,21 @@ export function appConfig(env: NodeJS.ProcessEnv): AppConfig {
     throttle: {
       limitPerMin: Number(env.THROTTLE_LIMIT_PER_MIN ?? 100),
       authPerMin: Number(env.THROTTLE_AUTH_PER_MIN ?? 10),
+      interviewStartPerMin: Number(env.THROTTLE_INTERVIEW_START_PER_MIN ?? 5),
+      interviewSubmitPerMin: Number(env.THROTTLE_INTERVIEW_SUBMIT_PER_MIN ?? 6),
+      evaluationPerMin: Number(env.THROTTLE_EVALUATION_PER_MIN ?? 3),
+    },
+    ai: {
+      provider: (env.AI_PROVIDER ?? '').trim().toLowerCase(),
+      apiKey: env.AI_API_KEY ?? '',
+      model: env.AI_MODEL ?? '',
+      timeoutMs: Number(env.AI_TIMEOUT_MS ?? 60_000),
+      maxRetries: Number(env.AI_MAX_RETRIES ?? 2),
+    },
+    recruitment: {
+      interviewDurationMinutes: Number(env.RECRUITMENT_INTERVIEW_DURATION_MINUTES ?? 30),
+      maxAttempts: Number(env.RECRUITMENT_MAX_ATTEMPTS ?? 3),
+      retakeCooldownHours: Number(env.RECRUITMENT_RETAKE_COOLDOWN_HOURS ?? 24),
     },
   };
 }

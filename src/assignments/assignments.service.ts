@@ -13,6 +13,7 @@ import { User } from '../users/entities/user.entity';
 import { ActorContext } from '../users/users.service';
 import { Assignment } from './entities/assignment.entity';
 import { Project } from '../projects/entities/project.entity';
+import { RecruitmentProfile } from '../recruitment/entities/recruitment-profile.entity';
 import { ProjectMember } from '../projects/entities/project-member.entity';
 
 /**
@@ -162,6 +163,23 @@ export class AssignmentsService {
           code: 'INTERN_NOT_FOUND',
           message: 'Intern not found or account is not active.',
           details: { internId: input.internId },
+        });
+      }
+
+      // (2b) RECRUITMENT PRECONDITION (Phase 4, spec 49): an intern MUST
+      // have a PASSED recruitment profile before any new assignment. This
+      // closes the product lifecycle: recruitment → waiting → active.
+      const recruitmentProfile = await em
+        .getRepository(RecruitmentProfile)
+        .findOne({ where: { userId: intern.id } });
+      if (!recruitmentProfile || recruitmentProfile.status !== 'passed') {
+        throw new ConflictException({
+          statusCode: 409,
+          code: 'INTERN_NOT_RECRUITED',
+          message: 'Intern has not passed recruitment — assignment is not allowed.',
+          details: {
+            recruitmentStatus: recruitmentProfile?.status ?? 'not_started',
+          },
         });
       }
 
@@ -403,6 +421,14 @@ export class AssignmentsService {
           : { id: active.sessionId, code: 'UNKNOWN', name: 'Unknown session', status: 'unknown' },
       },
     };
+  }
+
+  /** Active assignment row for a user, if any (Phase 4 lifecycle/§48). */
+  async findActiveAssignment(userId: string): Promise<Assignment | null> {
+    return this.assignments.findOne({
+      where: { internId: userId, status: 'active' },
+      order: { assignedAt: 'DESC' },
+    });
   }
 
   /**

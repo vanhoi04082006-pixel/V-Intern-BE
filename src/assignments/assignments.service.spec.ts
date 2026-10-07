@@ -124,6 +124,12 @@ function buildHarness(opts?: {
     SessionMember: sessionMemberRepo,
     ProjectMember: projectMemberRepo,
     NotificationPreference: prefRepo,
+    RecruitmentProfile: {
+      // Phase 4 precondition (spec 49): the harness default is a PASSED
+      // profile so the classic 12-step lifecycle tests still exercise
+      // assignment logic; dedicated tests override to not_started/failed.
+      findOne: jest.fn(async () => ({ userId: 'intern-1', status: 'passed' })),
+    },
   };
 
   const em = {

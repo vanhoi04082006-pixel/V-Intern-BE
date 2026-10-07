@@ -42,6 +42,13 @@ export const PERMISSION_CATALOG: Array<{ code: string; name: string; description
   { code: 'tasks.manage', name: 'Quản trị task', description: 'Tạo/sửa/giao/xoá task, duyệt review, yêu cầu làm lại' },
   { code: 'tasks.view.own', name: 'Xem task của tôi', description: 'Thực tập sinh xem task được giao cho mình' },
   { code: 'tasks.update.own', name: 'Cập nhật task của tôi', description: 'Thực tập sinh tự chuyển trạng thái/tiến độ task của mình' },
+  // ── Phase 4 — recruitment + AI interview core ─────────────────────────────
+  { code: 'recruitment.view.own', name: 'Xem tuyển dụng của tôi', description: 'Thực tập sinh xem trạng thái tuyển dụng và kết quả của mình' },
+  { code: 'recruitment.start.own', name: 'Bắt đầu phỏng vấn của tôi', description: 'Thực tập sinh chọn vai trò và bắt đầu buổi phỏng vấn tuyển dụng' },
+  { code: 'recruitment.answer.own', name: 'Trả lời phỏng vấn của tôi', description: 'Thực tập sinh lưu/cập nhật câu trả lời phỏng vấn của mình' },
+  { code: 'recruitment.submit.own', name: 'Nộp phỏng vấn của tôi', description: 'Thực tập sinh nộp bài và yêu cầu đánh giá lại khi được phép' },
+  { code: 'recruitment.view', name: 'Xem tuyển dụng ứng viên', description: 'Giảng viên/quản trị xem trạng thái tuyển dụng của ứng viên' },
+  { code: 'recruitment.manage', name: 'Quản trị tuyển dụng', description: 'Quản trị quy trình tuyển dụng (giai đoạn sau; Phase 4 chỉ đọc)' },
 ];
 
 /**
@@ -79,6 +86,8 @@ export const ROLE_CATALOG: Array<{
       'sprints.manage',
       'tasks.view',
       'tasks.manage',
+      // Phase 4 — recruitment candidate read (view-only, spec 44)
+      'recruitment.view',
     ],
   },
   {
@@ -86,7 +95,16 @@ export const ROLE_CATALOG: Array<{
     name: 'Thực tập sinh',
     description: 'Người tham gia chương trình thực tập',
     isSystem: true,
-    grantCodes: ['intern.workspace.view', 'tasks.view.own', 'tasks.update.own'],
+    grantCodes: [
+      'intern.workspace.view',
+      'tasks.view.own',
+      'tasks.update.own',
+      // Phase 4 — recruitment own-only actions (spec 45)
+      'recruitment.view.own',
+      'recruitment.start.own',
+      'recruitment.answer.own',
+      'recruitment.submit.own',
+    ],
   },
 ];
 

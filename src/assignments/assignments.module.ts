@@ -8,6 +8,7 @@ import { InternshipSession } from '../sessions/entities/internship-session.entit
 import { SessionMember } from '../sessions/entities/session-member.entity';
 import { Project } from '../projects/entities/project.entity';
 import { ProjectMember } from '../projects/entities/project-member.entity';
+import { RecruitmentProfile } from '../recruitment/entities/recruitment-profile.entity';
 import { User } from '../users/entities/user.entity';
 import { Assignment } from './entities/assignment.entity';
 import { AssignmentsController } from './assignments.controller';
@@ -20,6 +21,7 @@ import { AssignmentsService } from './assignments.service';
 @Module({
   imports: [
     TypeOrmModule.forFeature([
+      RecruitmentProfile,
       Assignment,
       User,
       Project,

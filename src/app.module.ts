@@ -19,6 +19,8 @@ import { HealthModule } from './health/health.module';
 import { InternModule } from './intern/intern.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { ProjectsModule } from './projects/projects.module';
+import { AiModule } from './ai/ai.module';
+import { RecruitmentModule } from './recruitment/recruitment.module';
 import { RbacModule } from './rbac/rbac.module';
 import { SessionsModule } from './sessions/sessions.module';
 import { SettingsModule } from './settings/settings.module';
@@ -78,6 +80,9 @@ import { UsersModule } from './users/users.module';
     // Phase 3 — sprint / task core
     SprintsModule,
     TasksModule,
+    // Phase 4 — recruitment + AI interview core
+    AiModule,
+    RecruitmentModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },

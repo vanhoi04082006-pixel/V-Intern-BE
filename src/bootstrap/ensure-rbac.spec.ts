@@ -228,14 +228,22 @@ describe('ensureRbac (Phase 3 catalog)', () => {
     const result = await ensureRbac(ds);
 
     expect(result.rolesCreated).toBe(0);
-    expect(result.permissionsCreated).toBe(6);
+    // Phase 3 (6) + Phase 4 (6) — a Phase 2 database upgrades to the FULL catalogue.
+    expect(result.permissionsCreated).toBe(12);
     const grants = rpRepo.insert.mock.calls[0][0] as Array<{ roleId: string; permissionId: string }>;
-    // admin ×6, instructor ×4 (sprints.view/manage + tasks.view/manage), intern ×2 (own view/update)
-    expect(grants.length).toBe(12);
-    expect(grants.filter((g) => g.roleId === 'role-admin').length).toBe(6);
-    expect(grants.filter((g) => g.roleId === 'role-instructor').length).toBe(4);
+    // admin ×12 (grantAll), instructor ×5 (4 sprint/task + recruitment.view), intern ×6
+    expect(grants.length).toBe(23);
+    expect(grants.filter((g) => g.roleId === 'role-admin').length).toBe(12);
+    expect(grants.filter((g) => g.roleId === 'role-instructor').length).toBe(5);
     expect(grants.filter((g) => g.roleId === 'role-intern').map((g) => g.permissionId.replace('perm-', '')).sort())
-      .toEqual(['tasks.update.own', 'tasks.view.own']);
+      .toEqual([
+        'recruitment.answer.own',
+        'recruitment.start.own',
+        'recruitment.submit.own',
+        'recruitment.view.own',
+        'tasks.update.own',
+        'tasks.view.own',
+      ]);
     // no existing (roleId, permissionId) pair is re-inserted
     for (const g of grants) {
       expect(existingGrants.has(`${g.roleId}:${g.permissionId}`)).toBe(false);
@@ -255,11 +263,20 @@ describe('ensureRbac (Phase 3 catalog)', () => {
       'assignments.manage',
       'intern.workspace.view',
       ...PHASE_3_CODES,
+      // Phase 4 — recruitment + AI interview core (spec 45)
+      'recruitment.view.own',
+      'recruitment.start.own',
+      'recruitment.answer.own',
+      'recruitment.submit.own',
+      'recruitment.view',
+      'recruitment.manage',
     ]);
     for (const code of expected) expect(codes).toContain(code);
     expect(new Set(codes).size).toBe(codes.length);
-    // spec 24: intern NEVER receives manage-scope codes
+    // spec 24 + spec 45: intern NEVER receives manage-scope codes
     expect(grantsFor('intern')).not.toContain('tasks.manage');
     expect(grantsFor('intern')).not.toContain('sprints.manage');
+    expect(grantsFor('intern')).not.toContain('recruitment.manage');
+    expect(grantsFor('instructor')).not.toContain('recruitment.manage');
   });
 });
