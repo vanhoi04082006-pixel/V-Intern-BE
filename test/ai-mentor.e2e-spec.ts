@@ -274,13 +274,20 @@ beforeAll(async () => {
 
   // Tasks for A: 4 done (3 on time, 1 late), 2 open (1 overdue) —
   // taskCompletionRate=66.7, onTimeCompletionRate=75, overdueOpenTaskCount=1.
+  // Dates are computed RELATIVE TO THE RUN CLOCK: the deterministic
+  // overdueOpenTaskCount compares dueDate < now (spec 16/20), so hardcoded
+  // calendar dates silently rot as real time passes (CI proved it).
+  // On-time rule (Phase-5 authoritative): doneAt <= dueDate, both compared
+  // as full timestamps — doneAt must be STRICTLY earlier than dueDate midnight.
+  const day = (offsetDays: number) =>
+    new Date(Date.now() + offsetDays * 86_400_000).toISOString().slice(0, 10);
   const taskSpecs = [
-    { code: `AI-T1-${RUN}`, status: 'done', due: '2026-02-10', doneAt: '2026-02-08', points: 3 },
-    { code: `AI-T2-${RUN}`, status: 'done', due: '2026-02-12', doneAt: '2026-02-10', points: 3 },
-    { code: `AI-T3-${RUN}`, status: 'done', due: '2026-02-14', doneAt: '2026-02-14', points: 2 },
-    { code: `AI-T4-${RUN}`, status: 'done', due: '2026-02-13', doneAt: '2026-02-20', points: 2 }, // late
-    { code: `AI-T5-${RUN}`, status: 'doing', due: '2026-02-05', doneAt: null, points: 5 }, // overdue open
-    { code: `AI-T6-${RUN}`, status: 'todo', due: '2026-06-01', doneAt: null, points: 5 },
+    { code: `AI-T1-${RUN}`, status: 'done', due: day(-10), doneAt: day(-12), points: 3 },
+    { code: `AI-T2-${RUN}`, status: 'done', due: day(-8), doneAt: day(-10), points: 3 },
+    { code: `AI-T3-${RUN}`, status: 'done', due: day(-6), doneAt: day(-7), points: 2 },
+    { code: `AI-T4-${RUN}`, status: 'done', due: day(-7), doneAt: day(-1), points: 2 }, // late
+    { code: `AI-T5-${RUN}`, status: 'doing', due: day(-5), doneAt: null, points: 5 }, // overdue open
+    { code: `AI-T6-${RUN}`, status: 'todo', due: day(30), doneAt: null, points: 5 },
   ];
   for (const t of taskSpecs) {
     const task = await taskRepo.save(
@@ -459,6 +466,44 @@ describe('AI mentor', () => {
     expect(roles).toEqual(['user', 'assistant']);
   });
 
+  it('ai_runs provenance: full run metadata persisted on mentor send (spec 36/37)', async () => {
+    testProvider.script([{ payload: MENTOR_ANSWER }]);
+    const created = await request(apiBase())
+      .post('/api/v1/intern/me/ai-mentor/conversations')
+      .set('Authorization', `Bearer ${aToken}`)
+      .send({ title: 'Provenance thread' });
+    expect(created.status).toBe(201);
+    const sent = await request(apiBase())
+      .post(`/api/v1/intern/me/ai-mentor/conversations/${created.body.id}/messages`)
+      .set('Authorization', `Bearer ${aToken}`)
+      .send({ content: 'How am I doing?' });
+    expect(sent.status).toBe(201);
+    const runId = sent.body.assistantMessage.aiRunId;
+    expect(runId).toBeTruthy();
+    const runs = await query(
+      `SELECT feature, provider, model, status, promptVersion, userId, resourceType, resourceId,
+              inputTokens, outputTokens, latencyMs, errorCode, completedAt
+         FROM ai_runs WHERE id = ?`,
+      [runId],
+    );
+    expect(runs.length).toBe(1);
+    expect(runs[0]).toMatchObject({
+      feature: 'ai-mentor',
+      provider: 'test',
+      model: 'test-model-1',
+      status: 'succeeded',
+      promptVersion: 'ai-mentor-v1',
+      userId: ids.a,
+      resourceType: 'ai_mentor_conversation',
+      resourceId: created.body.id,
+      errorCode: null,
+      inputTokens: 11,
+      outputTokens: 22,
+    });
+    expect(Number(runs[0].latencyMs)).toBeGreaterThanOrEqual(0);
+    expect(runs[0].completedAt).toBeTruthy();
+  });
+
   it('workspace facts: provider received ONLY intern A authorized facts with exact DB values (spec 42)', async () => {
     const call = testProvider.calls[testProvider.calls.length - 1];
     expect(call).toBeDefined();
@@ -605,6 +650,32 @@ describe('AI mentor', () => {
       .send({ content: 'hello again' });
     expect(send.status).toBe(409);
     expect(send.body.code).toBe('AI_MENTOR_CONVERSATION_ARCHIVED');
+  });
+
+  it('archived conversation history remains readable — no destructive cleanup (spec 62)', async () => {
+    testProvider.script([{ payload: MENTOR_ANSWER }]);
+    const created = await request(apiBase())
+      .post('/api/v1/intern/me/ai-mentor/conversations')
+      .set('Authorization', `Bearer ${aToken}`)
+      .send({ title: 'Retention thread' });
+    expect(created.status).toBe(201);
+    const sent = await request(apiBase())
+      .post(`/api/v1/intern/me/ai-mentor/conversations/${created.body.id}/messages`)
+      .set('Authorization', `Bearer ${aToken}`)
+      .send({ content: 'retention check' });
+    expect(sent.status).toBe(201);
+    const archived = await request(apiBase())
+      .post(`/api/v1/intern/me/ai-mentor/conversations/${created.body.id}/archive`)
+      .set('Authorization', `Bearer ${aToken}`);
+    expect(archived.status).toBe(201);
+    // Logical archive only — history stays fully readable (spec 62).
+    const detail = await request(apiBase())
+      .get(`/api/v1/intern/me/ai-mentor/conversations/${created.body.id}`)
+      .set('Authorization', `Bearer ${aToken}`);
+    expect(detail.status).toBe(200);
+    expect(detail.body.conversation.status).toBe('archived');
+    const roles = (detail.body.messages as Array<{ role: string }>).map((m) => m.role);
+    expect(roles).toEqual(['user', 'assistant']);
   });
 
   it('input bounds: empty and oversized messages rejected (spec 11)', async () => {
@@ -853,6 +924,14 @@ describe('AI recommendations', () => {
 
   it('unknown evidence metric → AI_INVALID_RESPONSE, NO snapshot persisted (spec 50/77)', async () => {
     const countBefore = (await query(`SELECT COUNT(1) AS n FROM ai_recommendation_snapshots WHERE userId = ?`, [ids.a]))[0].n as number;
+    // Facts must CHANGE first (spec 35): with unchanged facts the service
+    // reuses the existing snapshot and never calls the provider at all —
+    // the invalid payload would never even be consumed.
+    await query(
+      `INSERT INTO tasks (id, code, title, description, projectId, sprintId, assigneeId, createdById, status, priority, storyPoints, progress, dueDate, version)
+       VALUES (NEWID(), ?, 'Evidence task', NULL, ?, ?, ?, ?, 'todo', 'low', 1, 0, NULL, 1)`,
+      [`AI-TE-${RUN}`, ids.projectId, ids.sprintId, ids.a, ids.instructor],
+    );
     testProvider.script([
       {
         payload: {

@@ -290,7 +290,7 @@ export class RecommendationsService {
   private async hasInternScopeAuthority(instructorId: string, internId: string): Promise<boolean> {
     const sessionHit = await this.dataSource.query(
       `SELECT 1 AS ok FROM session_instructors si
-         WHERE si.userId = @0
+         WHERE si.instructorId = @0
            AND EXISTS (SELECT 1 FROM assignments a WHERE a.internId = @1 AND a.sessionId = si.sessionId)`,
       [instructorId, internId],
     );

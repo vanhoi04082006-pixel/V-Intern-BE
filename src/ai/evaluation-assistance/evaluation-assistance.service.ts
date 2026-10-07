@@ -306,7 +306,7 @@ export class EvaluationAssistanceService {
   private async hasScopeAuthority(userId: string, evaluation: Evaluation): Promise<boolean> {
     if (evaluation.sessionId) {
       const sessionInstructor = await this.dataSource.query(
-        `SELECT 1 AS ok FROM session_instructors WHERE sessionId = @0 AND userId = @1`,
+        `SELECT 1 AS ok FROM session_instructors WHERE sessionId = @0 AND instructorId = @1`,
         [evaluation.sessionId, userId],
       );
       if (Array.isArray(sessionInstructor) && sessionInstructor.length > 0) return true;
