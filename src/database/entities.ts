@@ -35,6 +35,10 @@ import { InterviewSessionQuestion } from '../recruitment/entities/interview-sess
 import { InterviewAnswer } from '../recruitment/entities/interview-answer.entity';
 import { RecruitmentResult } from '../recruitment/entities/recruitment-result.entity';
 import { AiRun } from '../ai/entities/ai-run.entity';
+import { AiMentorConversation } from '../ai/mentor/entities/ai-mentor-conversation.entity';
+import { AiMentorMessage } from '../ai/mentor/entities/ai-mentor-message.entity';
+import { EvaluationAiSuggestion } from '../ai/evaluation-assistance/entities/evaluation-ai-suggestion.entity';
+import { AiRecommendationSnapshot } from '../ai/recommendations/entities/ai-recommendation-snapshot.entity';
 import { EvaluationCycle } from '../evaluation/entities/evaluation-cycle.entity';
 import { EvaluationCriterion } from '../evaluation/entities/evaluation-criterion.entity';
 import { Evaluation } from '../evaluation/entities/evaluation.entity';
@@ -102,4 +106,9 @@ export const ENTITIES = [
   VirtualSalaryLedger,
   CertificatePolicy,
   Certificate,
+  // Phase 6 — AI mentor + AI evaluation assistance + AI recommendations
+  AiMentorConversation,
+  AiMentorMessage,
+  EvaluationAiSuggestion,
+  AiRecommendationSnapshot,
 ];

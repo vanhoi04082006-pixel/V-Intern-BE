@@ -65,6 +65,11 @@ export const PERMISSION_CATALOG: Array<{ code: string; name: string; description
   { code: 'certificates.manage', name: 'Quản trị chứng nhận', description: 'Cấp/thu hồi chứng nhận (quản trị)' },
   { code: 'certificates.view.own', name: 'Xem chứng nhận của tôi', description: 'Thực tập sinh xem/tải chứng nhận của mình' },
   { code: 'certificates.verify', name: 'Xác minh chứng nhận', description: 'Tra cứu xác minh công khai (dự phòng cho route public)' },
+  // ── Phase 6 — AI mentor + AI evaluation assistance + AI recommendations ──
+  { code: 'ai.mentor.use', name: 'Sử dụng AI Mentor', description: 'Thực tập sinh trò chuyện với AI mentor trên dữ liệu của chính mình' },
+  { code: 'ai.evaluation.assist', name: 'Hỗ trợ đánh giá bằng AI', description: 'Giảng viên yêu cầu gợi ý đánh giá AI (workspace, không có quyền quyết định)' },
+  { code: 'ai.recommendations.view.own', name: 'Xem khuyến nghị AI của tôi', description: 'Thực tập sinh xem khuyến nghị phát triển của chính mình' },
+  { code: 'ai.recommendations.view', name: 'Xem khuyến nghị AI', description: 'Giảng viên xem khuyến nghị AI của thực tập sinh trong phạm vi sở hữu' },
 ];
 
 /**
@@ -113,6 +118,11 @@ export const ROLE_CATALOG: Array<{
       'kpi.view',
       'certificates.view',
       'certificates.verify',
+      // Phase 6 — AI assistance within OWN authorized scope (spec 63/64);
+      // ownership is enforced at the service layer (evaluator-of-record /
+      // session-project mentor), the role alone is never sufficient.
+      'ai.evaluation.assist',
+      'ai.recommendations.view',
     ],
   },
   {
@@ -135,6 +145,10 @@ export const ROLE_CATALOG: Array<{
       'kpi.view.own',
       'virtual_salary.view.own',
       'certificates.view.own',
+      // Phase 6 — own AI mentor + own recommendations (spec 63: interns are
+      // NEVER granted instructor assistance: no ai.evaluation.assist here).
+      'ai.mentor.use',
+      'ai.recommendations.view.own',
     ],
   },
 ];

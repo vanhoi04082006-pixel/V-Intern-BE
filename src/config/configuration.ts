@@ -25,6 +25,12 @@ export interface AppConfig {
     interviewStartPerMin: number;
     interviewSubmitPerMin: number;
     evaluationPerMin: number;
+    /** Phase 6 (spec 56): AI mentor messages — strict per-minute bound. */
+    aiMentorPerMin: number;
+    /** Phase 6 (spec 56): evaluation assistance generations — low rate. */
+    aiEvaluationAssistPerMin: number;
+    /** Phase 6 (spec 35/56): recommendation refresh — low rate. */
+    aiRecommendationPerMin: number;
   };
   /**
    * Phase 4 AI core (spec 26). AI is OPTIONAL infrastructure: when
@@ -37,6 +43,12 @@ export interface AppConfig {
     model: string;
     timeoutMs: number;
     maxRetries: number;
+    /** Phase 6 (spec 57/58): mentor history window — last N messages sent. */
+    mentorHistoryWindow: number;
+    /** Phase 6 (spec 11): user message bound (1..N chars). */
+    mentorMaxMessageChars: number;
+    /** Phase 6 (spec 57): assistant response bound (chars). */
+    mentorMaxResponseChars: number;
   };
   /** Phase 5 certificates (spec 51/52): verification URL base — configurable, never a hardcoded host. */
   certificates: { verifyBaseUrl: string };
@@ -89,6 +101,9 @@ export function appConfig(env: NodeJS.ProcessEnv): AppConfig {
       interviewStartPerMin: Number(env.THROTTLE_INTERVIEW_START_PER_MIN ?? 5),
       interviewSubmitPerMin: Number(env.THROTTLE_INTERVIEW_SUBMIT_PER_MIN ?? 6),
       evaluationPerMin: Number(env.THROTTLE_EVALUATION_PER_MIN ?? 3),
+      aiMentorPerMin: Number(env.THROTTLE_AI_MENTOR_PER_MIN ?? 10),
+      aiEvaluationAssistPerMin: Number(env.THROTTLE_AI_EVALUATION_ASSIST_PER_MIN ?? 4),
+      aiRecommendationPerMin: Number(env.THROTTLE_AI_RECOMMENDATION_PER_MIN ?? 4),
     },
     ai: {
       provider: (env.AI_PROVIDER ?? '').trim().toLowerCase(),
@@ -96,6 +111,9 @@ export function appConfig(env: NodeJS.ProcessEnv): AppConfig {
       model: env.AI_MODEL ?? '',
       timeoutMs: Number(env.AI_TIMEOUT_MS ?? 60_000),
       maxRetries: Number(env.AI_MAX_RETRIES ?? 2),
+      mentorHistoryWindow: Number(env.AI_MENTOR_HISTORY_WINDOW ?? 10),
+      mentorMaxMessageChars: Number(env.AI_MENTOR_MAX_MESSAGE_CHARS ?? 8000),
+      mentorMaxResponseChars: Number(env.AI_MENTOR_MAX_RESPONSE_CHARS ?? 8000),
     },
     certificates: {
       verifyBaseUrl: env.CERTIFICATE_VERIFY_BASE_URL ?? 'http://localhost:8080/api/v1/certificates/verify',

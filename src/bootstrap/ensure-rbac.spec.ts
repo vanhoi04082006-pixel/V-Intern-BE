@@ -242,6 +242,9 @@ describe('ensureRbac (Phase 3 catalog)', () => {
     expect(grants.filter((g) => g.roleId === 'role-intern').map((g) => g.permissionId.replace('perm-', '')).sort())
       .toEqual(newFor('intern').sort());
     expect(newFor('intern').sort()).toEqual([
+      // Phase 6 — own AI mentor + own recommendations
+      'ai.mentor.use',
+      'ai.recommendations.view.own',
       'certificates.view.own',
       'evaluations.view.own',
       'kpi.view.own',
@@ -280,6 +283,11 @@ describe('ensureRbac (Phase 3 catalog)', () => {
       'recruitment.submit.own',
       'recruitment.view',
       'recruitment.manage',
+      // Phase 6 — AI mentor + AI evaluation assistance + AI recommendations
+      'ai.mentor.use',
+      'ai.evaluation.assist',
+      'ai.recommendations.view.own',
+      'ai.recommendations.view',
     ]);
     for (const code of expected) expect(codes).toContain(code);
     expect(new Set(codes).size).toBe(codes.length);
@@ -288,5 +296,11 @@ describe('ensureRbac (Phase 3 catalog)', () => {
     expect(grantsFor('intern')).not.toContain('sprints.manage');
     expect(grantsFor('intern')).not.toContain('recruitment.manage');
     expect(grantsFor('instructor')).not.toContain('recruitment.manage');
+    // Phase 6 (spec 63): interns are NEVER granted instructor AI assistance;
+    // instructors are NEVER granted the intern's own AI mentor surface.
+    expect(grantsFor('intern')).not.toContain('ai.evaluation.assist');
+    expect(grantsFor('intern')).not.toContain('ai.recommendations.view');
+    expect(grantsFor('instructor')).not.toContain('ai.mentor.use');
+    expect(grantsFor('instructor')).not.toContain('ai.recommendations.view.own');
   });
 });

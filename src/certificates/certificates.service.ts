@@ -350,6 +350,38 @@ export class CertificatesService {
 
   // ─────────────────────────── internals ───────────────────────────────
 
+  /**
+   * Phase 6 (AI mentor context, spec 7): a SAFE eligibility summary for the
+   * intern's own view — policy code, eligibility and unmet requirement
+   * names only. Reuses the deterministic Phase-5 facts + policy function,
+   * so the summary can never disagree with the authoritative issue flow.
+   */
+  async eligibilitySummary(
+    userId: string,
+  ): Promise<{ policyCode: string; eligible: boolean; unmetRequirements: string[] }> {
+    const policy = await this.ensurePolicyV1();
+    const facts = await this.loadFacts(userId);
+    const eligibility = evaluateCertificateEligibility(
+      {
+        recruitmentPassed: facts.recruitmentPassed,
+        hasCompletedAssignment: facts.hasCompletedAssignment,
+        latestFinalizedEvaluationScore: facts.latestFinalizedEvaluationScore,
+        latestFinalizedKpiScore: facts.latestFinalizedKpiScore,
+      },
+      {
+        minEvaluationScore: Number(policy.minEvaluationScore),
+        minKpiScore: Number(policy.minKpiScore),
+        requireRecruitmentPassed: policy.requireRecruitmentPassed,
+        requireCompletedAssignment: policy.requireCompletedAssignment,
+      },
+    );
+    return {
+      policyCode: policy.code,
+      eligible: eligibility.eligible,
+      unmetRequirements: eligibility.reasons.filter((r) => !r.satisfied).map((r) => r.requirement),
+    };
+  }
+
   private verifyBaseUrl(): string {
     return (
       this.config.get<string>('certificates.verifyBaseUrl') ??
