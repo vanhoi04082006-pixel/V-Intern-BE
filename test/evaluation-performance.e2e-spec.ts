@@ -385,7 +385,7 @@ describe('Phase 5 evaluation + performance e2e (spec 80/81)', () => {
     expect(sprint.status).toBe(201);
     sprintId = sprint.body.id;
     const activated = await request(apiBase()).post(`/api/v1/sprints/${sprintId}/status`).set('Authorization', `Bearer ${admin}`).send({ status: 'active' });
-    expect(activated.status).toBe(200);
+    expect(activated.status).toBe(201); // Nest POST default
   });
 
   async function createTask(over: { title: string; storyPoints?: number; dueDate?: string }): Promise<string> {

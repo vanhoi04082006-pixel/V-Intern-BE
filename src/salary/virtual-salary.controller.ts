@@ -3,9 +3,9 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { RequirePermissions } from '../common/decorators/permissions.decorator';
-import { PaginationQueryDto } from '../common/pagination/pagination-query.dto';
 import { clientIp, userAgent } from '../common/types/request-info';
 import { CreateSalaryAdjustmentDto } from './dto/virtual-salary.dtos';
+import { QueryInternLedgerDto, QueryVirtualSalaryLedgerDto } from './dto/query-virtual-salary.dto';
 import type { VirtualSalaryLedgerType } from './entities/virtual-salary-ledger.entity';
 import { VirtualSalaryService } from './virtual-salary.service';
 
@@ -46,7 +46,7 @@ export class VirtualSalaryController {
   @Get()
   @RequirePermissions('virtual_salary.view')
   @ApiOperation({ summary: 'Ledger list (admin; filters userId/type/kpiPeriodId + pagination)' })
-  async list(@Query() query: PaginationQueryDto & { userId?: string; type?: string; kpiPeriodId?: string }) {
+  async list(@Query() query: QueryVirtualSalaryLedgerDto) {
     return this.salaryService.listLedger({
       page: query.page,
       pageSize: query.pageSize,
@@ -86,7 +86,7 @@ export class VirtualSalaryInternController {
   @Get('ledger')
   @RequirePermissions('virtual_salary.view.own')
   @ApiOperation({ summary: 'My ledger entries (identity = principal; optional kpiPeriodId filter + pagination)' })
-  async myLedger(@CurrentUser('userId') userId: string, @Query() query: PaginationQueryDto & { kpiPeriodId?: string }) {
+  async myLedger(@CurrentUser('userId') userId: string, @Query() query: QueryInternLedgerDto) {
     return this.salaryService.internLedger(userId, {
       page: query.page,
       pageSize: query.pageSize,

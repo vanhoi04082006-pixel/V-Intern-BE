@@ -175,6 +175,7 @@ describe('Phase 5 KPI + virtual salary + certificates e2e (spec 82-87)', () => {
   let cycleId: string;
   const criterionIds: Record<string, string> = {};
   let periodId: string;
+  let k1AssignmentId: string;
 
   async function assignIntern(internId: string): Promise<string> {
     const res = await request(apiBase()).post('/api/v1/assignments').set('Authorization', `Bearer ${admin}`).send({
@@ -274,7 +275,7 @@ describe('Phase 5 KPI + virtual salary + certificates e2e (spec 82-87)', () => {
     await ensureRecruitedProfile(dataSource, k2Id);
     await ensureRecruitedProfile(dataSource, k3Id);
 
-    await assignIntern(k1Id);
+    k1AssignmentId = await assignIntern(k1Id);
     await assignIntern(k2Id);
     await assignIntern(k3Id);
     // i2 is deliberately NEVER recruited and NEVER assigned: KPI eligibility
@@ -294,6 +295,13 @@ describe('Phase 5 KPI + virtual salary + certificates e2e (spec 82-87)', () => {
 
     // k1 quality: finalized evaluation exactly 90 (90/90/90/90)
     await finalizeEvaluationFor(k1Id, si, [90, 90, 90, 90]);
+
+    // Certificate policy V1 requires a COMPLETED assignment — complete k1's
+    // (completedAt falls inside the KPI window, so eligibility overlap holds).
+    const completed = await request(apiBase())
+      .post(`/api/v1/assignments/${k1AssignmentId}/complete`)
+      .set('Authorization', `Bearer ${admin}`);
+    expect(completed.status).toBe(201);
 
     // k3: task rate 50 (1 of 2 done), timeliness 100 (done met its due date)
     const k3t1 = await createTask({ title: 'K3-T1', assigneeId: k3Id, dueDate: new Date(Date.now() + 3 * 86_400_000).toISOString() });
@@ -324,17 +332,20 @@ describe('Phase 5 KPI + virtual salary + certificates e2e (spec 82-87)', () => {
 
     const calculated = await request(apiBase()).post(`/api/v1/kpi-periods/${periodId}/calculate`).set('Authorization', `Bearer ${admin}`);
     expect(calculated.status).toBe(201);
-    // k1 + k3 eligible; k2 has NO overlapping assignment activity beyond existence… k2 IS assigned (active) → eligible but insufficient_data.
-    // i2 (not recruited) never appears.
-    expect(calculated.body.calculated).toBe(2);
-    expect(calculated.body.insufficientData).toBe(1);
-
+    // NOTE: the disposable E2E database is SHARED by all suites — earlier
+    // academic/sprint suites leave recruited+assigned interns that also
+    // overlap the window, so ABSOLUTE batch counts are not deterministic
+    // across suite orders. The determinism contract is asserted per-user
+    // below (the authoritative results), not on batch counters.
     const results = await request(apiBase()).get(`/api/v1/kpi-periods/${periodId}/results`).set('Authorization', `Bearer ${admin}`);
     expect(results.status).toBe(200);
     const byUser = new Map<string, { userId: string; finalScore: string | number; status: string; id: string }>(
       results.body.items.map((r: { userId: string }) => [r.userId, r]),
     );
-    expect(byUser.size).toBe(3);
+    expect(byUser.has(k1Id)).toBe(true);
+    expect(byUser.has(k2Id)).toBe(true);
+    expect(byUser.has(k3Id)).toBe(true);
+    // i2 (not recruited) NEVER appears — the eligibility gate (spec 29).
     expect(byUser.has(i2Id)).toBe(false);
 
     const k1Result = byUser.get(k1Id)!;
@@ -374,7 +385,10 @@ describe('Phase 5 KPI + virtual salary + certificates e2e (spec 82-87)', () => {
     );
     expect(Number(byUserAgain.get(k1Id)!.finalScore)).toBe(83.8);
     expect(byUserAgain.get(k1Id)!.id).toBe(k1Result.id); // same row upserted, never duplicated
-    const rowCount = await query(`SELECT COUNT(*) AS n FROM kpi_results WHERE periodId = @0`, [periodId]);
+    const rowCount = await query(
+      `SELECT COUNT(*) AS n FROM kpi_results WHERE periodId = @0 AND userId IN (@1, @2, @3)`,
+      [periodId, k1Id, k2Id, k3Id],
+    );
     expect(Number(rowCount[0].n)).toBe(3);
   });
 
@@ -645,6 +659,8 @@ describe('Phase 5 KPI + virtual salary + certificates e2e (spec 82-87)', () => {
     });
     expect(created.status).toBe(201);
     const racePeriodId = created.body.id as string;
+    const openedRace = await request(apiBase()).post(`/api/v1/kpi-periods/${racePeriodId}/status`).set('Authorization', `Bearer ${admin}`).send({ status: 'open' });
+    expect(openedRace.status).toBe(201);
 
     const [r1, r2] = await Promise.all([
       request(apiBase()).post(`/api/v1/kpi-periods/${racePeriodId}/calculate`).set('Authorization', `Bearer ${admin}`),
@@ -652,7 +668,10 @@ describe('Phase 5 KPI + virtual salary + certificates e2e (spec 82-87)', () => {
     ]);
     // Deterministic DB outcome matters, not which request wins:
     for (const r of [r1, r2]) expect([201, 409]).toContain(r.status);
-    const rows = await query(`SELECT COUNT(*) AS n FROM kpi_results WHERE periodId = @0`, [racePeriodId]);
+    const rows = await query(
+      `SELECT COUNT(*) AS n FROM kpi_results WHERE periodId = @0 AND userId IN (@1, @2, @3)`,
+      [racePeriodId, k1Id, k2Id, k3Id],
+    );
     expect(Number(rows[0].n)).toBe(3); // k1, k2, k3 — exactly once each
     const period = await request(apiBase()).get(`/api/v1/kpi-periods/${racePeriodId}`).set('Authorization', `Bearer ${admin}`);
     expect(['open', 'finalized']).toContain(period.body.status);
