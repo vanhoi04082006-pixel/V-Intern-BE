@@ -19,6 +19,18 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  * (SQL Server syntax: CREATE UNIQUE INDEX ... WHERE [status] = 'active')
  * so concurrency cannot create duplicate active assignments even if the
  * application transaction is bypassed.
+ *
+ * PHASE 3.5 REPAIR RECORD (pre-deployment, documented per migration policy):
+ * - 2026-10-07 — FK_assignments_assignedBy changed ON DELETE SET NULL →
+ *   NO ACTION. Real SQL Server 2019 (CI run 37588816341) rejected the
+ *   original with error 1785 'may cause cycles or multiple cascade paths':
+ *   internId (CASCADE) + assignedById (SET NULL) both reference users, and
+ *   SQL Server forbids two cascade paths from one parent to the same child
+ *   row. internId keeps the lifecycle CASCADE; the assigner reference
+ *   becomes a restrict — users are deactivated via status in this platform
+ *   (never hard-deleted through normal flows), so this is the smallest
+ *   safe repair that preserves the assignment lifecycle. No other object
+ *   in this migration was altered.
  */
 export class CreateAcademicCoreTables1759958400000 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
@@ -208,8 +220,10 @@ export class CreateAcademicCoreTables1759958400000 implements MigrationInterface
           REFERENCES projects (id) ON DELETE CASCADE,
         CONSTRAINT FK_assignments_session FOREIGN KEY (sessionId)
           REFERENCES internship_sessions (id) ON DELETE CASCADE,
+        // SQL Server 1785/1750 repair (see REPAIR RECORD above): the second
+        // FK to users must not add a second cascade path from users.
         CONSTRAINT FK_assignments_assignedBy FOREIGN KEY (assignedById)
-          REFERENCES users (id) ON DELETE SET NULL
+          REFERENCES users (id) ON DELETE NO ACTION
       );`);
     await S(`CREATE INDEX IX_assignments_internId ON assignments (internId, status);`);
     await S(`CREATE INDEX IX_assignments_projectId_status ON assignments (projectId, status);`);

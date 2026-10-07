@@ -19,6 +19,16 @@ baseline**. From that point forward these migrations are **FROZEN**:
 "improve" types, not to add indexes. Their behavior against real SQL Server
 is now a verified fact; changing them would invalidate that fact.
 
+**Pre-freeze correction (documented per §2 of the release-gate task):**
+During the FIRST real SQL Server 2019 run (CI, 2026-10-07) the original
+`1759958400000-CreateAcademicCoreTables` was rejected by SQL Server error
+1785 ("may cause cycles or multiple cascade paths") because `assignments`
+declared two FKs to `users` (`internId` CASCADE + `assignedById` SET NULL).
+Smallest safe repair applied BEFORE first deployment: `FK_assignments_assignedBy`
+→ `ON DELETE NO ACTION` (full rationale in the migration's REPAIR RECORD
+comment). No other object was altered. With the first green CI run this
+baseline becomes frozen.
+
 If a frozen migration is ever found defective on a NEW SQL Server
 environment, the repair is: a NEW corrective migration (or, only before the
 first production deployment and only with the user's explicit approval, a
