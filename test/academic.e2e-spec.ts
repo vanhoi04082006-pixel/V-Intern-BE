@@ -200,6 +200,14 @@ describe('Phase 2 academic core e2e — Waiting → Active (spec 30)', () => {
     // (documented in the Phase 3 contract docs) — the unassigned shape is:
     expect(res.body).toEqual({
       status: 'unassigned',
+      // Phase 4 (spec 46/47): the workspace contract now ALWAYS carries the
+      // authoritative recruitment lifecycle block (fixture-seeded PASSED).
+      recruitment: {
+        status: 'passed',
+        selectedRole: 'frontend',
+        attemptCount: 1,
+        recruitedAt: expect.any(String),
+      },
       assignment: null,
       currentSprint: null,
       taskSummary: { todo: 0, doing: 0, review: 0, done: 0, total: 0 },

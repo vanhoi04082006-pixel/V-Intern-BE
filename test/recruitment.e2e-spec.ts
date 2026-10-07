@@ -28,7 +28,9 @@ import { UserRole } from '../src/rbac/entities/user-role.entity';
 
 // Recruitement policy under test (read once at boot by appConfig):
 process.env.RECRUITMENT_MAX_ATTEMPTS = process.env.RECRUITMENT_MAX_ATTEMPTS ?? '2';
-process.env.RECRUITMENT_RETAKE_COOLDOWN_HOURS = '0';
+// 1h cooldown: the attempt/cooldown tests shift evaluatedAt via SQL to
+// simulate elapsed time (server-enforced policy, spec 69).
+process.env.RECRUITMENT_RETAKE_COOLDOWN_HOURS = '1';
 process.env.RECRUITMENT_INTERVIEW_DURATION_MINUTES = '30';
 process.env.NODE_ENV = process.env.NODE_ENV ?? 'test';
 
@@ -330,7 +332,9 @@ describe('Phase 4 recruitment + AI interview e2e (spec 64-69)', () => {
       .set('Authorization', `Bearer ${i1}`)
       .send({ role: 'hacker' });
     expect(bad.status).toBe(400);
-    expect(bad.body.code).toBe('RECRUITMENT_ROLE_REQUIRED');
+    // The whitelist DTO rejects unknown role codes before the service runs;
+    // RECRUITMENT_ROLE_REQUIRED remains the service-level safety net.
+    expect(bad.body.code).toBe('VALIDATION_ERROR');
 
     const ok = await request(apiBase())
       .patch('/api/v1/recruitment/me/role')
@@ -594,6 +598,9 @@ describe('Phase 4 recruitment + AI interview e2e (spec 64-69)', () => {
     expect(ws.body.recruitment.status).toBe('failed');
     expect(ws.body.assignment).toBeNull();
 
+    // Release the 1h retake cooldown for later i2 tests (simulated time).
+    await query('UPDATE recruitment_results SET evaluatedAt = DATEADD(HOUR, -2, SYSUTCDATETIME()) WHERE sessionId = ?', [session.id]);
+
     // result reload persists failed (spec 66 step 6)
     const result = await request(apiBase()).get('/api/v1/recruitment/me/result').set('Authorization', `Bearer ${i2}`);
     expect(result.body.decision).toBe('failed');
@@ -700,13 +707,15 @@ describe('Phase 4 recruitment + AI interview e2e (spec 64-69)', () => {
     testProvider.script([{ payload: FAIL_PAYLOAD() }]);
     const sub1 = await request(apiBase()).post(`/api/v1/recruitment/me/interviews/${s1.session.id}/submit`).set('Authorization', `Bearer ${i5}`);
     expect(sub1.body.result.decision).toBe('failed');
+    await query('UPDATE recruitment_results SET evaluatedAt = DATEADD(HOUR, -2, SYSUTCDATETIME()) WHERE sessionId = ?', [s1.session.id]);
 
-    const s2 = await startInterview(i5); // attempt 2 (cooldown 0 in env)
+    const s2 = await startInterview(i5); // attempt 2 (cooldown released via simulated time)
     expect(s2.session.attemptNumber).toBe(2);
     await startAndAnswerAll(i5, s2.session.id);
     testProvider.script([{ payload: FAIL_PAYLOAD() }]);
     const sub2 = await request(apiBase()).post(`/api/v1/recruitment/me/interviews/${s2.session.id}/submit`).set('Authorization', `Bearer ${i5}`);
     expect(sub2.body.result.decision).toBe('failed');
+    await query('UPDATE recruitment_results SET evaluatedAt = DATEADD(HOUR, -2, SYSUTCDATETIME()) WHERE sessionId = ?', [s2.session.id]);
 
     const third = await request(apiBase()).post('/api/v1/recruitment/me/interviews').set('Authorization', `Bearer ${i5}`);
     expect(third.status).toBe(409);

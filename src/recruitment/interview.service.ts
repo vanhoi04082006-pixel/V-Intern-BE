@@ -282,6 +282,9 @@ export class InterviewService {
     return this.dataSource.transaction(async (em) => {
       // Lock the session row — serializes answer writes + submit (spec 57).
       const session = await this.lockOwnSession(em, userId, sessionId);
+      if (session.status === 'expired') {
+        throw conflict('INTERVIEW_EXPIRED', 'The interview window has expired.');
+      }
       if (session.status !== 'in_progress') {
         throw conflict('INTERVIEW_NOT_ACTIVE', `Interview is not active (status '${session.status}').`);
       }
@@ -387,6 +390,9 @@ export class InterviewService {
         session.status === 'evaluation_failed'
       ) {
         return { submittedNow: false as const, session };
+      }
+      if (session.status === 'expired') {
+        throw conflict('INTERVIEW_EXPIRED', 'The interview window has expired.');
       }
       throw conflict(
         'INTERVIEW_NOT_ACTIVE',
