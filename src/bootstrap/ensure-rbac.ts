@@ -1,11 +1,14 @@
-import { DataSource, In } from 'typeorm';
+import { DataSource } from 'typeorm';
 import { Permission } from '../rbac/entities/permission.entity';
 import { Role } from '../rbac/entities/role.entity';
 import { RolePermission } from '../rbac/entities/role-permission.entity';
 
 /**
- * Phase-1 permission catalogue (domain.code). Extend per milestone —
+ * Permission catalogue (domain.code). Extend per milestone —
  * never remove codes here (migrations handle permission retirement).
+ *
+ * PHASE 2 addition (spec 34): classes/sessions/projects/assignments
+ * view+manage and intern.workspace.view.
  */
 export const PERMISSION_CATALOG: Array<{ code: string; name: string; description: string }> = [
   { code: 'users.read', name: 'Xem người dùng', description: 'Danh sách và chi tiết người dùng' },
@@ -22,17 +25,57 @@ export const PERMISSION_CATALOG: Array<{ code: string; name: string; description
   { code: 'settings.update', name: 'Sửa cài đặt', description: 'Thay đổi cấu hình hệ thống' },
   { code: 'audit.read', name: 'Xem nhật ký kiểm toán', description: 'Trail bảo mật/compliance' },
   { code: 'activity.read', name: 'Xem hoạt động', description: 'Feed hoạt động hệ thống' },
+  // ── Phase 2 — academic core ──────────────────────────────────────────────
+  { code: 'classes.view', name: 'Xem lớp học', description: 'Danh sách và chi tiết lớp' },
+  { code: 'classes.manage', name: 'Quản trị lớp học', description: 'Tạo/sửa lớp, thêm/xoá thành viên lớp' },
+  { code: 'sessions.view', name: 'Xem phiên thực tập', description: 'Danh sách và chi tiết phiên thực tập' },
+  { code: 'sessions.manage', name: 'Quản trị phiên thực tập', description: 'Tạo/sửa phiên, chuyển trạng thái, thành viên, giảng viên, cột mốc' },
+  { code: 'projects.view', name: 'Xem đồ án', description: 'Danh sách và chi tiết đồ án' },
+  { code: 'projects.manage', name: 'Quản trị đồ án', description: 'Tạo/sửa đồ án, công nghệ, lưu trữ' },
+  { code: 'assignments.view', name: 'Xem phân công', description: 'Danh sách và chi tiết phân công thực tập' },
+  { code: 'assignments.manage', name: 'Quản trị phân công', description: 'Tạo/hoàn thành phân công (giao thực tập sinh vào phiên + đồ án)' },
+  { code: 'intern.workspace.view', name: 'Xem workspace của tôi', description: 'Thực tập sinh xem trạng thái workspace hiện tại' },
 ];
 
-const ROLE_CATALOG: Array<{ code: string; name: string; description: string; isSystem: boolean; grantAll?: boolean }> = [
+/**
+ * Role catalogue. `grantAll` (admin) or `grantCodes` give the bootstrap its
+ * explicit, reviewable default mapping (spec 34):
+ * - admin → everything
+ * - instructor → academic manage/view set (NO platform administration)
+ * - intern → only the current-user workspace view
+ */
+const ROLE_CATALOG: Array<{
+  code: string;
+  name: string;
+  description: string;
+  isSystem: boolean;
+  grantAll?: boolean;
+  grantCodes?: string[];
+}> = [
   { code: 'admin', name: 'Quản trị viên', description: 'Toàn quyền hệ thống', isSystem: true, grantAll: true },
   {
     code: 'instructor',
     name: 'Giảng viên',
-    description: 'Quản lý lớp, phiên thực tập, đánh giá',
+    description: 'Quản lý lớp, phiên thực tập, đồ án, phân công',
     isSystem: true,
+    grantCodes: [
+      'classes.view',
+      'classes.manage',
+      'sessions.view',
+      'sessions.manage',
+      'projects.view',
+      'projects.manage',
+      'assignments.view',
+      'assignments.manage',
+    ],
   },
-  { code: 'intern', name: 'Thực tập sinh', description: 'Người tham gia chương trình thực tập', isSystem: true },
+  {
+    code: 'intern',
+    name: 'Thực tập sinh',
+    description: 'Người tham gia chương trình thực tập',
+    isSystem: true,
+    grantCodes: ['intern.workspace.view'],
+  },
 ];
 
 export interface EnsureRbacResult {
@@ -42,8 +85,9 @@ export interface EnsureRbacResult {
 }
 
 /**
- * Idempotent RBAC bootstrap: upsert roles + permissions by code, then grant
- * `admin` every permission. Safe to run repeatedly (explicit, no demo data).
+ * Idempotent RBAC bootstrap: upsert roles + permissions by code (existing
+ * rows — including their IDs — are never rewritten), then grant each role
+ * its default permissions. Safe to run repeatedly (no duplicate rows).
  */
 export async function ensureRbac(ds: DataSource): Promise<EnsureRbacResult> {
   const roleRepo = ds.getRepository(Role);
@@ -74,15 +118,34 @@ export async function ensureRbac(ds: DataSource): Promise<EnsureRbacResult> {
     permById.set(def.code, perm);
   }
 
+  const allPerms = [...permById.values()];
   const admin = roleByCode.get('admin');
   if (!admin) throw new Error('ensureRbac invariant failed: admin role missing after upsert.');
-  const allPerms = [...permById.values()];
-  const existingGrants = await rpRepo.find({ where: { roleId: In(allPerms.map((p) => p.id)) } });
-  const granted = new Set(existingGrants.filter((g) => g.roleId === admin.id).map((g) => g.permissionId));
-  const missing = allPerms.filter((p) => !granted.has(p.id));
-  if (missing.length > 0) {
-    await rpRepo.insert(missing.map((p) => ({ roleId: admin.id, permissionId: p.id })));
-    rolePermissionsAdded = missing.length;
+
+  // Collect every (roleId, permissionId) the catalogue demands, then insert
+  // only the missing pairs — reruns and partial states converge idempotently.
+  const wantedGrants: Array<{ roleId: string; permissionId: string }> = [];
+  for (const def of ROLE_CATALOG) {
+    const role = roleByCode.get(def.code);
+    if (!role) continue;
+    const codes = def.grantAll ? allPerms.map((p) => p.code) : (def.grantCodes ?? []);
+    for (const code of codes) {
+      const perm = permById.get(code);
+      if (!perm) throw new Error(`ensureRbac invariant failed: permission ${code} missing after upsert.`);
+      wantedGrants.push({ roleId: role.id, permissionId: perm.id });
+    }
+  }
+
+  if (wantedGrants.length > 0) {
+    const existingGrants = await rpRepo.find({
+      where: wantedGrants.map((g) => ({ roleId: g.roleId, permissionId: g.permissionId })),
+    });
+    const existingKeys = new Set(existingGrants.map((g) => `${g.roleId}:${g.permissionId}`));
+    const missing = wantedGrants.filter((g) => !existingKeys.has(`${g.roleId}:${g.permissionId}`));
+    if (missing.length > 0) {
+      await rpRepo.insert(missing);
+      rolePermissionsAdded = missing.length;
+    }
   }
 
   return { rolesCreated, permissionsCreated, rolePermissionsAdded };

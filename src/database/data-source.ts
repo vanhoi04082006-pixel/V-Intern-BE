@@ -3,6 +3,7 @@ import 'dotenv/config';
 import { DataSource } from 'typeorm';
 import { ENTITIES } from './entities';
 import { InitPlatformCore1759872000000 } from './migrations/1759872000000-InitPlatformCore';
+import { CreateAcademicCoreTables1759958400000 } from './migrations/1759958400000-CreateAcademicCoreTables';
 
 /**
  * Standalone DataSource for the TypeORM CLI (migrations ONLY).
@@ -24,5 +25,5 @@ export default new DataSource({
   synchronize: false,
   logging: false,
   entities: ENTITIES,
-  migrations: [InitPlatformCore1759872000000],
+  migrations: [InitPlatformCore1759872000000, CreateAcademicCoreTables1759958400000],
 });
