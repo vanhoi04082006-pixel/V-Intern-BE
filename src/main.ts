@@ -40,7 +40,7 @@ async function bootstrap(): Promise<void> {
   const swaggerConfig = new DocumentBuilder()
     .setTitle('V-Intern API')
     .setDescription(
-      'V-Intern NestJS backend — platform core (Phase 1) + academic core (Phase 2) + sprint/task core (Phase 3) + recruitment & AI interview (Phase 4: gated intern lifecycle, interview sessions with backend timer authority, authoritative 70/30 backend scoring — AI provides component scores only). Auth: bearer JWT; refresh via HttpOnly cookie scoped to /api/v1/auth.',
+      'V-Intern NestJS backend — platform core (Phase 1) + academic core (Phase 2) + sprint/task core (Phase 3) + recruitment & AI interview (Phase 4: gated intern lifecycle, interview sessions with backend timer authority, authoritative 70/30 backend scoring — AI provides component scores only). Phase 5 adds the deterministic instructor evaluation domain (weighted backend-computed scores, immutable finalization + revision history), the performance read model, versioned kpi-v1 periods with renormalized missing components, the ledger-based VIRTUAL salary (never real payroll), and certificates with public verification + PDF. Auth: bearer JWT; refresh via HttpOnly cookie scoped to /api/v1/auth.',
     )
     .setVersion('2.0')
     .addBearerAuth()

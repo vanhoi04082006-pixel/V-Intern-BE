@@ -27,6 +27,11 @@ import { SettingsModule } from './settings/settings.module';
 import { SprintsModule } from './sprints/sprints.module';
 import { TasksModule } from './tasks/tasks.module';
 import { UsersModule } from './users/users.module';
+import { EvaluationModule } from './evaluation/evaluation.module';
+import { PerformanceModule } from './performance/performance.module';
+import { KpiModule } from './kpi/kpi.module';
+import { VirtualSalaryModule } from './salary/virtual-salary.module';
+import { CertificatesModule } from './certificates/certificates.module';
 
 @Module({
   imports: [
@@ -83,6 +88,12 @@ import { UsersModule } from './users/users.module';
     // Phase 4 — recruitment + AI interview core
     AiModule,
     RecruitmentModule,
+    // Phase 5 — evaluation + performance + KPI + virtual salary + certificates
+    EvaluationModule,
+    PerformanceModule,
+    KpiModule,
+    VirtualSalaryModule,
+    CertificatesModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },
