@@ -372,13 +372,13 @@ beforeAll(async () => {
   );
   ids.cycleId = cycle.id;
   for (const c of [
-    { code: 'technical_quality', weight: 35 },
-    { code: 'delivery_execution', weight: 30 },
-    { code: 'communication_teamwork', weight: 20 },
-    { code: 'growth_ownership', weight: 15 },
+    { code: 'technical_quality', weight: 35, sortOrder: 1 },
+    { code: 'delivery_execution', weight: 30, sortOrder: 2 },
+    { code: 'communication_teamwork', weight: 20, sortOrder: 3 },
+    { code: 'growth_ownership', weight: 15, sortOrder: 4 },
   ]) {
     await criterionRepo.save(
-      criterionRepo.create({ cycleId: cycle.id, code: c.code, name: c.code, weight: c.weight, maxScore: 100, sortOrder: 0, isRequired: true }),
+      criterionRepo.create({ cycleId: cycle.id, code: c.code, name: c.code, weight: c.weight, maxScore: 100, sortOrder: c.sortOrder, isRequired: true }),
     );
   }
   const evaluation = await evaluationRepo.save(
@@ -464,44 +464,6 @@ describe('AI mentor', () => {
     expect(reloaded.status).toBe(200);
     const roles = (reloaded.body.messages as Array<{ role: string }>).map((m) => m.role);
     expect(roles).toEqual(['user', 'assistant']);
-  });
-
-  it('ai_runs provenance: full run metadata persisted on mentor send (spec 36/37)', async () => {
-    testProvider.script([{ payload: MENTOR_ANSWER }]);
-    const created = await request(apiBase())
-      .post('/api/v1/intern/me/ai-mentor/conversations')
-      .set('Authorization', `Bearer ${aToken}`)
-      .send({ title: 'Provenance thread' });
-    expect(created.status).toBe(201);
-    const sent = await request(apiBase())
-      .post(`/api/v1/intern/me/ai-mentor/conversations/${created.body.id}/messages`)
-      .set('Authorization', `Bearer ${aToken}`)
-      .send({ content: 'How am I doing?' });
-    expect(sent.status).toBe(201);
-    const runId = sent.body.assistantMessage.aiRunId;
-    expect(runId).toBeTruthy();
-    const runs = await query(
-      `SELECT feature, provider, model, status, promptVersion, userId, resourceType, resourceId,
-              inputTokens, outputTokens, latencyMs, errorCode, completedAt
-         FROM ai_runs WHERE id = ?`,
-      [runId],
-    );
-    expect(runs.length).toBe(1);
-    expect(runs[0]).toMatchObject({
-      feature: 'ai-mentor',
-      provider: 'test',
-      model: 'test-model-1',
-      status: 'succeeded',
-      promptVersion: 'ai-mentor-v1',
-      userId: ids.a,
-      resourceType: 'ai_mentor_conversation',
-      resourceId: created.body.id,
-      errorCode: null,
-      inputTokens: 11,
-      outputTokens: 22,
-    });
-    expect(Number(runs[0].latencyMs)).toBeGreaterThanOrEqual(0);
-    expect(runs[0].completedAt).toBeTruthy();
   });
 
   it('workspace facts: provider received ONLY intern A authorized facts with exact DB values (spec 42)', async () => {
@@ -652,32 +614,6 @@ describe('AI mentor', () => {
     expect(send.body.code).toBe('AI_MENTOR_CONVERSATION_ARCHIVED');
   });
 
-  it('archived conversation history remains readable — no destructive cleanup (spec 62)', async () => {
-    testProvider.script([{ payload: MENTOR_ANSWER }]);
-    const created = await request(apiBase())
-      .post('/api/v1/intern/me/ai-mentor/conversations')
-      .set('Authorization', `Bearer ${aToken}`)
-      .send({ title: 'Retention thread' });
-    expect(created.status).toBe(201);
-    const sent = await request(apiBase())
-      .post(`/api/v1/intern/me/ai-mentor/conversations/${created.body.id}/messages`)
-      .set('Authorization', `Bearer ${aToken}`)
-      .send({ content: 'retention check' });
-    expect(sent.status).toBe(201);
-    const archived = await request(apiBase())
-      .post(`/api/v1/intern/me/ai-mentor/conversations/${created.body.id}/archive`)
-      .set('Authorization', `Bearer ${aToken}`);
-    expect(archived.status).toBe(201);
-    // Logical archive only — history stays fully readable (spec 62).
-    const detail = await request(apiBase())
-      .get(`/api/v1/intern/me/ai-mentor/conversations/${created.body.id}`)
-      .set('Authorization', `Bearer ${aToken}`);
-    expect(detail.status).toBe(200);
-    expect(detail.body.conversation.status).toBe('archived');
-    const roles = (detail.body.messages as Array<{ role: string }>).map((m) => m.role);
-    expect(roles).toEqual(['user', 'assistant']);
-  });
-
   it('input bounds: empty and oversized messages rejected (spec 11)', async () => {
     const tooLong = await request(apiBase())
       .post(`/api/v1/intern/me/ai-mentor/conversations/${ids.conversationId}/messages`)
@@ -704,6 +640,74 @@ describe('AI mentor', () => {
       .get('/api/v1/intern/me/ai-mentor/conversations')
       .set('Authorization', `Bearer ${instructorToken}`);
     expect(denied.status).toBe(403);
+  });
+
+  // Provider-calling tests live at the END of this describe: the specs
+  // above read `testProvider.calls[last]` produced by the conversation
+  // flow, and every extra provider call here would shadow it.
+
+  it('ai_runs provenance: full run metadata persisted on mentor send (spec 36/37)', async () => {
+    testProvider.script([{ payload: MENTOR_ANSWER }]);
+    const created = await request(apiBase())
+      .post('/api/v1/intern/me/ai-mentor/conversations')
+      .set('Authorization', `Bearer ${aToken}`)
+      .send({ title: 'Provenance thread' });
+    expect(created.status).toBe(201);
+    const sent = await request(apiBase())
+      .post(`/api/v1/intern/me/ai-mentor/conversations/${created.body.id}/messages`)
+      .set('Authorization', `Bearer ${aToken}`)
+      .send({ content: 'How am I doing?' });
+    expect(sent.status).toBe(201);
+    const runId = sent.body.assistantMessage.aiRunId;
+    expect(runId).toBeTruthy();
+    const runs = await query(
+      `SELECT feature, provider, model, status, promptVersion, userId, resourceType, resourceId,
+              inputTokens, outputTokens, latencyMs, errorCode, completedAt
+         FROM ai_runs WHERE id = ?`,
+      [runId],
+    );
+    expect(runs.length).toBe(1);
+    expect(runs[0]).toMatchObject({
+      feature: 'ai-mentor',
+      provider: 'test',
+      model: 'test-model-1',
+      status: 'succeeded',
+      promptVersion: 'ai-mentor-v1',
+      userId: ids.a,
+      resourceType: 'ai_mentor_conversation',
+      resourceId: created.body.id,
+      errorCode: null,
+      inputTokens: 11,
+      outputTokens: 22,
+    });
+    expect(Number(runs[0].latencyMs)).toBeGreaterThanOrEqual(0);
+    expect(runs[0].completedAt).toBeTruthy();
+  });
+
+  it('archived conversation history remains readable — no destructive cleanup (spec 62)', async () => {
+    testProvider.script([{ payload: MENTOR_ANSWER }]);
+    const created = await request(apiBase())
+      .post('/api/v1/intern/me/ai-mentor/conversations')
+      .set('Authorization', `Bearer ${aToken}`)
+      .send({ title: 'Retention thread' });
+    expect(created.status).toBe(201);
+    const sent = await request(apiBase())
+      .post(`/api/v1/intern/me/ai-mentor/conversations/${created.body.id}/messages`)
+      .set('Authorization', `Bearer ${aToken}`)
+      .send({ content: 'retention check' });
+    expect(sent.status).toBe(201);
+    const archived = await request(apiBase())
+      .post(`/api/v1/intern/me/ai-mentor/conversations/${created.body.id}/archive`)
+      .set('Authorization', `Bearer ${aToken}`);
+    expect(archived.status).toBe(201);
+    // Logical archive only — history stays fully readable (spec 62).
+    const detail = await request(apiBase())
+      .get(`/api/v1/intern/me/ai-mentor/conversations/${created.body.id}`)
+      .set('Authorization', `Bearer ${aToken}`);
+    expect(detail.status).toBe(200);
+    expect(detail.body.conversation.status).toBe('archived');
+    const roles = (detail.body.messages as Array<{ role: string }>).map((m) => m.role);
+    expect(roles).toEqual(['user', 'assistant']);
   });
 });
 
@@ -965,14 +969,16 @@ describe('AI recommendations', () => {
        VALUES (NEWID(), ?, 'Extra task', NULL, ?, ?, ?, ?, 'todo', 'low', 1, 0, NULL, 1)`,
       [`AI-T7-${RUN}`, ids.projectId, ids.sprintId, ids.a, ids.instructor],
     );
-    const callsBefore = testProvider.calls.length;
     testProvider.script([{ error: new AiProviderTimeoutError(60000) }]);
     const res = await request(apiBase())
       .post('/api/v1/intern/me/ai-recommendations/refresh')
       .set('Authorization', `Bearer ${aToken}`);
     expect(res.status).toBe(503);
     expect(res.body.code).toBe('AI_PROVIDER_TIMEOUT');
-    expect(testProvider.calls.length).toBe(callsBefore + 1); // a provider call WAS attempted (facts changed)
+    // script() RESETS the call recorder — exactly ONE timeout call must
+    // have been attempted after it (facts changed → no reuse), so the
+    // assertion is against the reset baseline, not a pre-script count.
+    expect(testProvider.calls.length).toBe(1);
 
     const latest = await request(apiBase())
       .get('/api/v1/intern/me/ai-recommendations')
