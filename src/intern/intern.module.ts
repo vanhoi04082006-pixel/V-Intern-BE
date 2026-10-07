@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { AssignmentsModule } from '../assignments/assignments.module';
+import { AuditModule } from '../audit/audit.module';
 import { RbacModule } from '../rbac/rbac.module';
 import { TasksModule } from '../tasks/tasks.module';
 import { RecruitmentModule } from '../recruitment/recruitment.module';
@@ -15,6 +16,7 @@ import { InternService } from './intern.service';
 @Module({
   imports: [
     AssignmentsModule,
+    AuditModule,
     RbacModule,
     TasksModule,
     RecruitmentModule,
