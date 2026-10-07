@@ -397,7 +397,7 @@ async function main(): Promise<void> {
     // ── CHECK constraints (spec 14) ────────────────────────────────────
     const checkRows = (await ds.query(
       `SELECT name FROM sys.check_constraints WHERE is_ms_shipped = 0
-        AND name IN (${[...PHASE2_CHECKS, ...PHASE3_CHECKS, ...PHASE4_CHECKS, ...PHASE5_CHECKS]
+        AND name IN (${[...PHASE2_CHECKS, ...PHASE3_CHECKS, ...PHASE4_CHECKS, ...PHASE5_CHECKS, ...PHASE6_CHECKS]
           .map((n) => `N'${n}'`)
           .join(',')});`,
     )) as Array<{ name: string }>;
