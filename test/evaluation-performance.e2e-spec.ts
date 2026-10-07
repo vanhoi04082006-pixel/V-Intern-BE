@@ -180,7 +180,7 @@ describe('Phase 5 evaluation + performance e2e (spec 80/81)', () => {
     expect(session.status).toBe(201);
     sessionId = session.body.id;
     const activated = await request(apiBase()).patch(`/api/v1/sessions/${sessionId}`).set('Authorization', `Bearer ${admin}`).send({ status: 'active' });
-    expect(activated.status).toBe(200);
+    expect(activated.status).toBe(201); // Nest POST default
 
     const project = await request(apiBase()).post('/api/v1/projects').set('Authorization', `Bearer ${admin}`).send({
       code: `E2E-E5-P-${RUN}`, name: 'Phase 5 project', description: 'Deterministic e2e project', status: 'active', mentorId: undefined, technologies: [],
@@ -238,7 +238,7 @@ describe('Phase 5 evaluation + performance e2e (spec 80/81)', () => {
 
   it('open cycle; unrelated instructor is 403 (ownership, spec 61); intern out of scope → 409', async () => {
     const opened = await request(apiBase()).post(`/api/v1/evaluation-cycles/${cycleId}/status`).set('Authorization', `Bearer ${si}`).send({ status: 'open' });
-    expect(opened.status).toBe(200);
+    expect(opened.status).toBe(201); // Nest POST default
     expect(opened.body.status).toBe('open');
 
     const foreign = await request(apiBase()).post('/api/v1/evaluations').set('Authorization', `Bearer ${ix}`).send({
@@ -260,8 +260,13 @@ describe('Phase 5 evaluation + performance e2e (spec 80/81)', () => {
     const bad = await request(apiBase()).patch(`/api/v1/evaluations/${evaluationId}`).set('Authorization', `Bearer ${si}`).send({
       scores: [{ criterionId: criterionIds.technical_quality, score: 150 }],
     });
+    // The DTO whitelist is the documented FIRST line of defense
+    // (150 > 100 → VALIDATION_ERROR — the same layering the Phase 4 role
+    // whitelist established); the service-level EVALUATION_SCORE_OUT_OF_BOUNDS
+    // stays as the safety net for scores within 0..100 that exceed a
+    // criterion's maxScore.
     expect(bad.status).toBe(400);
-    expect(bad.body.code).toBe('EVALUATION_SCORE_OUT_OF_BOUNDS');
+    expect(bad.body.code).toBe('VALIDATION_ERROR');
 
     // foreign evaluator cannot edit
     const foreignEdit = await request(apiBase()).patch(`/api/v1/evaluations/${evaluationId}`).set('Authorization', `Bearer ${ix}`).send({
@@ -363,7 +368,7 @@ describe('Phase 5 evaluation + performance e2e (spec 80/81)', () => {
 
   it('closed cycle rejects new evaluations (spec 7)', async () => {
     const closed = await request(apiBase()).post(`/api/v1/evaluation-cycles/${cycleId}/status`).set('Authorization', `Bearer ${si}`).send({ status: 'closed' });
-    expect(closed.status).toBe(200);
+    expect(closed.status).toBe(201);
     const rejected = await request(apiBase()).post('/api/v1/evaluations').set('Authorization', `Bearer ${si}`).send({
       cycleId, internId: i2UserId,
     });

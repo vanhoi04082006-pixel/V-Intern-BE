@@ -254,7 +254,7 @@ describe('Phase 5 KPI + virtual salary + certificates e2e (spec 82-87)', () => {
     expect(sprint.status).toBe(201);
     sprintId = sprint.body.id;
     const activated = await request(apiBase()).post(`/api/v1/sprints/${sprintId}/status`).set('Authorization', `Bearer ${admin}`).send({ status: 'active' });
-    expect(activated.status).toBe(200);
+    expect(activated.status).toBe(201); // Nest POST default
 
     await query(`INSERT INTO session_instructors (sessionId, instructorId, assignedAt) VALUES (@0, @1, SYSUTCDATETIME())`, [sessionId, await userIdByEmail(EMAILS.si)]);
 

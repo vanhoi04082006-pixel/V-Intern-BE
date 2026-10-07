@@ -64,18 +64,31 @@ export class CertificatesService {
       where: { code: CERTIFICATE_POLICY_CODE, version: CERTIFICATE_POLICY_VERSION },
     });
     if (existing) return existing;
-    return repo.save(
-      repo.create({
-        code: CERTIFICATE_POLICY_CODE,
-        version: CERTIFICATE_POLICY_VERSION,
-        name: 'Chứng nhận hoàn thành chương trình thực tập V-Intern',
-        minEvaluationScore: 70,
-        minKpiScore: 70,
-        requireRecruitmentPassed: true,
-        requireCompletedAssignment: true,
-        isActive: true,
-      }),
-    );
+    try {
+      return await repo.save(
+        repo.create({
+          code: CERTIFICATE_POLICY_CODE,
+          version: CERTIFICATE_POLICY_VERSION,
+          name: 'Chứng nhận hoàn thành chương trình thực tập V-Intern',
+          minEvaluationScore: 70,
+          minKpiScore: 70,
+          requireRecruitmentPassed: true,
+          requireCompletedAssignment: true,
+          isActive: true,
+        }),
+      );
+    } catch (err) {
+      // Two concurrent issuers can race the policy INSERT — the UNIQUE
+      // (code, version) index decides; the loser re-reads the winner's row
+      // instead of surfacing a 500 (real defect found by the CI race).
+      if (isUniqueViolation(err)) {
+        const winner = await repo.findOne({
+          where: { code: CERTIFICATE_POLICY_CODE, version: CERTIFICATE_POLICY_VERSION },
+        });
+        if (winner) return winner;
+      }
+      throw err;
+    }
   }
 
   /** POST /certificates/issue (spec 49) — eligibility + atomic issuance. */
