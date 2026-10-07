@@ -2,10 +2,8 @@ import 'reflect-metadata';
 import { Logger, ValidationPipe, VersioningType } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
-import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
-import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
 import { appConfig } from './config/configuration';
 
 async function bootstrap(): Promise<void> {
@@ -16,8 +14,7 @@ async function bootstrap(): Promise<void> {
     logger: ['error', 'warn', 'log'],
   });
 
-  app.use(helmet());
-  app.use(cookieParser());
+  app.use(helmet()); // cookie-parser + the global exception filter now live in AppModule (e2e parity)
 
   // CORS: explicit allowlist + credentials (wildcard + credentials is forbidden).
   app.enableCors({
@@ -39,8 +36,6 @@ async function bootstrap(): Promise<void> {
       transform: true,
     }),
   );
-
-  app.useGlobalFilters(new GlobalExceptionFilter());
 
   const swaggerConfig = new DocumentBuilder()
     .setTitle('V-Intern API')

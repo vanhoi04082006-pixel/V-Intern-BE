@@ -1,10 +1,12 @@
-import { Module } from '@nestjs/common';
+import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_FILTER, APP_GUARD } from '@nestjs/core';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import cookieParser from 'cookie-parser';
 import { appConfig } from './config/configuration';
 import { ENTITIES } from './database/entities';
+import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { PermissionsGuard } from './common/guards/permissions.guard';
 import { AuditModule } from './audit/audit.module';
@@ -81,6 +83,16 @@ import { UsersModule } from './users/users.module';
     { provide: APP_GUARD, useClass: ThrottlerGuard },
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: PermissionsGuard },
+    // Unified error contract lives at MODULE level so EVERY boot (production
+    // main.ts AND e2e Test apps) enforces the same response shape — Phase 3.5
+    // found e2e apps silently diverging when it was main.ts-only.
+    { provide: APP_FILTER, useClass: GlobalExceptionFilter },
   ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  // cookie-parser at MODULE level for the same parity reason: the refresh
+  // endpoint reads req.cookies, which Express never populates by itself.
+  configure(consumer: MiddlewareConsumer): void {
+    consumer.apply(cookieParser()).forRoutes('*');
+  }
+}
