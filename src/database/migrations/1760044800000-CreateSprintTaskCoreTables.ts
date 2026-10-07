@@ -25,6 +25,17 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  * - Query-supporting indexes: (projectId,status), (sprintId,status),
  *   (assigneeId,status), (dueDate), history (taskId,createdAt),
  *   comments (taskId,createdAt), sprints (projectId,status) — spec 31.
+ *
+ * PHASE 3.5 REPAIR RECORD (pre-deployment, documented per migration policy):
+ * - 2026-10-07 — FK_tasks_createdBy changed ON DELETE SET NULL → NO ACTION.
+ *   Real SQL Server 2019 (CI run 37590542594) rejected the original with
+ *   error 1785 'may cause cycles or multiple cascade paths': assigneeId
+ *   (SET NULL) + createdById (SET NULL) both reference users — two cascade
+ *   paths from one parent to the same child row. assigneeId keeps SET NULL
+ *   (deleting an assignee unassigns the task); the creator reference
+ *   becomes a restrict — users are deactivated via status in this platform
+ *   (never hard-deleted through normal flows). Identical class of repair as
+ *   FK_assignments_assignedBy. No other object was altered.
  */
 export class CreateSprintTaskCoreTables1760044800000 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
@@ -99,8 +110,10 @@ export class CreateSprintTaskCoreTables1760044800000 implements MigrationInterfa
           REFERENCES sprints (id) ON DELETE SET NULL,
         CONSTRAINT FK_tasks_assignee FOREIGN KEY (assigneeId)
           REFERENCES users (id) ON DELETE SET NULL,
+        -- Phase 3.5 repair (error 1785 multi-cascade-path): see REPAIR RECORD
+        -- in the header — the second FK to users must be a restrict.
         CONSTRAINT FK_tasks_createdBy FOREIGN KEY (createdById)
-          REFERENCES users (id) ON DELETE SET NULL
+          REFERENCES users (id) ON DELETE NO ACTION
       );`);
     await S(`CREATE UNIQUE INDEX UX_tasks_code ON tasks (code);`);
     await S(`CREATE INDEX IX_tasks_projectId_status ON tasks (projectId, status);`);
