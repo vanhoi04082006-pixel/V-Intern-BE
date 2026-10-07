@@ -24,6 +24,10 @@ import { Project } from '../projects/entities/project.entity';
 import { ProjectMember } from '../projects/entities/project-member.entity';
 import { ProjectTechnology } from '../projects/entities/project-technology.entity';
 import { Assignment } from '../assignments/entities/assignment.entity';
+import { Sprint } from '../sprints/entities/sprint.entity';
+import { Task } from '../tasks/entities/task.entity';
+import { TaskComment } from '../tasks/entities/task-comment.entity';
+import { TaskStatusHistory } from '../tasks/entities/task-status-history.entity';
 
 /** Single source of truth for the platform + academic-core entity list. */
 export const ENTITIES = [
@@ -55,4 +59,9 @@ export const ENTITIES = [
   ProjectMember,
   ProjectTechnology,
   Assignment,
+  // Phase 3 — sprint / task core
+  Sprint,
+  Task,
+  TaskComment,
+  TaskStatusHistory,
 ];

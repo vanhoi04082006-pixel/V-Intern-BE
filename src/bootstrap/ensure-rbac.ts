@@ -35,6 +35,13 @@ export const PERMISSION_CATALOG: Array<{ code: string; name: string; description
   { code: 'assignments.view', name: 'Xem phân công', description: 'Danh sách và chi tiết phân công thực tập' },
   { code: 'assignments.manage', name: 'Quản trị phân công', description: 'Tạo/hoàn thành phân công (giao thực tập sinh vào phiên + đồ án)' },
   { code: 'intern.workspace.view', name: 'Xem workspace của tôi', description: 'Thực tập sinh xem trạng thái workspace hiện tại' },
+  // ── Phase 3 — sprint / task core ──────────────────────────────────────────
+  { code: 'sprints.view', name: 'Xem sprint', description: 'Danh sách, chi tiết, board và tổng kết sprint' },
+  { code: 'sprints.manage', name: 'Quản trị sprint', description: 'Tạo/sửa sprint, chuyển trạng thái (một sprint hoạt động mỗi đồ án)' },
+  { code: 'tasks.view', name: 'Xem task', description: 'Danh sách và chi tiết mọi task' },
+  { code: 'tasks.manage', name: 'Quản trị task', description: 'Tạo/sửa/giao/xoá task, duyệt review, yêu cầu làm lại' },
+  { code: 'tasks.view.own', name: 'Xem task của tôi', description: 'Thực tập sinh xem task được giao cho mình' },
+  { code: 'tasks.update.own', name: 'Cập nhật task của tôi', description: 'Thực tập sinh tự chuyển trạng thái/tiến độ task của mình' },
 ];
 
 /**
@@ -44,7 +51,7 @@ export const PERMISSION_CATALOG: Array<{ code: string; name: string; description
  * - instructor → academic manage/view set (NO platform administration)
  * - intern → only the current-user workspace view
  */
-const ROLE_CATALOG: Array<{
+export const ROLE_CATALOG: Array<{
   code: string;
   name: string;
   description: string;
@@ -67,6 +74,11 @@ const ROLE_CATALOG: Array<{
       'projects.manage',
       'assignments.view',
       'assignments.manage',
+      // Phase 3 — sprint / task management
+      'sprints.view',
+      'sprints.manage',
+      'tasks.view',
+      'tasks.manage',
     ],
   },
   {
@@ -74,7 +86,7 @@ const ROLE_CATALOG: Array<{
     name: 'Thực tập sinh',
     description: 'Người tham gia chương trình thực tập',
     isSystem: true,
-    grantCodes: ['intern.workspace.view'],
+    grantCodes: ['intern.workspace.view', 'tasks.view.own', 'tasks.update.own'],
   },
 ];
 

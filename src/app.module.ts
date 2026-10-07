@@ -20,6 +20,8 @@ import { ProjectsModule } from './projects/projects.module';
 import { RbacModule } from './rbac/rbac.module';
 import { SessionsModule } from './sessions/sessions.module';
 import { SettingsModule } from './settings/settings.module';
+import { SprintsModule } from './sprints/sprints.module';
+import { TasksModule } from './tasks/tasks.module';
 import { UsersModule } from './users/users.module';
 
 @Module({
@@ -67,6 +69,9 @@ import { UsersModule } from './users/users.module';
     ProjectsModule,
     AssignmentsModule,
     InternModule,
+    // Phase 3 — sprint / task core
+    SprintsModule,
+    TasksModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },

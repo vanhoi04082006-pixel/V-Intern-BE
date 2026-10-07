@@ -4,6 +4,7 @@ import { DataSource } from 'typeorm';
 import { ENTITIES } from './entities';
 import { InitPlatformCore1759872000000 } from './migrations/1759872000000-InitPlatformCore';
 import { CreateAcademicCoreTables1759958400000 } from './migrations/1759958400000-CreateAcademicCoreTables';
+import { CreateSprintTaskCoreTables1760044800000 } from './migrations/1760044800000-CreateSprintTaskCoreTables';
 
 /**
  * Standalone DataSource for the TypeORM CLI (migrations ONLY).
@@ -25,5 +26,9 @@ export default new DataSource({
   synchronize: false,
   logging: false,
   entities: ENTITIES,
-  migrations: [InitPlatformCore1759872000000, CreateAcademicCoreTables1759958400000],
+  migrations: [
+    InitPlatformCore1759872000000,
+    CreateAcademicCoreTables1759958400000,
+    CreateSprintTaskCoreTables1760044800000,
+  ],
 });
