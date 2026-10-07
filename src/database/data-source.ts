@@ -7,6 +7,7 @@ import { CreateAcademicCoreTables1759958400000 } from './migrations/175995840000
 import { CreateSprintTaskCoreTables1760044800000 } from './migrations/1760044800000-CreateSprintTaskCoreTables';
 import { CreateRecruitmentAiCoreTables1760131200000 } from './migrations/1760131200000-CreateRecruitmentAiCoreTables';
 import { CreateEvaluationKpiSalaryCertificateTables1760217600000 } from './migrations/1760217600000-CreateEvaluationKpiSalaryCertificateTables';
+import { CreateAiMentorAssistanceRecommendationTables1760304000000 } from './migrations/1760304000000-CreateAiMentorAssistanceRecommendationTables';
 
 /**
  * Standalone DataSource for the TypeORM CLI (migrations ONLY).
@@ -34,5 +35,6 @@ export default new DataSource({
     CreateSprintTaskCoreTables1760044800000,
     CreateRecruitmentAiCoreTables1760131200000,
     CreateEvaluationKpiSalaryCertificateTables1760217600000,
+    CreateAiMentorAssistanceRecommendationTables1760304000000,
   ],
 });
