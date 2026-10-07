@@ -156,6 +156,17 @@ describe('Platform core e2e — auth + RBAC + pagination + health', () => {
     expect(res.body.checks.database).toBe('ok');
   });
 
+  it('swagger runtime: /api/docs serves UI, /api/docs-json serves the OpenAPI document', async () => {
+    const ui = await request(app.getHttpServer()).get('/api/docs');
+    expect(ui.status).toBe(200);
+    expect(ui.text).toContain('swagger-ui');
+
+    const json = await request(app.getHttpServer()).get('/api/docs-json');
+    expect(json.status).toBe(200);
+    expect(String(json.body.openapi)).toMatch(/^3\./);
+    expect(json.body.info?.title).toBe('V-Intern API');
+  });
+
   it('login success → accessToken + roles + refresh cookie (HttpOnly, path-scoped)', async () => {
     const res = await login('e2e-admin@vintern.test', 'E2e-Password-1');
     expect(res.status).toBe(200);
