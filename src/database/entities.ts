@@ -28,6 +28,13 @@ import { Sprint } from '../sprints/entities/sprint.entity';
 import { Task } from '../tasks/entities/task.entity';
 import { TaskComment } from '../tasks/entities/task-comment.entity';
 import { TaskStatusHistory } from '../tasks/entities/task-status-history.entity';
+import { RecruitmentProfile } from '../recruitment/entities/recruitment-profile.entity';
+import { InterviewQuestion } from '../recruitment/entities/interview-question.entity';
+import { InterviewSession } from '../recruitment/entities/interview-session.entity';
+import { InterviewSessionQuestion } from '../recruitment/entities/interview-session-question.entity';
+import { InterviewAnswer } from '../recruitment/entities/interview-answer.entity';
+import { RecruitmentResult } from '../recruitment/entities/recruitment-result.entity';
+import { AiRun } from '../ai/entities/ai-run.entity';
 
 /** Single source of truth for the platform + academic-core entity list. */
 export const ENTITIES = [
@@ -64,4 +71,12 @@ export const ENTITIES = [
   Task,
   TaskComment,
   TaskStatusHistory,
+  // Phase 4 — recruitment + AI interview core
+  RecruitmentProfile,
+  InterviewQuestion,
+  InterviewSession,
+  InterviewSessionQuestion,
+  InterviewAnswer,
+  RecruitmentResult,
+  AiRun,
 ];

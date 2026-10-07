@@ -3,10 +3,11 @@ import 'dotenv/config';
 import { DataSource } from 'typeorm';
 
 /**
- * PHASE 3.5 (spec 14/15/16) — READ-ONLY SQL Server schema audit.
+ * PHASE 3.5 + PHASE 4 (spec 14/15/16/59) — READ-ONLY SQL Server schema audit.
  *
  * Verifies, against real SQL Server metadata (sys.* views), that:
- * - all required tables exist (Phase 1: 16, Phase 2: 10, Phase 3: 4);
+ * - all required tables exist (Phase 1: 16, Phase 2: 10, Phase 3: 4,
+ *   Phase 4: 7 — recruitment/AI core);
  * - the task_code_seq SEQUENCE exists (Phase 3) and is absent after a
  *   Phase 3 rollback (--phase3=absent);
  * - the DB-enforced filtered unique indexes exist and really ARE filtered:
@@ -39,6 +40,28 @@ const PHASE2_TABLES = [
 ];
 
 const PHASE3_TABLES = ['sprints', 'tasks', 'task_comments', 'task_status_histories'];
+
+const PHASE4_TABLES = [
+  'recruitment_profiles', 'interview_questions', 'interview_sessions',
+  'interview_session_questions', 'interview_answers', 'recruitment_results',
+  'ai_runs',
+];
+
+const PHASE4_CHECKS = [
+  'CK_recruitment_profiles_status', 'CK_recruitment_profiles_attemptCount',
+  'CK_interview_questions_category', 'CK_interview_questions_difficulty',
+  'CK_interview_sessions_status', 'CK_interview_sessions_questionCount',
+  'CK_interview_session_questions_position', 'CK_recruitment_results_decision',
+  'CK_recruitment_results_scores', 'CK_ai_runs_status',
+];
+
+/** Phase 4 unique indexes (spec 34/40/57 — DB-enforced idempotency). */
+const PHASE4_UNIQUE_INDEXES = [
+  { name: 'UX_recruitment_profiles_userId', table: 'recruitment_profiles' },
+  { name: 'UX_interview_session_questions_sessionId_position', table: 'interview_session_questions' },
+  { name: 'UX_interview_answers_sessionQuestionId', table: 'interview_answers' },
+  { name: 'UX_recruitment_results_sessionId', table: 'recruitment_results' },
+];
 
 /** Named CHECK constraints (spec 14). */
 const PHASE2_CHECKS = [
@@ -90,6 +113,33 @@ const TYPE_CONTRACT: Array<{
   { table: 'task_status_histories', column: 'taskId', type: 'uniqueidentifier' },
   { table: 'task_status_histories', column: 'createdAt', type: 'datetime2' },
   { table: 'task_comments', column: 'content', type: 'nvarchar' },
+  { table: 'recruitment_profiles', column: 'id', type: 'uniqueidentifier' },
+  { table: 'recruitment_profiles', column: 'userId', type: 'uniqueidentifier' },
+  { table: 'recruitment_profiles', column: 'status', type: 'nvarchar' },
+  { table: 'recruitment_profiles', column: 'recruitedAt', type: 'datetime2', nullable: true },
+  { table: 'interview_questions', column: 'roleCode', type: 'nvarchar' },
+  { table: 'interview_questions', column: 'category', type: 'nvarchar' },
+  { table: 'interview_questions', column: 'prompt', type: 'nvarchar' },
+  { table: 'interview_sessions', column: 'profileId', type: 'uniqueidentifier' },
+  { table: 'interview_sessions', column: 'status', type: 'nvarchar' },
+  { table: 'interview_sessions', column: 'expiresAt', type: 'datetime2', nullable: true },
+  { table: 'interview_sessions', column: 'attemptNumber', type: 'int' },
+  { table: 'interview_session_questions', column: 'sessionId', type: 'uniqueidentifier' },
+  { table: 'interview_session_questions', column: 'position', type: 'int' },
+  { table: 'interview_session_questions', column: 'promptSnapshot', type: 'nvarchar' },
+  { table: 'interview_session_questions', column: 'rubricSnapshot', type: 'nvarchar' },
+  { table: 'interview_answers', column: 'sessionQuestionId', type: 'uniqueidentifier' },
+  { table: 'interview_answers', column: 'answerText', type: 'nvarchar' },
+  { table: 'recruitment_results', column: 'sessionId', type: 'uniqueidentifier' },
+  { table: 'recruitment_results', column: 'technicalScore', type: 'decimal' },
+  { table: 'recruitment_results', column: 'softSkillScore', type: 'decimal' },
+  { table: 'recruitment_results', column: 'overallScore', type: 'decimal' },
+  { table: 'recruitment_results', column: 'decision', type: 'nvarchar' },
+  { table: 'recruitment_results', column: 'promptVersion', type: 'nvarchar' },
+  { table: 'ai_runs', column: 'feature', type: 'nvarchar' },
+  { table: 'ai_runs', column: 'status', type: 'nvarchar' },
+  { table: 'ai_runs', column: 'resourceType', type: 'nvarchar' },
+  { table: 'ai_runs', column: 'promptVersion', type: 'nvarchar' },
 ];
 
 interface Check {
@@ -99,8 +149,10 @@ interface Check {
 async function main(): Promise<void> {
   const phase3Arg = process.argv.find((a) => a.startsWith('--phase3='));
   const phase3 = phase3Arg ? phase3Arg.split('=')[1] : 'present';
+  const phase4Arg = process.argv.find((a) => a.startsWith('--phase4='));
+  const phase4 = phase4Arg ? phase4Arg.split('=')[1] : 'present';
   if (phase3 !== 'present' && phase3 !== 'absent') {
-    console.error('[audit-schema] usage: audit-schema [--phase3=present|absent]');
+    console.error('[audit-schema] usage: audit-schema [--phase3=present|absent] [--phase4=present|absent]');
     process.exit(2);
   }
 
@@ -132,7 +184,7 @@ async function main(): Promise<void> {
 
   try {
     await ds.initialize();
-    console.log(`[audit-schema] database=${dbName} phase3=${phase3} (read-only)`);
+    console.log(`[audit-schema] database=${dbName} phase3=${phase3} phase4=${phase4} (read-only)`);
 
     // ── Tables ─────────────────────────────────────────────────────────
     const tableRows = (await ds.query(
@@ -145,6 +197,10 @@ async function main(): Promise<void> {
     for (const t of PHASE3_TABLES) {
       if (phase3 === 'absent') check(!present.has(t), `table ${t} ABSENT after Phase 3 rollback`);
       else check(present.has(t), `table ${t} (Phase 3)`);
+    }
+    for (const t of PHASE4_TABLES) {
+      if (phase4 === 'absent') check(!present.has(t), `table ${t} ABSENT after Phase 4 rollback`);
+      else check(present.has(t), `table ${t} (Phase 4)`);
     }
 
     // ── SEQUENCE ───────────────────────────────────────────────────────
@@ -188,10 +244,32 @@ async function main(): Promise<void> {
       }
     }
 
+    // ── Phase 4 unique indexes (idempotency hard guarantees, spec 34/57) ─
+    const uniqIndexRows = (await ds.query(
+      `SELECT i.name, OBJECT_NAME(i.object_id) AS tableName
+         FROM sys.indexes i
+        WHERE i.is_unique = 1
+          AND i.name IN (${PHASE4_UNIQUE_INDEXES.map((n) => `N'${n.name}'`).join(',')});`,
+    )) as Array<{ name: string; tableName: string }>;
+    const uniqByName = new Map(uniqIndexRows.map((r) => [r.name, r]));
+    for (const spec of PHASE4_UNIQUE_INDEXES) {
+      const found = uniqByName.get(spec.name);
+      if (phase4 === 'absent') {
+        check(!found, `unique index ${spec.name} ABSENT after Phase 4 rollback`);
+      } else {
+        check(
+          Boolean(found) && found!.tableName === spec.table,
+          `unique index ${spec.name} on ${spec.table} (Phase 4)`,
+        );
+      }
+    }
+
     // ── CHECK constraints (spec 14) ────────────────────────────────────
     const checkRows = (await ds.query(
       `SELECT name FROM sys.check_constraints WHERE is_ms_shipped = 0
-        AND name IN (${[...PHASE2_CHECKS, ...PHASE3_CHECKS].map((n) => `N'${n}'`).join(',')});`,
+        AND name IN (${[...PHASE2_CHECKS, ...PHASE3_CHECKS, ...PHASE4_CHECKS]
+          .map((n) => `N'${n}'`)
+          .join(',')});`,
     )) as Array<{ name: string }>;
     const checkNames = new Set(checkRows.map((r) => r.name));
     for (const name of PHASE2_CHECKS) check(checkNames.has(name), `CHECK constraint ${name}`);
@@ -199,9 +277,13 @@ async function main(): Promise<void> {
       if (phase3 === 'absent') check(!checkNames.has(name), `CHECK ${name} ABSENT after rollback`);
       else check(checkNames.has(name), `CHECK constraint ${name}`);
     }
+    for (const name of PHASE4_CHECKS) {
+      if (phase4 === 'absent') check(!checkNames.has(name), `CHECK ${name} ABSENT after Phase 4 rollback`);
+      else check(checkNames.has(name), `CHECK constraint ${name} (Phase 4)`);
+    }
 
     // ── Column type contract (spec 15) ─────────────────────────────────
-    const allTables = [...PHASE1_TABLES, ...PHASE2_TABLES, ...PHASE3_TABLES];
+    const allTables = [...PHASE1_TABLES, ...PHASE2_TABLES, ...PHASE3_TABLES, ...PHASE4_TABLES];
     const colRows = (await ds.query(
       `SELECT t.name AS tableName, c.name AS columnName, ty.name AS typeName, c.is_nullable
          FROM sys.columns c
@@ -216,6 +298,7 @@ async function main(): Promise<void> {
 
     for (const spec of TYPE_CONTRACT) {
       if (phase3 === 'absent' && PHASE3_TABLES.includes(spec.table)) continue;
+      if (phase4 === 'absent' && PHASE4_TABLES.includes(spec.table)) continue;
       const found = colMap.get(colKey(spec.table, spec.column));
       const exists = Boolean(found);
       const typeOk = exists && found!.typeName === spec.type;
