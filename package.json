@@ -19,7 +19,8 @@
     "bootstrap:admin": "ts-node src/scripts/bootstrap-admin.ts",
     "seed:dev": "ts-node src/scripts/seed-dev.ts",
     "db:create:e2e": "ts-node src/scripts/create-e2e-database.ts",
-    "audit:schema": "ts-node src/scripts/audit-schema.ts"
+    "audit:schema": "ts-node src/scripts/audit-schema.ts",
+    "seed:recruitment": "ts-node src/scripts/seed-recruitment-questions.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.1.3",

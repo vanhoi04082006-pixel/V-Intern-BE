@@ -7,16 +7,19 @@
 #   -> disposable SQL Server 2019 container (runtime-generated, masked SA password)
 #   -> deterministic readiness polling (SELECT 1)
 #   -> create disposable E2E database (validated, never production-like)
-#   -> migration:run (Phase 1 + 2 + 3, from EMPTY database)
+#   -> migration:run (Phase 1 + 2 + 3 + 4, from EMPTY database)
 #   -> migration:show -> schema audit (tables/sequence/filtered indexes/CHECKs/types)
 #   -> bootstrap admin x2 + idempotency counts
 #   -> boot the real API -> poll /api/v1/health -> /api/docs + /api/docs-json
-#   -> e2e: platform + academic + sprint/task + SQL Server concurrency/rollback
+#   -> seed:recruitment (idempotent question bank, spec 50)
+#   -> e2e: platform + academic + sprint/task + recruitment + SQL Server concurrency/rollback
 #   -> migration:revert (Phase 3) -> audit --phase3=absent -> migration:run -> audit
 #
 # Secrets: NONE required. All credentials are ephemeral, generated at job
 # runtime, immediately masked and never echoed. The container/database is
-# destroyed with the job (spec 24). No AI provider is contacted (spec 31).
+# destroyed with the job (spec 24). No REAL AI provider is contacted (spec
+# 31/60) — the recruitment e2e injects a deterministic TestAIProvider that
+# exercises the same domain evaluation path and schema contract.
 
 name: backend-ci
 
@@ -121,7 +124,7 @@ jobs:
         run: npm run db:create:e2e
 
       # ── Fresh-database migration run (spec 12/13) ─────────────────────
-      - name: Apply ALL migrations to the EMPTY database (Phase 1 + 2 + 3)
+      - name: Apply ALL migrations to the EMPTY database (Phase 1 + 2 + 3 + 4)
         env:
           DB_PASSWORD: ${{ env.APP_PASSWORD }}
         run: npm run migration:run
@@ -204,6 +207,12 @@ jobs:
           }
           node -e "const c=require('/tmp/bootstrap-counts-2.json'); if (c.bootstrapAdmin !== 1) { console.error('bootstrap admin must exist exactly once'); process.exit(1); } console.log('bootstrap idempotent — no duplicates');"
 
+      # ── Phase 4 question bank (spec 50) — idempotent product config seed ──
+      - name: Seed recruitment question bank (idempotent)
+        env:
+          DB_PASSWORD: ${{ env.APP_PASSWORD }}
+        run: npm run seed:recruitment
+
       # ── Real runtime boot (spec 19/20) ────────────────────────────────
       - name: Boot the real API — poll /api/v1/health, then /api/docs + OpenAPI
         env:
@@ -231,23 +240,23 @@ jobs:
           kill "$(cat /tmp/api.pid)" 2>/dev/null || true
 
       # ── E2E against REAL SQL Server (spec 21/22/23/25/26/27) ──────────
-      - name: E2E — platform + academic + sprint/task + SQL Server concurrency
+      - name: E2E — platform + academic + sprint/task + recruitment + concurrency
         env:
           DB_PASSWORD: ${{ env.APP_PASSWORD }}
         run: npm run test:e2e
 
       # ── Migration rollback verification (spec 16) ─────────────────────
-      - name: Revert Phase 3 (latest migration) on the disposable database
+      - name: Revert Phase 4 (latest migration) on the disposable database
         env:
           DB_PASSWORD: ${{ env.APP_PASSWORD }}
         run: npm run migration:revert
 
-      - name: Audit after rollback (Phase 3 objects GONE, Phase 1/2 intact)
+      - name: Audit after rollback (Phase 4 objects GONE, Phase 1/2/3 intact)
         env:
           DB_PASSWORD: ${{ env.APP_PASSWORD }}
-        run: npm run audit:schema -- --phase3=absent
+        run: npm run audit:schema -- --phase4=absent
 
-      - name: Reapply Phase 3 (fresh reapply must succeed)
+      - name: Reapply Phase 4 (fresh reapply must succeed)
         env:
           DB_PASSWORD: ${{ env.APP_PASSWORD }}
         run: npm run migration:run

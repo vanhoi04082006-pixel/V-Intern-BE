@@ -126,3 +126,16 @@ uniqueidentifier/bit/int); bootstrap is not idempotent; the API health or
 Swagger endpoints fail; any e2e suite (including concurrency/rollback)
 fails; the Phase 3 rollback leaves Phase 1/2 damaged; or the reapply
 fails.
+
+
+## Phase 4 addition (2026-10)
+
+- `1760131200000-CreateRecruitmentAiCoreTables` adds the recruitment + AI
+  interview schema (recruitment_profiles, interview_questions,
+  interview_sessions, interview_session_questions, interview_answers,
+  recruitment_results, ai_runs).
+- Phase 1/2/3 migrations remain FROZEN and untouched. Phase 4 was designed
+  with the documented multi-cascade-path lessons (users→sessions,
+  sessions→answers, profiles→results second paths are NO ACTION by design).
+- From the first green Phase 4 CI run, this migration is FROZEN too — all
+  later changes are NEW migrations.
