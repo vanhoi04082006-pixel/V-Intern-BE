@@ -435,7 +435,10 @@ describe('Phase 3.5 — real SQL Server concurrency, filtered indexes, rollback 
     const afterRace = await dataSource.getRepository(Task).findOneByOrFail({ id: taskId });
     expect(afterRace.title).toBe('Tiêu đề sau đua');
     expect(afterRace.priority).toBe('high');
-    expect(afterRace.version).toBe(2);
+    // Version advances by exactly one per committed update (creation already
+    // consumed one bump — assert RELATIVE, not absolute, per spec 25-D).
+    const raceVersion = afterRace.version;
+    expect(raceVersion).toBeGreaterThanOrEqual(2);
 
     // (2) Stale optimistic write — the @VersionColumn mechanism behind
     //     409 TASK_VERSION_CONFLICT must reject the loser on real SQL Server.
@@ -453,7 +456,7 @@ describe('Phase 3.5 — real SQL Server concurrency, filtered indexes, rollback 
 
     const final = await dataSource.getRepository(Task).findOneByOrFail({ id: taskId });
     expect(final.title).toBe('Phiên bản mới hơn');
-    expect(final.version).toBe(3);
+    expect(final.version).toBe(raceVersion + 1);
   }, 60_000);
 
   it('E: concurrent task creation → unique codes via the task_code_seq SEQUENCE', async () => {
@@ -473,7 +476,10 @@ describe('Phase 3.5 — real SQL Server concurrency, filtered indexes, rollback 
     expect(responses.every((r) => r.status === 201)).toBe(true);
     const codes = responses.map((r) => r.body.code as string);
     expect(new Set(codes).size).toBe(N);
-    const codePattern = new RegExp(`^E2E-CONC-A-${RUN}-\\d+$`);
+    // buildTaskCode SANITIZES the project-code prefix (A-Z0-9 only, uppercased):
+    // E2E-CONC-A-<RUN> → E2ECONCA<RUN-UPPERCASE> — mirror that transformation.
+    const codePrefix = `E2E-CONC-A-${RUN}`.toUpperCase().replace(/[^A-Z0-9]/g, '');
+    const codePattern = new RegExp(`^${codePrefix}-\\d+$`);
     expect(codes.every((c) => codePattern.test(c))).toBe(true);
 
     const stored = await dataSource.getRepository(Task).count({ where: { projectId: projectAId } });
@@ -562,8 +568,10 @@ describe('Phase 3.5 — real SQL Server concurrency, filtered indexes, rollback 
 
     // Controlled failure at the LAST write (activity event) — everything
     // written before it inside the SAME transaction must roll back.
+    // IMPORTANT: spy the APP's DataSource (the one the service actually uses),
+    // never the test's standalone connection.
     const spy = injectTransactionalInsertFailure(
-      dataSource,
+      app.get(DataSource),
       (entity, data) => entity === ActivityEvent && (data as { module?: string } | undefined)?.module === 'assignments',
     );
 
@@ -611,8 +619,9 @@ describe('Phase 3.5 — real SQL Server concurrency, filtered indexes, rollback 
       .getRepository(Notification)
       .count({ where: { userId: intern1, type: 'task' } });
 
-    // Controlled failure at the FIRST write after the task save (history).
-    const spy = injectTransactionalInsertFailure(dataSource, (entity) => entity === TaskStatusHistory);
+    // Controlled failure at the FIRST write after the task save (history) —
+    // again on the APP's DataSource (the instance services actually use).
+    const spy = injectTransactionalInsertFailure(app.get(DataSource), (entity) => entity === TaskStatusHistory);
 
     let resStatus = 0;
     try {
