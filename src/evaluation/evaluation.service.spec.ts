@@ -165,7 +165,7 @@ function buildHarness(opts?: {
   };
 
   const transaction = jest.fn(async (cb: (em2: typeof em) => Promise<unknown>) => cb(em));
-  const ds = { transaction } as unknown as DataSource;
+  const ds = { transaction, manager: em } as unknown as DataSource;
 
   const service = new EvaluationService(
     cycleRepo as unknown as Repository<EvaluationCycle>,
@@ -214,6 +214,11 @@ function expectCode(promise: Promise<unknown>, code: string): Promise<void> {
 }
 
 describe('EvaluationService (Phase 5, spec 7-14)', () => {
+  it('blocks foreign cycle and evaluation reads before returning scores', async () => {
+    const { service } = buildHarness({ instructorExists: false });
+    await expectCode(service.getCycle('cycle-1', OUTSIDER), 'EVALUATION_SCOPE_FORBIDDEN');
+    await expectCode(service.getEvaluation('eval-1', OUTSIDER), 'EVALUATION_SCOPE_FORBIDDEN');
+  });
   it('rejects an illegal cycle transition with 409 INVALID_EVALUATION_CYCLE_TRANSITION', async () => {
     const { service } = buildHarness({ cycle: { ...CYCLE, status: 'closed' } });
     await expectCode(service.changeCycleStatus('cycle-1', 'open', CTX), 'INVALID_EVALUATION_CYCLE_TRANSITION');

@@ -18,6 +18,7 @@ import { toPaginated } from '../common/pagination/paginated';
 import { ActorContext, UsersService } from './users.service';
 import { CreateUserDto, SetUserStatusDto, UpdateUserDto } from './dto/user.dtos';
 import { QueryUsersDto } from './dto/query-users.dto';
+import { toUserResponse } from './user-response';
 
 @ApiTags('users')
 @ApiBearerAuth()
@@ -57,7 +58,7 @@ export class UsersController {
   @RequirePermissions('users.read')
   @ApiOperation({ summary: 'Get one user (users.read)' })
   async getOne(@Param('id', ParseUUIDPipe) id: string) {
-    return this.usersService.getOne(id);
+    return toUserResponse(await this.usersService.getOne(id));
   }
 
   @Patch(':id')

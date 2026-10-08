@@ -424,6 +424,7 @@ export class TasksService {
   async update(
     id: string,
     patch: {
+      expectedVersion?: number;
       title?: string;
       description?: string;
       sprintId?: string;
@@ -441,6 +442,7 @@ export class TasksService {
       const task = await this.lockById(em, id);
       if (!task || task.deletedAt !== null) throw taskNotFound();
       const fields: string[] = [];
+      this.assertExpectedVersion(task, patch.expectedVersion);
 
       if (patch.sprintId !== undefined && patch.sprintId !== task.sprintId) {
         const sprint = await em.getRepository(Sprint).findOne({ where: { id: patch.sprintId } });
@@ -546,7 +548,7 @@ export class TasksService {
   // ── intern own-task update (spec 8/9/28) ────────────────────────────────
   async updateOwn(
     id: string,
-    patch: { status?: TaskStatus; progress?: number; reason?: string },
+    patch: { status?: TaskStatus; progress?: number; reason?: string; expectedVersion?: number },
     principal: RequestPrincipal,
     ctx: ActorContext,
   ): Promise<TaskResponse> {
@@ -576,6 +578,7 @@ export class TasksService {
         });
       }
 
+      this.assertExpectedVersion(task, patch.expectedVersion);
       const statusResult = this.validateAndApplyStatus(task, patch.status, { internSelf: true });
       const doneOverride = statusResult.changed && statusResult.to === 'done';
       if (patch.progress !== undefined && !doneOverride) {
@@ -840,6 +843,17 @@ export class TasksService {
         });
       }
       throw err;
+    }
+  }
+
+  private assertExpectedVersion(task: Task, expectedVersion?: number): void {
+    if (expectedVersion !== undefined && task.version !== expectedVersion) {
+      throw new ConflictException({
+        statusCode: 409,
+        code: 'TASK_VERSION_CONFLICT',
+        message: 'Task was modified since you opened it — reload and retry.',
+        details: { currentVersion: task.version },
+      });
     }
   }
 

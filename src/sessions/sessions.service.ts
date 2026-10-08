@@ -86,6 +86,15 @@ export class SessionsService {
     return { items: items.map(toSessionResponse), total };
   }
 
+  async instructorOptions(q: { page: number; pageSize: number; q?: string }) {
+    const qb = this.users.createQueryBuilder('u').select(['u.id', 'u.displayName', 'u.email'])
+      .where('u.status = :status', { status: 'active' })
+      .andWhere(`(EXISTS (SELECT 1 FROM user_roles ur JOIN role_permissions rp ON rp.roleId=ur.roleId JOIN permissions p ON p.id=rp.permissionId WHERE ur.userId=u.id AND p.code=:permission) OR EXISTS (SELECT 1 FROM group_members gm JOIN group_roles gr ON gr.groupId=gm.groupId JOIN role_permissions rp ON rp.roleId=gr.roleId JOIN permissions p ON p.id=rp.permissionId WHERE gm.userId=u.id AND p.code=:permission))`, { permission: 'sessions.manage' });
+    if (q.q) qb.andWhere('(u.displayName LIKE :term OR u.email LIKE :term)', { term: `%${q.q}%` });
+    const [rows, total] = await qb.orderBy('u.displayName', 'ASC').addOrderBy('u.id', 'ASC').skip((q.page - 1) * q.pageSize).take(q.pageSize).getManyAndCount();
+    return { items: rows.map(u => ({ userId: u.id, displayName: u.displayName, email: u.email })), total };
+  }
+
   async getOne(id: string): Promise<InternshipSession> {
     const session = await this.sessions.findOne({ where: { id } });
     if (!session) {

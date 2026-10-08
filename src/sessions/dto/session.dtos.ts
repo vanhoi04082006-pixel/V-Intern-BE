@@ -184,3 +184,11 @@ export class QuerySessionsDto extends PaginationQueryDto {
   @IsIn(SESSION_STATUSES as unknown as string[])
   status?: (typeof SESSION_STATUSES)[number];
 }
+
+export class QueryInstructorOptionsDto extends PaginationQueryDto {
+  @ApiPropertyOptional({ maxLength: 100 })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  q?: string;
+}

@@ -73,6 +73,12 @@ export class CreateTaskDto {
  * rework (review→doing) is allowed ONLY here, never on /my.
  */
 export class UpdateTaskDto {
+  @ApiPropertyOptional({ minimum: 1, description: 'Version observed by the client; stale edits return 409 TASK_VERSION_CONFLICT' })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  expectedVersion?: number;
+
   @ApiPropertyOptional({ maxLength: 256 })
   @IsOptional()
   @IsString()
@@ -131,6 +137,12 @@ export class UpdateTaskDto {
  * assignee/sprint/story points/creator changes (spec 8).
  */
 export class UpdateMyTaskDto {
+  @ApiPropertyOptional({ minimum: 1, description: 'Version observed by the client; stale edits return 409 TASK_VERSION_CONFLICT' })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  expectedVersion?: number;
+
   @ApiPropertyOptional({ enum: TASK_STATUSES, description: 'todo→doing, doing→review only (409 INVALID_TASK_TRANSITION otherwise)' })
   @IsOptional()
   @IsIn(TASK_STATUSES as unknown as string[])

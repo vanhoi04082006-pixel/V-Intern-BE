@@ -337,6 +337,19 @@ describe('Phase 3 sprint/task e2e — plan → activate → task → review → 
   });
 
   it('intern starts the task (todo→doing) and submits review (doing→review)', async () => {
+    const observed = await request(apiBase()).get(`/api/v1/tasks/${taskId}`).set('Authorization', `Bearer ${intern}`);
+    const version = observed.body.version as number;
+    const first = await request(apiBase()).patch(`/api/v1/tasks/${taskId}/my`).set('Authorization', `Bearer ${intern}`).send({ progress: 22, expectedVersion: version });
+    expect(first.status).toBe(200);
+    const stale = await request(apiBase()).patch(`/api/v1/tasks/${taskId}/my`).set('Authorization', `Bearer ${intern}`).send({ progress: 99, expectedVersion: version });
+    expect(stale.status).toBe(409);
+    expect(stale.body.code).toBe('TASK_VERSION_CONFLICT');
+    const staleManager = await request(apiBase()).patch(`/api/v1/tasks/${taskId}`).set('Authorization', `Bearer ${instructor}`).send({ title: 'stale overwrite', expectedVersion: version });
+    expect(staleManager.status).toBe(409);
+    expect(staleManager.body.code).toBe('TASK_VERSION_CONFLICT');
+    const persisted = await dataSource.query('SELECT progress, title FROM tasks WHERE id=@0', [taskId]);
+    expect(Number(persisted[0].progress)).toBe(22);
+    expect(persisted[0].title).toBe(observed.body.title);
     const start = await request(apiBase())
       .patch(`/api/v1/tasks/${taskId}/my`)
       .set('Authorization', `Bearer ${intern}`)

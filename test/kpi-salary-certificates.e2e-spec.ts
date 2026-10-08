@@ -446,8 +446,13 @@ describe('Phase 5 KPI + virtual salary + certificates e2e (spec 82-87)', () => {
 
     const first = await request(apiBase()).post(`/api/v1/virtual-salary/generate/${periodId}`).set('Authorization', `Bearer ${admin}`);
     expect(first.status).toBe(201);
-    expect(first.body.generated).toBe(2); // k1 + k3 (calculated)
-    expect(first.body.skipped).toBe(0);
+    // Other suites can leave recruited/assigned interns in the shared test
+    // database. Check the batch against SQL and retain exact per-user values.
+    const eligible = await query(`SELECT COUNT(*) AS n FROM kpi_results WHERE periodId=@0 AND status='calculated' AND finalScore IS NOT NULL`, [periodId]);
+    const payable = await query(`SELECT COUNT(*) AS n FROM kpi_results WHERE periodId=@0 AND status='calculated' AND ROUND(10000000 * finalScore / 100, 0) > 0`, [periodId]);
+    expect(first.body.generated).toBe(Number(payable[0].n));
+    expect(first.body.generated).toBeGreaterThanOrEqual(2);
+    expect(first.body.skipped).toBe(Number(eligible[0].n) - Number(payable[0].n));
     expect(first.body.unit).toBe('VND_VIRTUAL');
 
     // k1 earning: 10,000,000 × 83.8% = 8,380,000 (spec 35 example)
@@ -462,9 +467,9 @@ describe('Phase 5 KPI + virtual salary + certificates e2e (spec 82-87)', () => {
     const second = await request(apiBase()).post(`/api/v1/virtual-salary/generate/${periodId}`).set('Authorization', `Bearer ${admin}`);
     expect(second.status).toBe(201);
     expect(second.body.generated).toBe(0);
-    expect(second.body.skipped).toBe(2);
+    expect(second.body.skipped).toBe(Number(eligible[0].n));
     const total = await query(`SELECT COUNT(*) AS n FROM virtual_salary_ledger WHERE kpiPeriodId = @0`, [periodId]);
-    expect(Number(total[0].n)).toBe(2);
+    expect(Number(total[0].n)).toBe(Number(payable[0].n));
   });
 
   it('virtual salary: bonus/penalty/reversal adjustments + ledger-derived balance (spec 84)', async () => {

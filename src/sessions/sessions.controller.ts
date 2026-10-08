@@ -25,6 +25,7 @@ import {
   QuerySessionsDto,
   UpdateMilestoneDto,
   UpdateSessionDto,
+  QueryInstructorOptionsDto,
 } from './dto/session.dtos';
 import { SessionsService, toSessionResponse } from './sessions.service';
 
@@ -60,6 +61,14 @@ export class SessionsController {
     @Req() req: Request,
   ) {
     return this.sessionsService.create(dto, this.ctx(req, actorId));
+  }
+
+  @Get('instructor-options')
+  @RequirePermissions('sessions.manage')
+  @ApiOperation({ summary: 'Search/paginate qualified active instructors; public identity fields only, effective sessions.manage grants including groups' })
+  async instructorOptions(@Query() query: QueryInstructorOptionsDto) {
+    const { items, total } = await this.sessionsService.instructorOptions(query);
+    return toPaginated(items, query.page, query.pageSize, total);
   }
 
   @Get(':id')

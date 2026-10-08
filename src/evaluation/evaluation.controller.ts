@@ -3,7 +3,6 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { RequirePermissions } from '../common/decorators/permissions.decorator';
-import { PaginationQueryDto } from '../common/pagination/pagination-query.dto';
 import { clientIp, userAgent } from '../common/types/request-info';
 import { PermissionsService } from '../rbac/permissions.service';
 import { EvaluationService } from './evaluation.service';
@@ -16,6 +15,8 @@ import {
   UpdateEvaluationCriterionDto,
   UpdateEvaluationCycleDto,
   UpdateEvaluationDto,
+  QueryEvaluationCyclesDto,
+  QueryEvaluationsDto,
 } from './dto/evaluation.dtos';
 
 @ApiTags('evaluation-cycles')
@@ -34,14 +35,14 @@ export class EvaluationCyclesController {
   @Get()
   @RequirePermissions('evaluations.view')
   @ApiOperation({ summary: 'List evaluation cycles (evaluations.view; filters: status/sessionId/projectId)' })
-  async list(@Query() query: PaginationQueryDto & { status?: string; sessionId?: string; projectId?: string }) {
+  async list(@Query() query: QueryEvaluationCyclesDto, @CurrentUser('userId') userId: string) {
     return this.evaluationService.listCycles({
       page: query.page,
       pageSize: query.pageSize,
       status: query.status,
       sessionId: query.sessionId,
       projectId: query.projectId,
-    });
+    }, { userId, isAdmin: await this.permissionsService.hasRole(userId, 'admin') });
   }
 
   @Post()
@@ -51,20 +52,21 @@ export class EvaluationCyclesController {
       'Create a draft cycle; seeds the documented evaluation-v1 template (35/30/20/15) by default — criteria editable only while draft',
   })
   async create(@Body() dto: CreateEvaluationCycleDto, @CurrentUser('userId') userId: string, @Req() req: Request) {
-    return this.evaluationService.createCycle(dto, this.ctx(req, userId));
+    return this.evaluationService.createCycle(dto, this.ctx(req, userId), { userId, isAdmin: await this.permissionsService.hasRole(userId, 'admin') });
   }
 
   @Get(':id')
   @RequirePermissions('evaluations.view')
   @ApiOperation({ summary: 'One evaluation cycle (evaluations.view)' })
-  async getOne(@Param('id', ParseUUIDPipe) id: string) {
-    return this.evaluationService.getCycle(id);
+  async getOne(@Param('id', ParseUUIDPipe) id: string, @CurrentUser('userId') userId: string) {
+    return this.evaluationService.getCycle(id, { userId, isAdmin: await this.permissionsService.hasRole(userId, 'admin') });
   }
 
   @Patch(':id')
   @RequirePermissions('evaluations.manage')
   @ApiOperation({ summary: 'Update a DRAFT cycle (name/dates) — open/closed/archived cycles are immutable' })
   async update(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateEvaluationCycleDto, @CurrentUser('userId') userId: string, @Req() req: Request) {
+    await this.evaluationService.getCycle(id, { userId, isAdmin: await this.permissionsService.hasRole(userId, 'admin') });
     return this.evaluationService.updateCycle(id, dto, this.ctx(req, userId));
   }
 
@@ -75,13 +77,15 @@ export class EvaluationCyclesController {
       'Explicit cycle state transition (draft→open|archived, open→closed, closed→archived); opening requires active criteria weights to total exactly 100%',
   })
   async changeStatus(@Param('id', ParseUUIDPipe) id: string, @Body() dto: ChangeEvaluationCycleStatusDto, @CurrentUser('userId') userId: string, @Req() req: Request) {
+    await this.evaluationService.getCycle(id, { userId, isAdmin: await this.permissionsService.hasRole(userId, 'admin') });
     return this.evaluationService.changeCycleStatus(id, dto.status, this.ctx(req, userId));
   }
 
   @Get(':id/criteria')
   @RequirePermissions('evaluations.view')
   @ApiOperation({ summary: 'Cycle criteria with weights (evaluations.view)' })
-  async criteria(@Param('id', ParseUUIDPipe) id: string) {
+  async criteria(@Param('id', ParseUUIDPipe) id: string, @CurrentUser('userId') userId: string) {
+    await this.evaluationService.getCycle(id, { userId, isAdmin: await this.permissionsService.hasRole(userId, 'admin') });
     return { items: await this.evaluationService.listCriteria(id) };
   }
 
@@ -89,6 +93,7 @@ export class EvaluationCyclesController {
   @RequirePermissions('evaluations.manage')
   @ApiOperation({ summary: 'Add a criterion (draft cycles only; weight 0<w<=100)' })
   async addCriterion(@Param('id', ParseUUIDPipe) id: string, @Body() dto: CreateEvaluationCriterionDto, @CurrentUser('userId') userId: string, @Req() req: Request) {
+    await this.evaluationService.getCycle(id, { userId, isAdmin: await this.permissionsService.hasRole(userId, 'admin') });
     return this.evaluationService.addCriterion(id, dto, this.ctx(req, userId));
   }
 
@@ -102,6 +107,7 @@ export class EvaluationCyclesController {
     @CurrentUser('userId') userId: string,
     @Req() req: Request,
   ) {
+    await this.evaluationService.getCycle(id, { userId, isAdmin: await this.permissionsService.hasRole(userId, 'admin') });
     return this.evaluationService.updateCriterion(id, criterionId, dto, this.ctx(req, userId));
   }
 
@@ -109,6 +115,7 @@ export class EvaluationCyclesController {
   @RequirePermissions('evaluations.manage')
   @ApiOperation({ summary: 'Delete a criterion (draft cycles only)' })
   async deleteCriterion(@Param('id', ParseUUIDPipe) id: string, @Param('criterionId', ParseUUIDPipe) criterionId: string, @CurrentUser('userId') userId: string, @Req() req: Request) {
+    await this.evaluationService.getCycle(id, { userId, isAdmin: await this.permissionsService.hasRole(userId, 'admin') });
     await this.evaluationService.deleteCriterion(id, criterionId, this.ctx(req, userId));
     return { deleted: true };
   }
@@ -130,7 +137,7 @@ export class EvaluationsController {
   @Get()
   @RequirePermissions('evaluations.view')
   @ApiOperation({ summary: 'List evaluations (evaluations.view; filters cycleId/internId/evaluatorId/status)' })
-  async list(@Query() query: PaginationQueryDto & { cycleId?: string; internId?: string; evaluatorId?: string; status?: string }) {
+  async list(@Query() query: QueryEvaluationsDto, @CurrentUser('userId') userId: string) {
     return this.evaluationService.listEvaluations({
       page: query.page,
       pageSize: query.pageSize,
@@ -138,7 +145,7 @@ export class EvaluationsController {
       internId: query.internId,
       evaluatorId: query.evaluatorId,
       status: query.status,
-    });
+    }, { userId, isAdmin: await this.permissionsService.hasRole(userId, 'admin') });
   }
 
   @Post()
@@ -155,8 +162,8 @@ export class EvaluationsController {
   @Get(':id')
   @RequirePermissions('evaluations.view')
   @ApiOperation({ summary: 'One evaluation with criterion scores (evaluations.view)' })
-  async getOne(@Param('id', ParseUUIDPipe) id: string) {
-    return this.evaluationService.getEvaluation(id);
+  async getOne(@Param('id', ParseUUIDPipe) id: string, @CurrentUser('userId') userId: string) {
+    return this.evaluationService.getEvaluation(id, { userId, isAdmin: await this.permissionsService.hasRole(userId, 'admin') });
   }
 
   @Patch(':id')

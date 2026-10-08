@@ -225,4 +225,12 @@ export class GroupsService {
     const rows = await this.members.find({ where: { groupId }, order: { joinedAt: 'ASC' } });
     return rows.map((m) => ({ userId: m.userId, joinedAt: m.joinedAt }));
   }
+
+  async listRoles(groupId: string): Promise<string[]> {
+    await this.getOne(groupId);
+    const grants = await this.groupRoles.find({ where: { groupId } });
+    if (!grants.length) return [];
+    const roles = await this.roles.find({ where: { id: In(grants.map(g => g.roleId)) }, order: { code: 'ASC' } });
+    return roles.map(r => r.code);
+  }
 }

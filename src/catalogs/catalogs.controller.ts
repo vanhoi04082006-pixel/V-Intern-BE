@@ -88,6 +88,11 @@ class UpdateCatalogItemDto {
 
 class QueryCatalogItemsDto extends PaginationQueryDto {
   @IsOptional()
+  @IsString()
+  @Matches(/^[a-z0-9_.-]{3,64}$/)
+  typeCode?: string;
+
+  @IsOptional()
   @Transform(({ value }) => value === 'true' || value === true)
   @IsBoolean()
   includeInactive?: boolean;
@@ -117,7 +122,7 @@ export class CatalogsController {
   @Get('items')
   @RequirePermissions('catalogs.read')
   @ApiOperation({ summary: 'Paginated items of a type (?typeCode=…)' })
-  async items(@Query() query: QueryCatalogItemsDto & { typeCode?: string }) {
+  async items(@Query() query: QueryCatalogItemsDto) {
     if (!query.typeCode) {
       return toPaginated([], query.page, query.pageSize, 0);
     }

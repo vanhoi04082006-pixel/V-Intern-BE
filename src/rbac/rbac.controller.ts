@@ -1,4 +1,4 @@
-import { Controller, Get, Query } from '@nestjs/common';
+import { Controller, Get, NotFoundException, Param, ParseUUIDPipe, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -40,6 +40,18 @@ export class RbacController {
       .skip((query.page - 1) * query.pageSize)
       .take(query.pageSize)
       .getManyAndCount();
+    return toPaginated(items, query.page, query.pageSize, total);
+  }
+
+  @Get('roles/:id/permissions')
+  @RequirePermissions('roles.read', 'permissions.read')
+  @ApiOperation({ summary: 'Paginated actual permission grants for one role; read-only policy matrix' })
+  async rolePermissions(@Param('id', ParseUUIDPipe) id: string, @Query() query: PaginationQueryDto) {
+    const role = await this.rolesRepo.findOne({ where: { id } });
+    if (!role) throw new NotFoundException({ statusCode: 404, code: 'ROLE_NOT_FOUND', message: 'Role not found.' });
+    const [items, total] = await this.permissionsRepo.createQueryBuilder('p')
+      .innerJoin('role_permissions', 'rp', 'rp.permissionId = p.id AND rp.roleId = :roleId', { roleId: id })
+      .orderBy('p.code', 'ASC').skip((query.page - 1) * query.pageSize).take(query.pageSize).getManyAndCount();
     return toPaginated(items, query.page, query.pageSize, total);
   }
 }

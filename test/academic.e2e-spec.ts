@@ -216,6 +216,12 @@ describe('Phase 2 academic core e2e — Waiting → Active (spec 30)', () => {
   });
 
   it('instructor creates a session (upcoming) → activates it', async () => {
+    const options = await request(apiBase()).get('/api/v1/sessions/instructor-options?q=e2e-instructor').set('Authorization', `Bearer ${instructor}`);
+    expect(options.status).toBe(200);
+    expect(options.body.meta.page).toBe(1);
+    expect(options.body.data.length).toBeGreaterThan(0);
+    expect(options.body.data[0]).toEqual({ userId: expect.any(String), displayName: expect.any(String), email: expect.any(String) });
+    await request(apiBase()).get('/api/v1/sessions/instructor-options').set('Authorization', `Bearer ${intern}`).expect(403);
     const created = await request(apiBase())
       .post('/api/v1/sessions')
       .set('Authorization', `Bearer ${instructor}`)

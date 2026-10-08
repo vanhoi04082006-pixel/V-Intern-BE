@@ -291,6 +291,31 @@ describe('Platform core e2e — auth + RBAC + pagination + health', () => {
     expect(res.body.code).toBe('VALIDATION_ERROR');
   });
 
+  it('user detail never returns password hashes; role grants and group roles reflect actual SQL', async () => {
+    const admin = await login('e2e-admin@vintern.test', 'E2e-Password-1');
+    const token = admin.body.accessToken as string;
+    const ids = JSON.parse(readE2EIds()) as { adminId: string; internId: string };
+    const detail = await request(apiBase()).get(`/api/v1/users/${ids.internId}`).set('Authorization', `Bearer ${token}`);
+    expect(detail.status).toBe(200);
+    expect(detail.body).not.toHaveProperty('passwordHash');
+    const roles = await request(apiBase()).get('/api/v1/roles').set('Authorization', `Bearer ${token}`);
+    const role = roles.body.data.find((r: { code: string }) => r.code === 'intern');
+    const grants = await request(apiBase()).get(`/api/v1/roles/${role.id}/permissions?pageSize=100`).set('Authorization', `Bearer ${token}`);
+    expect(grants.status).toBe(200);
+    const actual = await dataSource.query('SELECT COUNT(*) AS n FROM role_permissions WHERE roleId=@0', [role.id]);
+    expect(grants.body.meta.total).toBe(Number(actual[0].n));
+    expect(grants.body.data.map((p: { code: string }) => p.code)).toContain('tasks.update.own');
+    const group = await request(apiBase()).post('/api/v1/groups').set('Authorization', `Bearer ${token}`).send({ code: 'e2e-read-grants', name: 'Read grants' });
+    expect(group.status).toBe(201);
+    await request(apiBase()).put(`/api/v1/groups/${group.body.id}/roles`).set('Authorization', `Bearer ${token}`).send({ roleCodes: ['intern'] }).expect(200);
+    const groupRoles = await request(apiBase()).get(`/api/v1/groups/${group.body.id}/roles`).set('Authorization', `Bearer ${token}`);
+    expect(groupRoles.status).toBe(200);
+    expect(groupRoles.body.roles).toEqual(['intern']);
+    const intern = await login('e2e-intern@vintern.test', 'E2e-Password-1');
+    await request(apiBase()).get(`/api/v1/roles/${role.id}/permissions`).set('Authorization', `Bearer ${intern.body.accessToken}`).expect(403);
+    await request(apiBase()).get(`/api/v1/groups/${group.body.id}/roles`).set('Authorization', `Bearer ${intern.body.accessToken}`).expect(403);
+  });
+
   it('audit trail records sensitive actions (user.created present after creation)', async () => {
     const admin = await login('e2e-admin@vintern.test', 'E2e-Password-1');
     const token = admin.body.accessToken as string;

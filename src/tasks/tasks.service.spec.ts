@@ -218,6 +218,22 @@ function buildHarness(opts?: {
 }
 
 describe('task code + focus helpers (spec 11/23)', () => {
+  it('rejects stale manager edits without writing task, history or audit', async () => {
+    const h = buildHarness({ task: taskRow({ version: 2 }) });
+    await expect(h.service.update('task-1', { title: 'stale', expectedVersion: 1 } as never, CTX))
+      .rejects.toMatchObject({ response: { code: 'TASK_VERSION_CONFLICT' } });
+    expect(h.em.save).not.toHaveBeenCalled();
+    expect(h.em.insert).not.toHaveBeenCalled();
+    expect(h.current.title).toBe('Task 1');
+  });
+
+  it('rejects stale intern progress after ownership checks, without writes', async () => {
+    const h = buildHarness({ task: taskRow({ version: 2 }) });
+    await expect(h.service.updateOwn('task-1', { progress: 99, expectedVersion: 1 } as never, PRINCIPAL, CTX))
+      .rejects.toMatchObject({ response: { code: 'TASK_VERSION_CONFLICT' } });
+    expect(h.em.save).not.toHaveBeenCalled();
+    expect(h.em.insert).not.toHaveBeenCalled();
+  });
   it('buildTaskCode sanitizes the project-code prefix and appends the SEQUENCE value', () => {
     expect(buildTaskCode('vin', 103)).toBe('VIN-103');
     expect(buildTaskCode('V-123-x', 7)).toBe('V123X-7');

@@ -1,5 +1,14 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsArray, IsOptional, IsString, IsUUID, ArrayMaxSize, ArrayUnique, Matches, MaxLength, MinLength } from 'class-validator';
+import { PaginationQueryDto } from '../../common/pagination/pagination-query.dto';
+
+export class QueryGroupsDto extends PaginationQueryDto {
+  @ApiPropertyOptional({ maxLength: 128 })
+  @IsOptional()
+  @IsString()
+  @MaxLength(128)
+  q?: string;
+}
 
 export class CreateGroupDto {
   @ApiProperty({ maxLength: 64 })

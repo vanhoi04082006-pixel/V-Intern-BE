@@ -27,6 +27,8 @@ export interface ActorContext {
   ip?: string | null;
   userAgent?: string | null;
 }
+type EvaluationPrincipal = { userId: string; isAdmin: boolean };
+const cycleScopeSql = (alias: string) => `(EXISTS (SELECT 1 FROM projects p WHERE p.id = ${alias}.projectId AND p.mentorId = :scopeUserId) OR EXISTS (SELECT 1 FROM session_instructors si WHERE si.sessionId = ${alias}.sessionId AND si.instructorId = :scopeUserId))`;
 
 const conflict = (code: string, message: string, details?: Record<string, unknown>) =>
   new ConflictException({ statusCode: 409, code, message, ...(details ? { details } : {}) });
@@ -59,8 +61,9 @@ export class EvaluationService {
 
   // ───────────────────────────── cycles ─────────────────────────────────
 
-  async listCycles(q: { page: number; pageSize: number; status?: string; sessionId?: string; projectId?: string }) {
+  async listCycles(q: { page: number; pageSize: number; status?: string; sessionId?: string; projectId?: string }, principal?: EvaluationPrincipal) {
     const qb = this.cycles.createQueryBuilder('c').orderBy('c.startDate', 'DESC');
+    if (principal && !principal.isAdmin) qb.andWhere(cycleScopeSql('c'), { scopeUserId: principal.userId });
     if (q.status) qb.andWhere('c.status = :status', { status: q.status });
     if (q.sessionId) qb.andWhere('c.sessionId = :sessionId', { sessionId: q.sessionId });
     if (q.projectId) qb.andWhere('c.projectId = :projectId', { projectId: q.projectId });
@@ -68,9 +71,10 @@ export class EvaluationService {
     return { items, total };
   }
 
-  async getCycle(id: string): Promise<EvaluationCycle> {
+  async getCycle(id: string, principal?: EvaluationPrincipal): Promise<EvaluationCycle> {
     const cycle = await this.cycles.findOne({ where: { id } });
     if (!cycle) throw notFound(EVALUATION_ERROR_CODES.CYCLE_NOT_FOUND, 'Evaluation cycle not found.');
+    if (principal) await this.assertCycleScope(this.dataSource.manager, principal, cycle);
     return cycle;
   }
 
@@ -87,6 +91,7 @@ export class EvaluationService {
       useDefaultTemplate?: boolean;
     },
     ctx: ActorContext,
+    principal?: EvaluationPrincipal,
   ): Promise<EvaluationCycle> {
     const startDate = new Date(input.startDate);
     const endDate = new Date(input.endDate);
@@ -94,6 +99,7 @@ export class EvaluationService {
       throw badRequest(EVALUATION_ERROR_CODES.WEIGHT_INVALID, 'endDate must be after startDate.');
     }
     return this.dataSource.transaction(async (em) => {
+      if (principal) await this.assertCycleScope(em, principal, { sessionId: input.sessionId ?? null, projectId: input.projectId ?? null });
       const existing = await em.getRepository(EvaluationCycle).findOne({ where: { code: input.code } });
       if (existing) throw conflict(EVALUATION_ERROR_CODES.ALREADY_EXISTS, 'Cycle code already exists.');
       const cycle = await em.save(
@@ -291,8 +297,9 @@ export class EvaluationService {
 
   // ──────────────────────────── evaluations ─────────────────────────────
 
-  async listEvaluations(q: { page: number; pageSize: number; cycleId?: string; internId?: string; evaluatorId?: string; status?: string }) {
+  async listEvaluations(q: { page: number; pageSize: number; cycleId?: string; internId?: string; evaluatorId?: string; status?: string }, principal?: EvaluationPrincipal) {
     const qb = this.evaluationsRepo.createQueryBuilder('e').orderBy('e.updatedAt', 'DESC');
+    if (principal && !principal.isAdmin) qb.andWhere(`EXISTS (SELECT 1 FROM evaluation_cycles c WHERE c.id = e.cycleId AND ${cycleScopeSql('c')})`, { scopeUserId: principal.userId });
     if (q.cycleId) qb.andWhere('e.cycleId = :cycleId', { cycleId: q.cycleId });
     if (q.internId) qb.andWhere('e.internId = :internId', { internId: q.internId });
     if (q.evaluatorId) qb.andWhere('e.evaluatorId = :evaluatorId', { evaluatorId: q.evaluatorId });
@@ -347,9 +354,10 @@ export class EvaluationService {
     });
   }
 
-  async getEvaluation(id: string): Promise<{ evaluation: Evaluation; scores: EvaluationScore[] }> {
+  async getEvaluation(id: string, principal?: EvaluationPrincipal): Promise<{ evaluation: Evaluation; scores: EvaluationScore[] }> {
     const evaluation = await this.evaluationsRepo.findOne({ where: { id } });
     if (!evaluation) throw notFound(EVALUATION_ERROR_CODES.NOT_FOUND, 'Evaluation not found.');
+    if (principal) await this.getCycle(evaluation.cycleId, principal);
     const scores = await this.scoresRepo.find({ where: { evaluationId: id } });
     return { evaluation, scores };
   }
@@ -635,7 +643,7 @@ export class EvaluationService {
    * session instructor (cycle.sessionId) or project mentor
    * (cycle.projectId). Cycles with NO scope are admin-managed.
    */
-  private async assertCycleScope(em: EntityManager, principal: { userId: string; isAdmin: boolean }, cycle: EvaluationCycle): Promise<void> {
+  private async assertCycleScope(em: EntityManager, principal: { userId: string; isAdmin: boolean }, cycle: Pick<EvaluationCycle, 'sessionId' | 'projectId'>): Promise<void> {
     if (principal.isAdmin) return;
     if (cycle.sessionId) {
       const instructor = await em.getRepository(SessionInstructor).findOne({

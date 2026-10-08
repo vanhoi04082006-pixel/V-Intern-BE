@@ -16,11 +16,10 @@ import type { Request } from 'express';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { RequirePermissions } from '../common/decorators/permissions.decorator';
 import { toPaginated } from '../common/pagination/paginated';
-import { PaginationQueryDto } from '../common/pagination/pagination-query.dto';
 import { clientIp, userAgent } from '../common/types/request-info';
 import { ActorContext } from '../users/users.service';
 import { GroupsService } from './groups.service';
-import { AddGroupMembersDto, CreateGroupDto, SetGroupRolesDto, UpdateGroupDto } from './dto/group.dtos';
+import { AddGroupMembersDto, CreateGroupDto, SetGroupRolesDto, UpdateGroupDto, QueryGroupsDto } from './dto/group.dtos';
 
 @ApiTags('groups')
 @ApiBearerAuth()
@@ -35,7 +34,7 @@ export class GroupsController {
   @Get()
   @RequirePermissions('groups.read')
   @ApiOperation({ summary: 'Paginated groups (groups.read)' })
-  async list(@Query() query: PaginationQueryDto & { q?: string }) {
+  async list(@Query() query: QueryGroupsDto) {
     const { items, total } = await this.groupsService.list({
       page: query.page,
       pageSize: query.pageSize,
@@ -108,5 +107,12 @@ export class GroupsController {
     @Req() req: Request,
   ) {
     return this.groupsService.setRoles(id, dto.roleCodes, this.ctx(req, actorId));
+  }
+
+  @Get(':id/roles')
+  @RequirePermissions('groups.read')
+  @ApiOperation({ summary: 'Actual role codes granted to a group (groups.read)' })
+  async roles(@Param('id', ParseUUIDPipe) id: string) {
+    return { roles: await this.groupsService.listRoles(id) };
   }
 }

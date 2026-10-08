@@ -15,8 +15,48 @@ import {
   Min,
   ValidateNested,
 } from 'class-validator';
-import { EVALUATION_CYCLE_STATUSES, EVALUATION_CYCLE_TYPES } from '../evaluation-status.machine';
+import { EVALUATION_CYCLE_STATUSES, EVALUATION_CYCLE_TYPES, EVALUATION_STATUSES } from '../evaluation-status.machine';
 import { EVALUATION_TEMPLATE_V1 } from '../evaluation-template';
+import { PaginationQueryDto } from '../../common/pagination/pagination-query.dto';
+
+export class QueryEvaluationCyclesDto extends PaginationQueryDto {
+  @ApiPropertyOptional({ enum: EVALUATION_CYCLE_STATUSES })
+  @IsOptional()
+  @IsIn(EVALUATION_CYCLE_STATUSES)
+  status?: string;
+
+  @ApiPropertyOptional({ format: 'uuid' })
+  @IsOptional()
+  @IsUUID()
+  sessionId?: string;
+
+  @ApiPropertyOptional({ format: 'uuid' })
+  @IsOptional()
+  @IsUUID()
+  projectId?: string;
+}
+
+export class QueryEvaluationsDto extends PaginationQueryDto {
+  @ApiPropertyOptional({ enum: EVALUATION_STATUSES })
+  @IsOptional()
+  @IsIn(EVALUATION_STATUSES)
+  status?: string;
+
+  @ApiPropertyOptional({ format: 'uuid' })
+  @IsOptional()
+  @IsUUID()
+  cycleId?: string;
+
+  @ApiPropertyOptional({ format: 'uuid' })
+  @IsOptional()
+  @IsUUID()
+  internId?: string;
+
+  @ApiPropertyOptional({ format: 'uuid' })
+  @IsOptional()
+  @IsUUID()
+  evaluatorId?: string;
+}
 
 export class CreateEvaluationCycleDto {
   @ApiProperty({ maxLength: 64, example: 'SPRINT-1-EVAL-2026' })

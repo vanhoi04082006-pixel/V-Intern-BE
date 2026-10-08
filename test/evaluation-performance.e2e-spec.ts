@@ -313,6 +313,21 @@ describe('Phase 5 evaluation + performance e2e (spec 80/81)', () => {
   });
 
   it('finalize emitted notification + audit + activity in ONE transaction', async () => {
+    for (const path of [`/evaluation-cycles/${cycleId}`, `/evaluation-cycles/${cycleId}/criteria`, `/evaluations/${evaluationId}`]) {
+      const denied = await request(apiBase()).get('/api/v1' + path).set('Authorization', `Bearer ${ix}`);
+      expect(denied.status).toBe(403);
+      expect(denied.body.code).toBe('EVALUATION_SCOPE_FORBIDDEN');
+    }
+    const ownCycles = await request(apiBase()).get(`/api/v1/evaluation-cycles?sessionId=${sessionId}`).set('Authorization', `Bearer ${si}`);
+    expect(ownCycles.status).toBe(200);
+    expect(ownCycles.body.items.some((c: { id: string }) => c.id === cycleId)).toBe(true);
+    await request(apiBase()).get('/api/v1/evaluation-cycles?pageSize=1001').set('Authorization', `Bearer ${si}`).expect(400);
+    const foreignCycles = await request(apiBase()).get(`/api/v1/evaluation-cycles?sessionId=${sessionId}`).set('Authorization', `Bearer ${ix}`);
+    expect(foreignCycles.status).toBe(200);
+    expect(foreignCycles.body.items).toEqual([]);
+    const foreignEvaluations = await request(apiBase()).get(`/api/v1/evaluations?cycleId=${cycleId}`).set('Authorization', `Bearer ${ix}`);
+    expect(foreignEvaluations.status).toBe(200);
+    expect(foreignEvaluations.body.items).toEqual([]);
     const notifications = await query(
       `SELECT COUNT(*) AS n FROM notifications WHERE userId = @0 AND type = 'evaluation.finalized'`,
       [i1UserId],
