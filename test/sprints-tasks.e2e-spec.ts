@@ -437,6 +437,25 @@ describe('Phase 3 sprint/task e2e — plan → activate → task → review → 
     expect(res.body.code).toBe('INVALID_TASK_TRANSITION');
   });
 
+  it('intern project/board reads are assignment scoped without broad view permissions', async () => {
+    const internId = (await dataSource.getRepository(User).findOneByOrFail({ email: 'e2e-st-intern@vintern.test' })).id;
+    const project = await request(apiBase()).get('/api/v1/intern/me/project').set('Authorization', `Bearer ${intern}`);
+    expect(project.status).toBe(200);
+    expect(project.body.id).toBe(projectId);
+    const broad = await request(apiBase()).get(`/api/v1/projects/${projectId}`).set('Authorization', `Bearer ${intern}`);
+    expect(broad.status).toBe(403);
+    const board = await request(apiBase()).get('/api/v1/intern/me/sprint/board?pageSize=100').set('Authorization', `Bearer ${intern}`);
+    expect(board.status).toBe(200);
+    expect(board.body.sprint.id).toBe(sprintId);
+    const tasks = board.body.columns.flatMap((column: { tasks: Array<{ assigneeId: string }> }) => column.tasks);
+    expect(tasks.length).toBeGreaterThan(0);
+    expect(tasks.every((task: { assigneeId: string }) => task.assigneeId === internId)).toBe(true);
+    const [count] = await dataSource.query('SELECT COUNT(*) AS n FROM tasks WHERE sprintId=@0 AND assigneeId=@1 AND deletedAt IS NULL', [sprintId, internId]);
+    expect(board.body.total).toBe(count.n);
+    const forged = await request(apiBase()).get('/api/v1/intern/me/sprint/board?assigneeId=00000000-0000-4000-8000-000000000001').set('Authorization', `Bearer ${intern}`);
+    expect(forged.status).toBe(400);
+  });
+
   it('sprint completion rule: open tasks → 409 SPRINT_HAS_OPEN_TASKS; override completes (audited)', async () => {
     const blocked = await request(apiBase())
       .post(`/api/v1/sprints/${sprintId}/status`)

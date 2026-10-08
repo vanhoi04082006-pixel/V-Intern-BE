@@ -8,6 +8,9 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { RecruitmentProfile } from '../recruitment/entities/recruitment-profile.entity';
 import { InternController } from './intern.controller';
 import { InternService } from './intern.service';
+import { InternReadService } from './intern-read.service';
+import { ProjectsModule } from '../projects/projects.module';
+import { SprintsModule } from '../sprints/sprints.module';
 
 /**
  * Phase 3 (spec 23): the intern workspace composes the assignment base
@@ -16,6 +19,8 @@ import { InternService } from './intern.service';
 @Module({
   imports: [
     AssignmentsModule,
+    ProjectsModule,
+    SprintsModule,
     AuditModule,
     RbacModule,
     TasksModule,
@@ -23,6 +28,6 @@ import { InternService } from './intern.service';
     TypeOrmModule.forFeature([RecruitmentProfile]),
   ],
   controllers: [InternController],
-  providers: [InternService],
+  providers: [InternService, InternReadService],
 })
 export class InternModule {}

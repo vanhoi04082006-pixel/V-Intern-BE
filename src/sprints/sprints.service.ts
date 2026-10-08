@@ -399,12 +399,13 @@ export class SprintsService {
    * the true column size. Ordered priority (critical→low), then dueDate
    * (nulls last), then createdAt.
    */
-  async board(id: string, q: { page: number; pageSize: number; status?: string }): Promise<SprintBoardResponse> {
+  async board(id: string, q: { page: number; pageSize: number; status?: string }, assigneeId?: string): Promise<SprintBoardResponse> {
     const sprint = await this.sprints.findOne({ where: { id } });
     if (!sprint) throw notFound();
     const qb = this.tasks
       .createQueryBuilder('t')
       .where('t.sprintId = :id AND t.deletedAt IS NULL', { id });
+    if (assigneeId) qb.andWhere('t.assigneeId = :assigneeId', { assigneeId });
     if (q.status) qb.andWhere('t.status = :status', { status: q.status });
     const tasks = await qb.getMany();
     tasks.sort((a, b) => {
