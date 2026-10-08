@@ -26,3 +26,7 @@ Local SQL is version 17; SQL Server 2019 acceptance remains dependent on the exa
 final-SHA Actions run. The final product UAT gate is still in progress.
 
 Lock semantics: [Microsoft sp_getapplock](https://learn.microsoft.com/en-us/sql/relational-databases/system-stored-procedures/sp-getapplock-transact-sql).
+
+## Scoped dependency patch
+
+Swagger 11.4.7 pins js-yaml 5.3.0. A package override limited to @nestjs/swagger selects patched js-yaml 5.4.3 without altering Jest YAML major versions. No API, schema or migration changes. Swagger/OpenAPI boot and exact-SHA full-stack regression verify compatibility. Remaining sprintf-js advisory has no upstream patched release; SQL driver formatting uses application-owned formats, not client format strings. Development braces advisory is separate from the production tree.
