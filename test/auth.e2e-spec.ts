@@ -311,6 +311,16 @@ describe('Platform core e2e — auth + RBAC + pagination + health', () => {
     const groupRoles = await request(apiBase()).get(`/api/v1/groups/${group.body.id}/roles`).set('Authorization', `Bearer ${token}`);
     expect(groupRoles.status).toBe(200);
     expect(groupRoles.body.roles).toEqual(['intern']);
+    const beforeRoleFilter = await request(apiBase()).get('/api/v1/users?roleCode=intern&q=e2e-admin').set('Authorization', `Bearer ${token}`);
+    expect(beforeRoleFilter.status).toBe(200);
+    expect(beforeRoleFilter.body.meta.total).toBe(0);
+    await request(apiBase()).post(`/api/v1/groups/${group.body.id}/members`).set('Authorization', `Bearer ${token}`).send({userIds: [ids.adminId]}).expect(201);
+    const inheritedRoleFilter = await request(apiBase()).get('/api/v1/users?roleCode=intern&q=e2e-admin').set('Authorization', `Bearer ${token}`);
+    expect(inheritedRoleFilter.status).toBe(200);
+    expect(inheritedRoleFilter.body.meta.total).toBe(1);
+    expect(inheritedRoleFilter.body.data[0].id).toBe(ids.adminId);
+    expect(inheritedRoleFilter.body.data[0]).not.toHaveProperty('passwordHash');
+    await request(apiBase()).get('/api/v1/users?roleCode=invalid%20role').set('Authorization', `Bearer ${token}`).expect(400);
     const intern = await login('e2e-intern@vintern.test', 'E2e-Password-1');
     await request(apiBase()).get(`/api/v1/roles/${role.id}/permissions`).set('Authorization', `Bearer ${intern.body.accessToken}`).expect(403);
     await request(apiBase()).get(`/api/v1/groups/${group.body.id}/roles`).set('Authorization', `Bearer ${intern.body.accessToken}`).expect(403);

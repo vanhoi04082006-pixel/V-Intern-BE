@@ -39,6 +39,7 @@ export class UsersController {
       pageSize: query.pageSize,
       q: query.q,
       status: query.status,
+      roleCode: query.roleCode,
     });
     return toPaginated(items, query.page, query.pageSize, total);
   }

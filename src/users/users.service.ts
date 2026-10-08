@@ -49,6 +49,7 @@ export class UsersService {
     pageSize: number;
     q?: string;
     status?: UserStatus;
+    roleCode?: string;
   }): Promise<{ items: UserResponse[]; total: number }> {
     const qb = this.users.createQueryBuilder('u');
     if (q.q && q.q.length > 0) {
@@ -56,6 +57,7 @@ export class UsersService {
       qb.andWhere('(u.email LIKE :term OR u.username LIKE :term OR u.displayName LIKE :term)', { term });
     }
     if (q.status) qb.andWhere('u.status = :status', { status: q.status });
+    if (q.roleCode) qb.andWhere(`(EXISTS (SELECT 1 FROM user_roles ur JOIN roles r ON r.id=ur.roleId WHERE ur.userId=u.id AND r.code=:roleCode) OR EXISTS (SELECT 1 FROM group_members gm JOIN group_roles gr ON gr.groupId=gm.groupId JOIN roles r ON r.id=gr.roleId WHERE gm.userId=u.id AND r.code=:roleCode))`, { roleCode: q.roleCode });
     qb.orderBy('u.createdAt', 'DESC')
       .skip((q.page - 1) * q.pageSize)
       .take(q.pageSize);

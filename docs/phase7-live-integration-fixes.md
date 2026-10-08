@@ -21,3 +21,7 @@ Evaluation cycle, criterion and evaluation reads now enforce the same project-me
 User detail now uses the existing public response mapper, excluding `passwordHash`. Read-only role-permission and group-role lookup endpoints expose actual stored grants for the Admin UI under their existing permissions. The paginated instructor directory exposes only active users with effective `sessions.manage` (direct or inherited) and only public ID, name and email, allowing real lead/mentor selection. No domain, schema, policy mutation endpoint or migration is added.
 
 Validation: 343 unit tests and 117 real SQL E2E pass; lint has zero errors and 15 pre-existing script console warnings; build and diff check pass. Real browser journeys reproduced the pagination defects and exercise the management lookups. The salary E2E batch-count assertion now obtains the eligible/payable count from SQL because other suites can create eligible interns in the same disposable database; exact per-user earnings, balances and idempotency assertions are preserved.
+
+## Effective Admin role filter
+
+`GET /users?roleCode=...` now filters on the server before pagination using parameterized EXISTS for direct user roles and roles inherited from groups. The typed code validator rejects malformed codes. Real SQL regression first reproduced the missing-contract 400, then verifies no match before membership and exactly the inherited user after membership; public fields remain free of password hashes. Full 117 E2E and 343 unit tests pass. No role-assignment write contract is invented.
