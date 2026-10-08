@@ -75,7 +75,7 @@ async function main(): Promise<void> {
     database: 'master',
     username: adminUser,
     password: adminPass,
-    options: { encrypt, trustServerCertificate: true },
+    options: { useUTC: true, encrypt, trustServerCertificate: true },
     logging: false,
   });
 
@@ -113,7 +113,7 @@ async function main(): Promise<void> {
         database: dbName,
         username: adminUser,
         password: adminPass,
-        options: { encrypt, trustServerCertificate: true },
+        options: { useUTC: true, encrypt, trustServerCertificate: true },
         logging: false,
       });
       await inDb.initialize();

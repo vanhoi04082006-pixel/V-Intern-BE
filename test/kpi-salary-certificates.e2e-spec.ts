@@ -11,6 +11,8 @@ import { ENTITIES } from '../src/database/entities';
 import { Role } from '../src/rbac/entities/role.entity';
 import { User } from '../src/users/entities/user.entity';
 import { UserRole } from '../src/rbac/entities/user-role.entity';
+import { KpiPeriod } from '../src/kpi/entities/kpi-period.entity';
+import { KpiResult } from '../src/kpi/entities/kpi-result.entity';
 
 /**
  * PHASE 5 — KPI + VIRTUAL SALARY + CERTIFICATES e2e (spec 82-87) on REAL
@@ -82,7 +84,7 @@ beforeAll(async () => {
 
   const adminDs = new DataSource({
     type: 'mssql', host: DB_HOST, port: DB_PORT, database: 'master', username: DB_USER, password: DB_PASS,
-    options: { encrypt: (process.env.DB_ENCRYPT ?? 'false') !== 'false', trustServerCertificate: true }, logging: false,
+    options: { useUTC: true, encrypt: (process.env.DB_ENCRYPT ?? 'false') !== 'false', trustServerCertificate: true }, logging: false,
   });
   await adminDs.initialize();
   await adminDs.query(`IF DB_ID(N'${DB_NAME}') IS NULL CREATE DATABASE [${DB_NAME}];`);
@@ -90,7 +92,7 @@ beforeAll(async () => {
 
   dataSource = new DataSource({
     type: 'mssql', host: DB_HOST, port: DB_PORT, database: DB_NAME, username: DB_USER, password: DB_PASS,
-    options: { encrypt: (process.env.DB_ENCRYPT ?? 'false') !== 'false', trustServerCertificate: true },
+    options: { useUTC: true, encrypt: (process.env.DB_ENCRYPT ?? 'false') !== 'false', trustServerCertificate: true },
     synchronize: false, logging: false, entities: ENTITIES, migrationsRun: false,
   });
   await dataSource.initialize();
@@ -675,5 +677,27 @@ describe('Phase 5 KPI + virtual salary + certificates e2e (spec 82-87)', () => {
     expect(Number(rows[0].n)).toBe(3); // k1, k2, k3 — exactly once each
     const period = await request(apiBase()).get(`/api/v1/kpi-periods/${racePeriodId}`).set('Authorization', `Bearer ${admin}`);
     expect(['open', 'finalized']).toContain(period.body.status);
+  });
+
+  it('zero KPI earning never breaks a mixed batch or inserts a forbidden zero ledger row', async () => {
+    // Explicit development/test snapshot setup, never production runtime.
+    const period = await dataSource.getRepository(KpiPeriod).save({ code: `ZERO-${RUN}`, name: 'Zero earning regression', status: 'finalized', ruleVersion: 'kpi-v1', startDate: new Date(Date.now()-86400000), endDate: new Date(Date.now()+86400000) });
+    await dataSource.getRepository(KpiResult).save([
+      { periodId: period.id, userId: k1Id, status: 'calculated', finalScore: 80, ruleVersion: 'kpi-v1', calculatedAt: new Date() },
+      { periodId: period.id, userId: k2Id, status: 'calculated', finalScore: 0, ruleVersion: 'kpi-v1', calculatedAt: new Date() },
+    ]);
+    const freshAdmin = await login(EMAILS.admin);
+    const generate = await request(apiBase()).post(`/api/v1/virtual-salary/generate/${period.id}`).set('Authorization', `Bearer ${freshAdmin}`);
+    expect(generate.status).toBe(201);
+    expect(generate.body.generated).toBe(1);
+    expect(generate.body.skipped).toBe(1);
+    const rows = await query('SELECT userId, amount FROM virtual_salary_ledger WHERE kpiPeriodId=@0', [period.id]);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].userId).toBe(k1Id);
+    expect(Number(rows[0].amount)).toBe(8000000);
+    const again = await request(apiBase()).post(`/api/v1/virtual-salary/generate/${period.id}`).set('Authorization', `Bearer ${freshAdmin}`);
+    expect(again.status).toBe(201);
+    expect(again.body.generated).toBe(0);
+    expect(again.body.skipped).toBe(2);
   });
 });

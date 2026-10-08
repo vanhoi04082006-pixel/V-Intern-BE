@@ -71,7 +71,7 @@ beforeAll(async () => {
     database: 'master',
     username: DB_USER,
     password: DB_PASS,
-    options: { encrypt: (process.env.DB_ENCRYPT ?? 'false') !== 'false', trustServerCertificate: true },
+    options: { useUTC: true, encrypt: (process.env.DB_ENCRYPT ?? 'false') !== 'false', trustServerCertificate: true },
     logging: false,
   });
   await adminDs.initialize();
@@ -87,7 +87,7 @@ beforeAll(async () => {
     database: DB_NAME,
     username: DB_USER,
     password: DB_PASS,
-    options: { encrypt: (process.env.DB_ENCRYPT ?? 'false') !== 'false', trustServerCertificate: true },
+    options: { useUTC: true, encrypt: (process.env.DB_ENCRYPT ?? 'false') !== 'false', trustServerCertificate: true },
     synchronize: false,
     logging: false,
     // Entities REQUIRED here: ensureRbac below resolves Role/User metadata
@@ -173,6 +173,12 @@ async function login(email: string, password: string) {
 }
 
 describe('Platform core e2e — auth + RBAC + pagination + health', () => {
+  it('SQL datetime2 round-trips UTC independently of the host timezone', async () => {
+    const instant = new Date('2026-04-15T03:04:05.000Z');
+    const rows = await dataSource.query('SELECT CAST(@0 AS datetime2) AS instant, SYSUTCDATETIME() AS currentUtc', [instant]);
+    expect(rows[0].instant.toISOString()).toBe(instant.toISOString());
+    expect(Math.abs(rows[0].currentUtc.getTime() - Date.now())).toBeLessThan(10_000);
+  });
   it('health is honest (ok with DB available)', async () => {
     const res = await request(apiBase()).get('/api/v1/health');
     expect(res.status).toBe(200);

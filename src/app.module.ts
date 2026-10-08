@@ -55,6 +55,7 @@ import { CertificatesModule } from './certificates/certificates.module';
         username: cs.get<string>('DB_USERNAME', 'vintern_app'),
         password: cs.get<string>('DB_PASSWORD', ''),
         options: {
+          useUTC: true,
           // Env vars are STRINGS — ConfigService returns them raw, and
           // mssql@11 rejects non-boolean encrypt/trustServerCertificate.
           // Convert with the same semantics as src/database/data-source.ts

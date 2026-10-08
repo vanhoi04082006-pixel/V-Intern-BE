@@ -83,6 +83,13 @@ export class VirtualSalaryService {
           continue;
         }
         const amount = calculateKpiEarning(baseAmount, Number(result.finalScore));
+        // A valid zero KPI (or rounded-to-zero earning) produces no ledger
+        // movement. The frozen ledger CHECK forbids zero amounts; one such
+        // intern must not roll back the entire batch for everyone else.
+        if (amount === 0) {
+          skipped += 1;
+          continue;
+        }
         await em.insert(VirtualSalaryLedger, {
           userId: result.userId,
           kpiPeriodId,

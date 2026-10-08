@@ -149,7 +149,7 @@ beforeAll(async () => {
     database: 'master',
     username: DB_USER,
     password: DB_PASS,
-    options: { encrypt: (process.env.DB_ENCRYPT ?? 'false') !== 'false', trustServerCertificate: true },
+    options: { useUTC: true, encrypt: (process.env.DB_ENCRYPT ?? 'false') !== 'false', trustServerCertificate: true },
     logging: false,
   });
   await adminDs.initialize();
@@ -163,7 +163,7 @@ beforeAll(async () => {
     database: DB_NAME,
     username: DB_USER,
     password: DB_PASS,
-    options: { encrypt: (process.env.DB_ENCRYPT ?? 'false') !== 'false', trustServerCertificate: true },
+    options: { useUTC: true, encrypt: (process.env.DB_ENCRYPT ?? 'false') !== 'false', trustServerCertificate: true },
     synchronize: false,
     logging: false,
     entities: ENTITIES,

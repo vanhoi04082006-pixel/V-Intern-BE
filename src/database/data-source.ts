@@ -23,6 +23,7 @@ export default new DataSource({
   username: process.env.DB_USERNAME ?? 'vintern_app',
   password: process.env.DB_PASSWORD ?? '',
   options: {
+    useUTC: true,
     encrypt: (process.env.DB_ENCRYPT ?? 'false') !== 'false',
     trustServerCertificate: (process.env.DB_TRUST_SERVER_CERTIFICATE ?? 'true') !== 'false',
   },
