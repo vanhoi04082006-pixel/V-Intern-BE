@@ -255,6 +255,92 @@ describe('Platform core e2e — auth + RBAC + pagination + health', () => {
     expect(replay.body.code).toBe('REFRESH_REUSE');
   });
 
+  it("concurrent refresh permits one rotation and revokes every descendant on reuse", async () => {
+    const first = await login("e2e-admin@vintern.test", "E2e-Password-1");
+    expect(first.status).toBe(200);
+    const cookie = (
+      first.headers["set-cookie"] as unknown as string[]
+    )[0].split(";")[0];
+    const results = await Promise.all(
+      Array.from({ length: 8 }, () =>
+        request(apiBase()).post("/api/v1/auth/refresh").set("Cookie", cookie),
+      ),
+    );
+    expect(results.map((res) => res.status).sort()).toEqual([
+      200, 401, 401, 401, 401, 401, 401, 401,
+    ]);
+    for (const denied of results.filter((res) => res.status === 401)) {
+      expect(denied.body.code).toBe("REFRESH_REUSE");
+    }
+    const winner = results.find((res) => res.status === 200)!;
+    const rotatedCookie = (
+      winner.headers["set-cookie"] as unknown as string[]
+    )[0].split(";")[0];
+    const replay = await request(apiBase())
+      .post("/api/v1/auth/refresh")
+      .set("Cookie", rotatedCookie);
+    expect(replay.status).toBe(401);
+    expect(replay.body.code).toBe("REFRESH_REUSE");
+    const rawToken = cookie.substring(cookie.indexOf("=") + 1);
+    const { createHash } = await import("node:crypto");
+    const rows = await dataSource.query(
+      "SELECT COUNT(*) AS active FROM refresh_tokens WHERE revokedAt IS NULL AND familyId=(SELECT familyId FROM refresh_tokens WHERE tokenHash=@0)",
+      [createHash("sha256").update(rawToken).digest("hex")],
+    );
+    expect(Number(rows[0].active)).toBe(0);
+  });
+
+  it("logout with a rotated cookie revokes the current descendant", async () => {
+    const first = await login("e2e-admin@vintern.test", "E2e-Password-1");
+    expect(first.status).toBe(200);
+    const oldCookie = (
+      first.headers["set-cookie"] as unknown as string[]
+    )[0].split(";")[0];
+    const rotated = await request(apiBase())
+      .post("/api/v1/auth/refresh")
+      .set("Cookie", oldCookie);
+    expect(rotated.status).toBe(200);
+    const newCookie = (
+      rotated.headers["set-cookie"] as unknown as string[]
+    )[0].split(";")[0];
+    await request(apiBase())
+      .post("/api/v1/auth/logout")
+      .set("Cookie", oldCookie)
+      .expect(204);
+    const denied = await request(apiBase())
+      .post("/api/v1/auth/refresh")
+      .set("Cookie", newCookie);
+    expect(denied.status).toBe(401);
+    expect(denied.body.code).toBe("REFRESH_REUSE");
+  });
+
+  it("logout racing rotation leaves no refresh descendant authenticated", async () => {
+    const first = await login("e2e-admin@vintern.test", "E2e-Password-1");
+    expect(first.status).toBe(200);
+    const cookie = (
+      first.headers["set-cookie"] as unknown as string[]
+    )[0].split(";")[0];
+    const [refresh, logout] = await Promise.all([
+      request(apiBase()).post("/api/v1/auth/refresh").set("Cookie", cookie),
+      request(apiBase()).post("/api/v1/auth/logout").set("Cookie", cookie),
+    ]);
+    expect(logout.status).toBe(204);
+    expect([200, 401]).toContain(refresh.status);
+    if (refresh.status === 200) {
+      const descendant = (
+        refresh.headers["set-cookie"] as unknown as string[]
+      )[0].split(";")[0];
+      await request(apiBase())
+        .post("/api/v1/auth/refresh")
+        .set("Cookie", descendant)
+        .expect(401);
+    }
+    await request(apiBase())
+      .post("/api/v1/auth/refresh")
+      .set("Cookie", cookie)
+      .expect(401);
+  });
+
   it('users API: unauthenticated → 401', async () => {
     const res = await request(apiBase()).get('/api/v1/users');
     expect(res.status).toBe(401);

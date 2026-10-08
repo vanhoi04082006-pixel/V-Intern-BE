@@ -1,13 +1,14 @@
 import {
   ForbiddenException,
   Injectable,
+  ServiceUnavailableException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
-import { IsNull, Repository } from 'typeorm';
+import { EntityManager, IsNull, Repository } from 'typeorm';
 import { compare } from 'bcryptjs';
 import { AuditService } from '../audit/audit.service';
 import { User } from '../users/entities/user.entity';
@@ -24,6 +25,9 @@ export interface LoginResult {
 }
 
 const REFRESH_TOKEN_BYTES = 48;
+type RefreshOutcome =
+  | { user: User; tokenId: string }
+  | { code: string; message: string };
 
 @Injectable()
 export class AuthService {
@@ -160,108 +164,158 @@ export class AuthService {
     ua: string | null,
   ): Promise<LoginResult> {
     const tokenHash = this.sha256(rawToken);
-    const existing = await this.refreshTokens.findOne({ where: { tokenHash } });
-
-    if (!existing) {
-      throw new UnauthorizedException({
-        statusCode: 401,
-        code: AUTH_ERROR_CODES.REFRESH_INVALID,
-        message: 'Refresh token is not recognized.',
-      });
-    }
-
-    if (existing.revokedAt !== null) {
-      await this.refreshTokens.update(
-        { familyId: existing.familyId, revokedAt: IsNull() },
-        { revokedAt: new Date() },
+    const hint = await this.refreshTokens.findOne({ where: { tokenHash } });
+    if (!hint)
+      throw this.refreshError(
+        AUTH_ERROR_CODES.REFRESH_INVALID,
+        "Refresh token is not recognized.",
       );
-      await this.audit.record({
-        actorId: existing.userId,
-        action: 'auth.refresh_reuse_detected',
-        targetType: 'refresh_token',
-        targetId: existing.familyId,
-        detail: { familyId: existing.familyId },
-        ip,
-        userAgent: ua,
-      });
-      throw new UnauthorizedException({
-        statusCode: 401,
-        code: AUTH_ERROR_CODES.REFRESH_REUSE,
-        message: 'Refresh token was already used. Session family revoked.',
-      });
-    }
 
-    if (existing.expiresAt.getTime() <= Date.now()) {
-      await this.refreshTokens.update(existing.id, { revokedAt: new Date() });
-      throw new UnauthorizedException({
-        statusCode: 401,
-        code: AUTH_ERROR_CODES.REFRESH_EXPIRED,
-        message: 'Refresh token expired.',
-      });
-    }
-
-    const user = await this.users.findActiveById(existing.userId);
-    if (!user) {
-      await this.refreshTokens.update(
-        { familyId: existing.familyId, revokedAt: IsNull() },
-        { revokedAt: new Date() },
+    const newRaw = randomBytes(REFRESH_TOKEN_BYTES).toString("base64url");
+    const outcome =
+      await this.refreshTokens.manager.transaction<RefreshOutcome>(
+        async (em) => {
+          await this.lockRefreshFamily(em, hint.familyId);
+          // The pre-transaction lookup identifies the lock only. Validate fresh SQL state
+          // after acquiring it; rotation, replay and logout share this family lock.
+          const existing = await em.findOne(RefreshToken, {
+            where: { tokenHash },
+          });
+          if (!existing)
+            return {
+              code: AUTH_ERROR_CODES.REFRESH_INVALID,
+              message: "Refresh token is not recognized.",
+            };
+          if (existing.revokedAt !== null) {
+            await em.update(
+              RefreshToken,
+              { familyId: existing.familyId, revokedAt: IsNull() },
+              { revokedAt: new Date() },
+            );
+            return {
+              code: AUTH_ERROR_CODES.REFRESH_REUSE,
+              message:
+                "Refresh token was already used. Session family revoked.",
+            };
+          }
+          if (existing.expiresAt.getTime() <= Date.now()) {
+            await em.update(RefreshToken, existing.id, {
+              revokedAt: new Date(),
+            });
+            return {
+              code: AUTH_ERROR_CODES.REFRESH_EXPIRED,
+              message: "Refresh token expired.",
+            };
+          }
+          const user = await this.users.findActiveById(existing.userId);
+          if (!user) {
+            await em.update(
+              RefreshToken,
+              { familyId: existing.familyId, revokedAt: IsNull() },
+              { revokedAt: new Date() },
+            );
+            return {
+              code: AUTH_ERROR_CODES.ACCOUNT_UNAVAILABLE,
+              message: "Account is not available.",
+            };
+          }
+          const created = await em.save(
+            em.create(RefreshToken, {
+              userId: user.id,
+              tokenHash: this.sha256(newRaw),
+              familyId: existing.familyId,
+              expiresAt: new Date(Date.now() + this.refreshTtlMs()),
+              createdByIp: ip,
+              userAgent: ua,
+            }),
+          );
+          await em.update(RefreshToken, existing.id, {
+            revokedAt: new Date(),
+            replacedById: created.id,
+          });
+          return { user, tokenId: created.id };
+        },
       );
-      throw new UnauthorizedException({
-        statusCode: 401,
-        code: AUTH_ERROR_CODES.ACCOUNT_UNAVAILABLE,
-        message: 'Account is not available.',
-      });
-    }
-
-    const newRaw = randomBytes(REFRESH_TOKEN_BYTES).toString('base64url');
-    const newToken = await this.refreshTokens.manager.transaction(async (em) => {
-      const created = await em.save(
-        em.create(RefreshToken, {
-          userId: user.id,
-          tokenHash: this.sha256(newRaw),
-          familyId: existing.familyId,
-          expiresAt: new Date(Date.now() + this.refreshTtlMs()),
-          createdByIp: ip,
+    // Throw only after commit so replay/expiry revocations are not rolled back.
+    if ("code" in outcome) {
+      if (outcome.code === AUTH_ERROR_CODES.REFRESH_REUSE) {
+        await this.audit.record({
+          actorId: hint.userId,
+          action: "auth.refresh_reuse_detected",
+          targetType: "refresh_token",
+          targetId: hint.familyId,
+          detail: { familyId: hint.familyId },
+          ip,
           userAgent: ua,
-        }),
-      );
-      await em.update(RefreshToken, existing.id, {
-        revokedAt: new Date(),
-        replacedById: created.id,
-      });
-      return created;
-    });
-
+        });
+      }
+      throw this.refreshError(outcome.code, outcome.message);
+    }
     await this.audit.record({
-      actorId: user.id,
-      action: 'auth.refresh',
-      targetType: 'refresh_token',
-      targetId: newToken.id,
-      detail: { familyId: existing.familyId },
+      actorId: outcome.user.id,
+      action: "auth.refresh",
+      targetType: "refresh_token",
+      targetId: outcome.tokenId,
+      detail: { familyId: hint.familyId },
       ip,
       userAgent: ua,
     });
-
     return {
-      accessToken: await this.signAccessToken(user),
+      accessToken: await this.signAccessToken(outcome.user),
       refreshToken: newRaw,
-      user: await this.permissions.buildPrincipal(user),
+      user: await this.permissions.buildPrincipal(outcome.user),
     };
   }
 
-  async logout(rawToken: string | null, actorId: string | null, ip: string | null, ua: string | null): Promise<void> {
+  private refreshError(code: string, message: string): UnauthorizedException {
+    return new UnauthorizedException({ statusCode: 401, code, message });
+  }
+
+  private async lockRefreshFamily(
+    em: EntityManager,
+    familyId: string,
+  ): Promise<void> {
+    const rows: Array<{ result: number }> = await em.query(
+      "DECLARE @result int; EXEC @result=sys.sp_getapplock @Resource=@0, @LockMode='Exclusive', @LockOwner='Transaction', @LockTimeout=10000; SELECT @result AS result;",
+      ["vintern:refresh:" + familyId.toLowerCase()],
+    );
+    if (!rows.length || rows[0].result < 0) {
+      throw new ServiceUnavailableException({
+        statusCode: 503,
+        code: "SESSION_BUSY",
+        message: "Session is temporarily unavailable. Please retry.",
+      });
+    }
+  }
+
+  async logout(
+    rawToken: string | null,
+    actorId: string | null,
+    ip: string | null,
+    ua: string | null,
+  ): Promise<void> {
     if (rawToken) {
       const tokenHash = this.sha256(rawToken);
-      const existing = await this.refreshTokens.findOne({ where: { tokenHash } });
-      if (existing && existing.revokedAt === null) {
-        await this.refreshTokens.update(existing.id, { revokedAt: new Date() });
+      const existing = await this.refreshTokens.findOne({
+        where: { tokenHash },
+      });
+      if (existing) {
+        await this.refreshTokens.manager.transaction(async (em) => {
+          await this.lockRefreshFamily(em, existing.familyId);
+          // A cookie that was rotated in flight still identifies the session to end.
+          await em.update(
+            RefreshToken,
+            { familyId: existing.familyId, revokedAt: IsNull() },
+            { revokedAt: new Date() },
+          );
+        });
       }
     }
     if (actorId) {
       await this.audit.record({
         actorId,
-        action: 'auth.logout',
-        targetType: 'user',
+        action: "auth.logout",
+        targetType: "user",
         targetId: actorId,
         ip,
         userAgent: ua,

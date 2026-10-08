@@ -69,6 +69,7 @@ interface HarnessMocks {
   refreshFindOne: jest.Mock;
   refreshInsert: jest.Mock;
   refreshUpdate: jest.Mock;
+  lockQuery: jest.Mock;
 }
 
 function build(harness: Partial<HarnessMocks> = {}): { service: AuthService; mocks: HarnessMocks } {
@@ -79,6 +80,7 @@ function build(harness: Partial<HarnessMocks> = {}): { service: AuthService; moc
     refreshFindOne: jest.fn(),
     refreshInsert: jest.fn().mockResolvedValue(undefined),
     refreshUpdate: jest.fn().mockResolvedValue(undefined),
+    lockQuery: jest.fn().mockResolvedValue([{ result: 0 }]),
     ...harness,
   };
 
@@ -108,8 +110,10 @@ function build(harness: Partial<HarnessMocks> = {}): { service: AuthService; moc
     manager: {
       transaction: jest.fn(async (cb: (em: unknown) => Promise<unknown>) =>
         cb({
+          query: mocks.lockQuery,
+          findOne: mocks.refreshFindOne,
           save: jest.fn(async () => ({ id: 'rt-2' })),
-          update: jest.fn().mockResolvedValue(undefined),
+          update: jest.fn((_entity, criteria, values) => mocks.refreshUpdate(criteria, values)),
           create: jest.fn((_: unknown, data: Record<string, unknown>) => ({ ...data })),
         }),
       ),
@@ -225,11 +229,11 @@ describe('AuthService', () => {
   });
 
   describe('logout', () => {
-    it('revokes the presented token and audits the event', async () => {
+    it('revokes the session family and audits the event', async () => {
       const h = build();
       h.mocks.refreshFindOne.mockResolvedValue(makeExistingToken());
       await h.service.logout('raw-token', 'u-1', 'ip', 'ua');
-      expect(h.mocks.refreshUpdate).toHaveBeenCalledWith('rt-1', { revokedAt: expect.anything() });
+      expect(h.mocks.refreshUpdate).toHaveBeenCalledWith(expect.objectContaining({ familyId: 'family-1' }), { revokedAt: expect.anything() });
       expect(h.mocks.auditRecord).toHaveBeenCalledWith(expect.objectContaining({ action: 'auth.logout' }));
     });
 
@@ -238,6 +242,21 @@ describe('AuthService', () => {
       await h.service.logout(null, null, null, null);
       expect(h.mocks.refreshFindOne).not.toHaveBeenCalled();
     });
+  });
+
+  it('logout with an already-rotated cookie revokes its descendants', async () => {
+    const h = build();
+    h.mocks.refreshFindOne.mockResolvedValue(makeExistingToken({ revokedAt: new Date(), replacedById: 'rt-2' }));
+    await h.service.logout('old-cookie', 'u-1', null, null);
+    expect(h.mocks.refreshUpdate).toHaveBeenCalledWith(expect.objectContaining({ familyId: 'family-1' }), { revokedAt: expect.anything() });
+  });
+
+  it('fails closed with 503 when the family lock times out', async () => {
+    const h = build({ lockQuery: jest.fn().mockResolvedValue([{ result: -1 }]) });
+    h.mocks.refreshFindOne.mockResolvedValue(makeExistingToken());
+    await expectCode(h.service.refresh('cookie', null, null), 'SESSION_BUSY', 503);
+    expect(h.mocks.refreshUpdate).not.toHaveBeenCalled();
+    expect(h.mocks.auditRecord).not.toHaveBeenCalled();
   });
 
   it('bcryptjs compare sanity (async hashing library of the service)', async () => {
