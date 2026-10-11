@@ -6,6 +6,7 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Put,
   Query,
   Req,
 } from '@nestjs/common';
@@ -16,7 +17,7 @@ import { RequirePermissions } from '../common/decorators/permissions.decorator';
 import { toPaginated } from '../common/pagination/paginated';
 import { clientIp, userAgent } from '../common/types/request-info';
 import { ActorContext } from '../users/users.service';
-import { CreateProjectDto, QueryProjectsDto, UpdateProjectDto } from './dto/project.dtos';
+import { CreateProjectDto, QueryProjectsDto, SetProjectSlotsDto, UpdateProjectDto } from './dto/project.dtos';
 import { ProjectsService } from './projects.service';
 import { PermissionsService } from '../rbac/permissions.service';
 import { resolveOwnership } from '../rbac/ownership';
@@ -112,5 +113,24 @@ export class ProjectsController {
     @Req() req: Request,
   ) {
     return this.projectsService.claim(id, this.ctx(req, actorId));
+  }
+
+  @Get(':id/slots')
+  @RequirePermissions('projects.view')
+  @ApiOperation({ summary: 'Role slots with live filled counts (projects.view; managed scope)' })
+  async slots(@Param('id', ParseUUIDPipe) id: string, @CurrentUser('userId') userId: string) {
+    return { slots: await this.projectsService.getSlots(id, await this.ownership(userId)) };
+  }
+
+  @Put(':id/slots')
+  @RequirePermissions('projects.manage')
+  @ApiOperation({ summary: 'Replace role slots (projects.manage; managing mentor only; audited)' })
+  async setSlots(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: SetProjectSlotsDto,
+    @CurrentUser('userId') actorId: string,
+    @Req() req: Request,
+  ) {
+    return { slots: await this.projectsService.setSlots(id, dto, this.ctx(req, actorId)) };
   }
 }

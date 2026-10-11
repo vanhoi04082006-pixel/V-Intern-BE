@@ -11,8 +11,10 @@ import {
   IsUUID,
   Length,
   Matches,
+  Max,
   MaxLength,
   Min,
+  ValidateNested,
 } from 'class-validator';
 import { PaginationQueryDto } from '../../common/pagination/pagination-query.dto';
 import { PROJECT_DIFFICULTIES, PROJECT_STATUSES } from '../entities/project.entity';
@@ -145,6 +147,10 @@ export class UpdateProjectDto {
 
 /** Sort is a strict whitelist (spec 36) — no client-controlled SQL surface. */
 export class QueryProjectsDto extends PaginationQueryDto {
+  @ApiPropertyOptional({ maxLength: 128 }) @IsOptional() @IsString() @MaxLength(128)
+  domainCategory?: string;
+  @ApiPropertyOptional({ maxLength: 64 }) @IsOptional() @IsString() @MaxLength(64)
+  technology?: string;
   @ApiPropertyOptional({ maxLength: 100 })
   @IsOptional()
   @IsString()
@@ -170,4 +176,26 @@ export class QueryProjectsDto extends PaginationQueryDto {
   @IsOptional()
   @IsIn(['ASC', 'DESC'])
   order?: 'ASC' | 'DESC';
+}
+
+export class ProjectRoleSlotDto {
+  @ApiProperty({ minLength: 1, maxLength: 64 })
+  @IsString()
+  @Length(1, 64)
+  roleCode!: string;
+
+  @ApiProperty({ minimum: 1, maximum: 50 })
+  @IsInt()
+  @Min(1)
+  @Max(50)
+  requiredCount!: number;
+}
+
+export class SetProjectSlotsDto {
+  @ApiProperty({ type: [ProjectRoleSlotDto], maxItems: 20 })
+  @IsArray()
+  @ArrayMaxSize(20)
+  @ValidateNested({ each: true })
+  @Type(() => ProjectRoleSlotDto)
+  slots!: ProjectRoleSlotDto[];
 }

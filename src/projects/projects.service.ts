@@ -10,6 +10,7 @@ import { User } from '../users/entities/user.entity';
 import { ActorContext } from '../users/users.service';
 import { Project } from './entities/project.entity';
 import { ProjectMember } from './entities/project-member.entity';
+import { ProjectRoleSlot } from './entities/project-role-slot.entity';
 import { ProjectTechnology } from './entities/project-technology.entity';
 
 export interface ProjectResponse {
@@ -64,6 +65,7 @@ export class ProjectsService {
     @InjectRepository(Project) private readonly projects: Repository<Project>,
     @InjectRepository(ProjectMember) private readonly members: Repository<ProjectMember>,
     @InjectRepository(ProjectTechnology) private readonly technologies: Repository<ProjectTechnology>,
+    @InjectRepository(ProjectRoleSlot) private readonly slots: Repository<ProjectRoleSlot>,
     @InjectRepository(User)     private readonly users: Repository<User>,
     private readonly permissions: PermissionsService,
     private readonly audit: AuditService,
@@ -382,6 +384,65 @@ export class ProjectsService {
       .orderBy('m.joinedAt', 'ASC')
       .getRawMany();
     return rows;
+  }
+
+  /** Role slots with live filled counts (active assignments carrying the role). */
+  async getSlots(projectId: string, o?: Ownership): Promise<Array<{ roleCode: string; requiredCount: number; filledCount: number }>> {
+    await this.getOne(projectId, o);
+    const slots = await this.slots.find({ where: { projectId }, order: { roleCode: 'ASC' } });
+    const filled = await this.slots.query(
+      `SELECT pm.roleInProject AS roleCode, COUNT(*) AS filled
+       FROM project_members pm
+       INNER JOIN assignments a ON a.projectId = pm.projectId AND a.internId = pm.userId AND a.status = 'active'
+       WHERE pm.projectId = @0 AND pm.roleInProject IS NOT NULL
+       GROUP BY pm.roleInProject`,
+      [projectId],
+    ) as Array<{ roleCode: string; filled: number }>;
+    const filledByRole = new Map(filled.map((r) => [r.roleCode, Number(r.filled)]));
+    return slots.map((s) => ({ roleCode: s.roleCode, requiredCount: s.requiredCount, filledCount: filledByRole.get(s.roleCode) ?? 0 }));
+  }
+
+  /**
+   * Replace all role slots (projects.manage + managing mentor).
+   * Empty array clears the plan. Duplicate role codes → 400.
+   */
+  async setSlots(projectId: string, input: { slots: Array<{ roleCode: string; requiredCount: number }> }, ctx: ActorContext) {
+    const o = await this.ownership(ctx.actorId);
+    const project = await this.getOne(projectId, o);
+    if (o && !o.isAdmin && project.mentorId !== o.userId) {
+      throw new ForbiddenException({
+        statusCode: 403,
+        code: 'PROJECT_SCOPE_FORBIDDEN',
+        message: 'Only the managing mentor can edit role slots. Claim the project first.',
+      });
+    }
+    const codes = input.slots.map((s) => s.roleCode.trim());
+    if (codes.some((c) => c.length === 0) || new Set(codes).size !== codes.length) {
+      throw new ConflictException({
+        statusCode: 409,
+        code: 'ROLE_SLOT_INVALID',
+        message: 'Role codes must be unique and non-blank.',
+      });
+    }
+    await this.slots.manager.transaction(async (em) => {
+      await em.delete(ProjectRoleSlot, { projectId });
+      if (codes.length > 0) {
+        await em.insert(
+          ProjectRoleSlot,
+          codes.map((roleCode, i) => ({ projectId, roleCode, requiredCount: input.slots[i].requiredCount })),
+        );
+      }
+    });
+    await this.audit.record({
+      actorId: ctx.actorId ?? null,
+      action: 'project.slots_updated',
+      targetType: 'project',
+      targetId: projectId,
+      detail: { slots: codes.length },
+      ip: ctx.ip,
+      userAgent: ctx.userAgent,
+    });
+    return this.getSlots(projectId, o);
   }
 
   /** Mentor must exist and be active (404 otherwise). */

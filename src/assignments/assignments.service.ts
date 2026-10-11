@@ -15,6 +15,7 @@ import { User } from '../users/entities/user.entity';
 import { ActorContext } from '../users/users.service';
 import { Assignment } from './entities/assignment.entity';
 import { Project } from '../projects/entities/project.entity';
+import { ProjectRoleSlot } from '../projects/entities/project-role-slot.entity';
 import { RecruitmentProfile } from '../recruitment/entities/recruitment-profile.entity';
 import { ProjectMember } from '../projects/entities/project-member.entity';
 
@@ -190,7 +191,7 @@ export class AssignmentsService {
    * with repositories bound to the outer connection (spec 39).
    */
   async create(
-    input: { internId: string; projectId: string; sessionId: string },
+    input: { internId: string; projectId: string; sessionId: string; role?: string },
     ctx: ActorContext,
   ): Promise<AssignmentResponse> {
     const created = await this.dataSource.transaction(async (em) => {
@@ -293,6 +294,32 @@ export class AssignmentsService {
         throw conflict('Intern already has an active assignment.', { assignmentId: existingActive.id });
       }
 
+      // (6b) Role slot cap (redesign §12/§15): only enforced when the caller
+      // names a role AND the project defines that slot. Role-less assignment
+      // stays open for backward compatibility.
+      const role = input.role?.trim() || undefined;
+      if (role) {
+        const slot = await em.getRepository(ProjectRoleSlot).findOne({
+          where: { projectId: project.id, roleCode: role },
+        });
+        if (slot) {
+          const filled = await em.query(
+            `SELECT COUNT(*) AS filled FROM project_members pm
+             INNER JOIN assignments a ON a.projectId = pm.projectId AND a.internId = pm.userId AND a.status = 'active'
+             WHERE pm.projectId = @0 AND pm.roleInProject = @1`,
+            [project.id, role],
+          ) as Array<{ filled: number }>;
+          if (Number(filled[0]?.filled ?? 0) >= slot.requiredCount) {
+            throw new ConflictException({
+              statusCode: 409,
+              code: 'ROLE_SLOT_FULL',
+              message: `No open '${role}' slot left on this project (${slot.requiredCount} required).`,
+              details: { roleCode: role, requiredCount: slot.requiredCount },
+            });
+          }
+        }
+      }
+
       // (7) Create the assignment (unique/deadlock → 409, not 500).
       let assignment: Assignment;
       try {
@@ -321,7 +348,7 @@ export class AssignmentsService {
         await em.insert(SessionMember, { sessionId: session.id, userId: intern.id });
       }
 
-      // (9) Ensure project membership.
+      // (9) Ensure project membership, recording the assigned role.
       const projectMember = await em.getRepository(ProjectMember).findOne({
         where: { projectId: project.id, userId: intern.id },
       });
@@ -329,8 +356,10 @@ export class AssignmentsService {
         await em.insert(ProjectMember, {
           projectId: project.id,
           userId: intern.id,
-          roleInProject: 'intern',
+          roleInProject: role ?? 'intern',
         });
+      } else if (role && projectMember.roleInProject !== role) {
+        await em.update(ProjectMember, { projectId: project.id, userId: intern.id }, { roleInProject: role });
       }
 
       // (10) Notification — preference-aware, written IN the transaction.

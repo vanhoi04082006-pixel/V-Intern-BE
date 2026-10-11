@@ -15,6 +15,12 @@ export class CreateAssignmentDto {
   @ApiProperty({ format: 'uuid' })
   @IsUUID('4')
   sessionId!: string;
+
+  @ApiPropertyOptional({ minLength: 1, maxLength: 64, description: 'Project role slot to fill (e.g. frontend); enforced against slot caps when defined' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  role?: string;
 }
 
 export class QueryAssignmentsDto extends PaginationQueryDto {
