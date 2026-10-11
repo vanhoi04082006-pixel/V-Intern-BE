@@ -1,7 +1,9 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { isUniqueViolation } from '../common/utils/db-errors';
+import { OWNER_PARAM, classScope, resolveOwnership, type Ownership } from '../rbac/ownership';
+import { PermissionsService } from '../rbac/permissions.service';
 import { ActivityService } from '../audit/activity.service';
 import { AuditService } from '../audit/audit.service';
 import { InternshipSession } from '../sessions/entities/internship-session.entity';
@@ -17,6 +19,9 @@ export interface ClassResponse {
   description: string | null;
   leadInstructorId: string | null;
   sessionId: string | null;
+  meetingSchedule: string | null;
+  meetingLocation: string | null;
+  progress: number;
   status: string;
   startDate: Date | null;
   endDate: Date | null;
@@ -39,6 +44,9 @@ export function toClassResponse(c: AcademicClass): ClassResponse {
     description: c.description ?? null,
     leadInstructorId: c.leadInstructorId ?? null,
     sessionId: c.sessionId ?? null,
+    meetingSchedule: c.meetingSchedule ?? null,
+    meetingLocation: c.meetingLocation ?? null,
+    progress: c.progress ?? 0,
     status: c.status,
     startDate: c.startDate ?? null,
     endDate: c.endDate ?? null,
@@ -58,18 +66,40 @@ export class ClassesService {
     @InjectRepository(ClassMember) private readonly members: Repository<ClassMember>,
     @InjectRepository(User) private readonly users: Repository<User>,
     @InjectRepository(InternshipSession) private readonly sessions: Repository<InternshipSession>,
+    private readonly permissions: PermissionsService,
     private readonly audit: AuditService,
     private readonly activity: ActivityService,
   ) {}
 
-  async list(q: { page: number; pageSize: number; q?: string; status?: string; sessionId?: string }) {
+  private async ownership(actorId?: string | null): Promise<Ownership | undefined> {
+    if (!actorId) return undefined;
+    return resolveOwnership(this.permissions, actorId);
+  }
+
+  private assertClassManaged(cls: AcademicClass, o?: Ownership): void {
+    if (!o || o.isAdmin) return;
+    if (cls.leadInstructorId !== o.userId) {
+      throw new ForbiddenException({
+        statusCode: 403,
+        code: 'CLASS_SCOPE_FORBIDDEN',
+        message: 'Only the lead instructor can change this class.',
+      });
+    }
+  }
+
+  async list(q: { page: number; pageSize: number; q?: string; status?: string; sessionId?: string; leadInstructorId?: string }, o?: Ownership) {
     const qb = this.classes.createQueryBuilder('c');
+    if (o && !o.isAdmin) {
+      const scope = classScope('c', o);
+      if (scope) qb.andWhere(scope.clause, { [OWNER_PARAM]: o.userId });
+    }
     if (q.q && q.q.length > 0) {
       const term = `%${q.q}%`;
       qb.andWhere('(c.code LIKE :term OR c.name LIKE :term)', { term });
     }
     if (q.status) qb.andWhere('c.status = :status', { status: q.status });
     if (q.sessionId) qb.andWhere('c.sessionId = :sessionId', { sessionId: q.sessionId });
+    if (q.leadInstructorId) qb.andWhere('c.leadInstructorId = :leadInstructorId', { leadInstructorId: q.leadInstructorId });
     qb.orderBy('c.createdAt', 'DESC')
       .skip((q.page - 1) * q.pageSize)
       .take(q.pageSize);
@@ -77,7 +107,7 @@ export class ClassesService {
     return { items: items.map(toClassResponse), total };
   }
 
-  async getOne(id: string): Promise<AcademicClass> {
+  async getOne(id: string, o?: Ownership): Promise<AcademicClass> {
     const cls = await this.classes.findOne({ where: { id } });
     if (!cls) {
       throw new NotFoundException({
@@ -86,12 +116,22 @@ export class ClassesService {
         message: 'Class not found.',
       });
     }
+    if (o && !o.isAdmin && cls.leadInstructorId !== o.userId) {
+      throw new ForbiddenException({
+        statusCode: 403,
+        code: 'CLASS_SCOPE_FORBIDDEN',
+        message: 'You do not manage this class.',
+      });
+    }
     return cls;
   }
 
   async create(input: {
     code: string;
     name: string;
+    meetingSchedule?: string;
+    meetingLocation?: string;
+    progress?: number;
     description?: string;
     leadInstructorId?: string;
     sessionId?: string;
@@ -124,6 +164,9 @@ export class ClassesService {
           code: input.code,
           name: input.name,
           description: input.description ?? null,
+          meetingSchedule: input.meetingSchedule ?? null,
+          meetingLocation: input.meetingLocation ?? null,
+          progress: input.progress ?? 0,
           leadInstructorId,
           sessionId: input.sessionId ?? null,
           status: (input.status ?? 'upcoming') as AcademicClass['status'],
@@ -166,7 +209,10 @@ export class ClassesService {
     id: string,
     input: {
       name?: string;
-      description?: string;
+      meetingSchedule?: string;
+    meetingLocation?: string;
+    progress?: number;
+    description?: string;
       leadInstructorId?: string;
       sessionId?: string;
       status?: string;
@@ -175,8 +221,12 @@ export class ClassesService {
     },
     ctx: ActorContext,
   ): Promise<ClassResponse> {
-    await this.getOne(id);
+    const cls = await this.getOne(id, await this.ownership(ctx.actorId));
+    this.assertClassManaged(cls, await this.ownership(ctx.actorId));
     const patch: Partial<AcademicClass> = {};
+    if (input.meetingSchedule !== undefined) patch.meetingSchedule = input.meetingSchedule;
+    if (input.meetingLocation !== undefined) patch.meetingLocation = input.meetingLocation;
+    if (input.progress !== undefined) patch.progress = input.progress;
     if (input.name !== undefined) patch.name = input.name;
     if (input.description !== undefined) patch.description = input.description;
     if (input.status !== undefined) patch.status = input.status as AcademicClass['status'];
@@ -201,12 +251,13 @@ export class ClassesService {
         userAgent: ctx.userAgent,
       });
     }
-    return toClassResponse(await this.getOne(id));
+    return toClassResponse(await this.getOne(id, await this.ownership(ctx.actorId)));
   }
 
   /** Idempotent membership add — duplicates are prevented and skipped. */
   async addMembers(classId: string, userIds: string[], ctx: ActorContext): Promise<{ added: number; skipped: number }> {
-    await this.getOne(classId);
+    const o = await this.ownership(ctx.actorId);
+    this.assertClassManaged(await this.getOne(classId, o), o);
     const found = await this.users.find({ where: { id: In(userIds) } });
     const foundIds = new Set(found.map((u) => u.id));
     const unknown = userIds.filter((id) => !foundIds.has(id));
@@ -246,7 +297,8 @@ export class ClassesService {
   }
 
   async removeMember(classId: string, userId: string, ctx: ActorContext): Promise<{ removed: number }> {
-    await this.getOne(classId);
+    const o = await this.ownership(ctx.actorId);
+    this.assertClassManaged(await this.getOne(classId, o), o);
     const result = await this.members.delete({ classId, userId });
     const removed = result.affected ?? 0;
     if (removed > 0) {
@@ -263,8 +315,8 @@ export class ClassesService {
     return { removed };
   }
 
-  async listMembers(classId: string): Promise<ClassMemberResponse[]> {
-    await this.getOne(classId);
+  async listMembers(classId: string, o?: Ownership): Promise<ClassMemberResponse[]> {
+    await this.getOne(classId, o);
     const rows = await this.members
       .createQueryBuilder('m')
       .innerJoin(User, 'u', 'u.id = m.userId')

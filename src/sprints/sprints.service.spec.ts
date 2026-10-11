@@ -2,6 +2,7 @@ import { QueryFailedError } from 'typeorm';
 import { SprintsService } from './sprints.service';
 import { Sprint } from './entities/sprint.entity';
 import { Project } from '../projects/entities/project.entity';
+import { PermissionsService } from '../rbac/permissions.service';
 
 /**
  * Sprint service tests (spec 3/4/19/29/30/36): legal + illegal transitions,
@@ -134,6 +135,7 @@ function buildHarness(opts?: {
     query: jest.fn(async () => [{ v: 100 }]),
   };
   const dataSource = { transaction: jest.fn(async (cb: (m: unknown) => Promise<unknown>) => cb(em)) };
+  const permissions = { hasRole: jest.fn(async () => true) } as unknown as PermissionsService;
 
   const service = new SprintsService(
     sprintRepo as unknown as never,
@@ -141,6 +143,7 @@ function buildHarness(opts?: {
     sessionRepo as unknown as never,
     taskRepo as unknown as never,
     dataSource as unknown as never,
+    permissions,
   );
   return {
     service,
@@ -382,7 +385,7 @@ describe('sprints.service — board + completion (spec 22/30)', () => {
         orderBy: jest.fn(() => qb),
         addOrderBy: jest.fn(() => qb),
         getMany: jest.fn(async () => [
-          { id: 't1', code: 'VIN-100', title: 'A', status: 'todo', priority: 'high', assigneeId: null, progress: 0, dueDate: null, createdAt: new Date(1) },
+          { id: 't1', code: 'VIN-100', title: 'A', storyPoints: 5, description: 'Xây dựng validation cho form', status: 'todo', priority: 'high', assigneeId: null, progress: 0, dueDate: null, createdAt: new Date(1) },
           { id: 't2', code: 'VIN-101', title: 'B', status: 'todo', priority: 'low', assigneeId: 'intern-1', progress: 10, dueDate: new Date(2), createdAt: new Date(2) },
           { id: 't3', code: 'VIN-102', title: 'C', status: 'doing', priority: 'medium', assigneeId: 'intern-1', progress: 50, dueDate: null, createdAt: new Date(3) },
         ]),
@@ -397,6 +400,8 @@ describe('sprints.service — board + completion (spec 22/30)', () => {
     expect(doing?.count).toBe(1);
     // critical→low priority ordering: high (VIN-100) before low (VIN-101)
     expect(todo?.tasks[0].code).toBe('VIN-100');
+    expect(todo?.tasks[0]).toMatchObject({ storyPoints: 5, description: 'Xây dựng validation cho form' });
+    expect(doing?.tasks[0]).toMatchObject({ storyPoints: null, description: null });
   });
 
   it('completion aggregates story points from the DB; NULL when no task declares points', async () => {

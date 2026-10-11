@@ -142,6 +142,7 @@ function buildHarness(opts?: {
 
   const permissions = {
     getEffectivePermissionCodes: jest.fn(async () => new Set(opts?.codes ?? [])),
+    hasRole: jest.fn(async () => true),
   } as unknown as PermissionsService;
 
   const em: Record<string, AnyMock> = {
@@ -182,7 +183,7 @@ function buildHarness(opts?: {
       (em.getRepository(entity) as AnyRepo).insert(data),
     ),
     create: jest.fn((_entity: unknown, x: unknown) => ({ id: 'task-new', ...(x as object) })),
-    query: jest.fn(async () => [{ v: 100 }]),
+    query: jest.fn(async (sql: string) => sql.includes('NEXT VALUE') ? [{ v: 100 }] : []),
   };
   const dataSource = { transaction: jest.fn(async (cb: (m: unknown) => Promise<unknown>) => cb(em)) };
 
@@ -218,6 +219,16 @@ function buildHarness(opts?: {
 }
 
 describe('task code + focus helpers (spec 11/23)', () => {
+  it.each(['assignee', 'status', 'delete'])('protects a pending submission from %s changes', async (kind) => {
+    const h = buildHarness({ task: taskRow({ status: 'review' }) });
+    h.em.query.mockResolvedValue([{ id: 'submission-1' }]);
+    const operation = kind === 'delete'
+      ? h.service.softDelete('task-1', CTX)
+      : h.service.update('task-1', kind === 'assignee' ? { assigneeId: 'intern-2' } : { status: 'done' }, CTX);
+    await expect(operation).rejects.toMatchObject({ response: { code: 'SUBMISSION_PENDING_REVIEW' } });
+    expect(h.em.save).not.toHaveBeenCalled();
+    expect(h.em.insert).not.toHaveBeenCalled();
+  });
   it('rejects stale manager edits without writing task, history or audit', async () => {
     const h = buildHarness({ task: taskRow({ version: 2 }) });
     await expect(h.service.update('task-1', { title: 'stale', expectedVersion: 1 } as never, CTX))

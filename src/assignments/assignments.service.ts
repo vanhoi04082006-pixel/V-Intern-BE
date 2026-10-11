@@ -1,4 +1,4 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, EntityManager, Repository } from 'typeorm';
 import { ActivityEvent } from '../audit/entities/activity-event.entity';
@@ -8,6 +8,8 @@ import { Notification } from '../notifications/entities/notification.entity';
 import { NotificationPreference } from '../notifications/entities/notification-preference.entity';
 import { InternshipSession } from '../sessions/entities/internship-session.entity';
 import { SessionMember } from '../sessions/entities/session-member.entity';
+import { OWNER_PARAM, assignmentScope, resolveOwnership, type Ownership } from '../rbac/ownership';
+import { PermissionsService } from '../rbac/permissions.service';
 import { isSessionAssignable } from '../sessions/session-status.machine';
 import { User } from '../users/entities/user.entity';
 import { ActorContext } from '../users/users.service';
@@ -92,7 +94,43 @@ export class AssignmentsService {
     @InjectRepository(Project) private readonly projects: Repository<Project>,
     @InjectRepository(InternshipSession) private readonly sessions: Repository<InternshipSession>,
     private readonly dataSource: DataSource,
+    private readonly permissions: PermissionsService,
   ) {}
+
+  private async ownership(actorId?: string | null): Promise<Ownership | undefined> {
+    if (!actorId) return undefined;
+    return resolveOwnership(this.permissions, actorId);
+  }
+
+  private async assertSessionManaged(sessionId: string, o?: Ownership): Promise<void> {
+    if (!o || o.isAdmin) return;
+    const rows = await this.dataSource.query(
+      'SELECT 1 AS ok FROM internship_sessions s WHERE s.id = @0 AND (s.leadInstructorId = @1 OR EXISTS (SELECT 1 FROM session_instructors si WHERE si.sessionId = s.id AND si.instructorId = @1))',
+      [sessionId, o.userId],
+    );
+    if (rows.length === 0) {
+      throw new ForbiddenException({
+        statusCode: 403,
+        code: 'ASSIGNMENT_SCOPE_FORBIDDEN',
+        message: 'You do not manage this internship session.',
+      });
+    }
+  }
+
+  private async assertSessionManagedTx(em: EntityManager, sessionId: string, o?: Ownership): Promise<void> {
+    if (!o || o.isAdmin) return;
+    const rows = await em.query(
+      'SELECT 1 AS ok FROM internship_sessions s WHERE s.id = @0 AND (s.leadInstructorId = @1 OR EXISTS (SELECT 1 FROM session_instructors si WHERE si.sessionId = s.id AND si.instructorId = @1))',
+      [sessionId, o.userId],
+    );
+    if (rows.length === 0) {
+      throw new ForbiddenException({
+        statusCode: 403,
+        code: 'ASSIGNMENT_SCOPE_FORBIDDEN',
+        message: 'You do not manage this internship session.',
+      });
+    }
+  }
 
   async list(q: {
     page: number;
@@ -101,8 +139,12 @@ export class AssignmentsService {
     sessionId?: string;
     projectId?: string;
     status?: string;
-  }) {
+  }, o?: Ownership) {
     const qb = this.assignments.createQueryBuilder('a');
+    if (o && !o.isAdmin) {
+      const scope = assignmentScope('a', o);
+      if (scope) qb.andWhere(scope.clause, { [OWNER_PARAM]: o.userId });
+    }
     if (q.internId) qb.andWhere('a.internId = :internId', { internId: q.internId });
     if (q.sessionId) qb.andWhere('a.sessionId = :sessionId', { sessionId: q.sessionId });
     if (q.projectId) qb.andWhere('a.projectId = :projectId', { projectId: q.projectId });
@@ -114,7 +156,7 @@ export class AssignmentsService {
     return { items: items.map((a) => toAssignmentResponse(a)), total };
   }
 
-  async getOneDetailed(id: string): Promise<AssignmentResponse> {
+  async getOneDetailed(id: string, o?: Ownership): Promise<AssignmentResponse> {
     const assignment = await this.assignments.findOne({ where: { id } });
     if (!assignment) {
       throw new NotFoundException({
@@ -122,6 +164,9 @@ export class AssignmentsService {
         code: 'ASSIGNMENT_NOT_FOUND',
         message: 'Assignment not found.',
       });
+    }
+    if (o && !o.isAdmin && assignment.internId !== o.userId) {
+      await this.assertSessionManaged(assignment.sessionId, o);
     }
     const [intern, project, session] = await Promise.all([
       this.users.findOne({ where: { id: assignment.internId } }),
@@ -200,6 +245,7 @@ export class AssignmentsService {
           details: { status: session.status },
         });
       }
+      await this.assertSessionManaged(input.sessionId, await this.ownership(ctx.actorId));
 
       // (4+5) Lock + validate the project row and capacity — serializes
       // concurrent assignments targeting the same project.
@@ -347,6 +393,7 @@ export class AssignmentsService {
           message: 'Assignment not found.',
         });
       }
+      await this.assertSessionManagedTx(em, assignment.sessionId, await this.ownership(ctx.actorId));
       if (assignment.status !== 'active') {
         throw new ConflictException({
           statusCode: 409,

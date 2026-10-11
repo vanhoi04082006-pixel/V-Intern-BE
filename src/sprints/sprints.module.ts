@@ -4,6 +4,7 @@ import { ActivityEvent } from '../audit/entities/activity-event.entity';
 import { AuditLog } from '../audit/entities/audit-log.entity';
 import { Notification } from '../notifications/entities/notification.entity';
 import { NotificationPreference } from '../notifications/entities/notification-preference.entity';
+import { RbacModule } from '../rbac/rbac.module';
 import { Assignment } from '../assignments/entities/assignment.entity';
 import { InternshipSession } from '../sessions/entities/internship-session.entity';
 import { Task } from '../tasks/entities/task.entity';
@@ -18,6 +19,7 @@ import { SprintsService } from './sprints.service';
  */
 @Module({
   imports: [
+    RbacModule,
     TypeOrmModule.forFeature([
       Sprint,
       Project,

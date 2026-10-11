@@ -1,9 +1,11 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ActivityService } from '../audit/activity.service';
 import { AuditService } from '../audit/audit.service';
 import { isUniqueViolation } from '../common/utils/db-errors';
+import { OWNER_PARAM, projectScope, resolveOwnership, type Ownership } from '../rbac/ownership';
+import { PermissionsService } from '../rbac/permissions.service';
 import { User } from '../users/entities/user.entity';
 import { ActorContext } from '../users/users.service';
 import { Project } from './entities/project.entity';
@@ -62,10 +64,17 @@ export class ProjectsService {
     @InjectRepository(Project) private readonly projects: Repository<Project>,
     @InjectRepository(ProjectMember) private readonly members: Repository<ProjectMember>,
     @InjectRepository(ProjectTechnology) private readonly technologies: Repository<ProjectTechnology>,
-    @InjectRepository(User) private readonly users: Repository<User>,
+    @InjectRepository(User)     private readonly users: Repository<User>,
+    private readonly permissions: PermissionsService,
     private readonly audit: AuditService,
     private readonly activity: ActivityService,
   ) {}
+
+  /** Resolve request ownership from the actor; undefined actor = trusted internal call. */
+  private async ownership(actorId?: string | null): Promise<Ownership | undefined> {
+    if (!actorId) return undefined;
+    return resolveOwnership(this.permissions, actorId);
+  }
 
   async list(q: {
     page: number;
@@ -73,16 +82,24 @@ export class ProjectsService {
     q?: string;
     status?: string;
     difficulty?: string;
+    domainCategory?: string;
+    technology?: string;
     sort?: 'createdAt' | 'code' | 'name';
     order?: 'ASC' | 'DESC';
-  }) {
+  }, o?: Ownership) {
     const qb = this.projects.createQueryBuilder('p');
+    if (o && !o.isAdmin) {
+      const scope = projectScope('p', o);
+      if (scope) qb.andWhere(scope.clause, { [OWNER_PARAM]: o.userId });
+    }
     if (q.q && q.q.length > 0) {
       const term = `%${q.q}%`;
       qb.andWhere('(p.code LIKE :term OR p.name LIKE :term)', { term });
     }
     if (q.status) qb.andWhere('p.status = :status', { status: q.status });
     if (q.difficulty) qb.andWhere('p.difficulty = :difficulty', { difficulty: q.difficulty });
+    if (q.domainCategory) qb.andWhere('p.domainCategory = :domainCategory', { domainCategory: q.domainCategory });
+    if (q.technology) qb.andWhere('EXISTS(SELECT 1 FROM project_technologies pt WHERE pt.projectId=p.id AND pt.technology=:technology)', { technology: q.technology });
     const sortCol = q.sort ?? 'createdAt';
     qb.orderBy(`p.${sortCol}`, q.order ?? 'DESC')
       .skip((q.page - 1) * q.pageSize)
@@ -92,7 +109,7 @@ export class ProjectsService {
     return { items: items.map((p) => toProjectResponse(p, techMap.get(p.id) ?? [])), total };
   }
 
-  async getOne(id: string): Promise<Project> {
+  async getOne(id: string, o?: Ownership): Promise<Project> {
     const project = await this.projects.findOne({ where: { id } });
     if (!project) {
       throw new NotFoundException({
@@ -101,11 +118,26 @@ export class ProjectsService {
         message: 'Project not found.',
       });
     }
+    if (o && !o.isAdmin && project.mentorId !== o.userId && project.mentorId !== null) {
+      throw new ForbiddenException({
+        statusCode: 403,
+        code: 'PROJECT_SCOPE_FORBIDDEN',
+        message: 'You do not manage this project.',
+      });
+    }
     return project;
   }
 
-  async getOneDetailed(id: string): Promise<ProjectResponse> {
-    const project = await this.getOne(id);
+  async filterOptions() {
+    const [domains,technologies] = await Promise.all([
+      this.projects.query("SELECT DISTINCT domainCategory value FROM projects WHERE domainCategory IS NOT NULL AND domainCategory<>'' ORDER BY domainCategory"),
+      this.projects.query('SELECT DISTINCT technology value FROM project_technologies ORDER BY technology'),
+    ]);
+    return {domains:domains.map((r:{value:string})=>r.value),technologies:technologies.map((r:{value:string})=>r.value)};
+  }
+
+  async getOneDetailed(id: string, o?: Ownership): Promise<ProjectResponse> {
+    const project = await this.getOne(id, o);
     const techMap = await this.loadTechnologies([project.id]);
     return toProjectResponse(project, techMap.get(project.id) ?? []);
   }
@@ -139,6 +171,11 @@ export class ProjectsService {
       });
     }
     const mentorId = await this.resolveMentor(input.mentorId);
+    // Ownership bootstrap: an instructor creating a project without an
+    // explicit mentor becomes its mentor, so the project they just created
+    // stays visible under instructor scoping.
+    const effectiveMentorId =
+      mentorId ?? (ctx.actorId && (await this.permissions.hasRole(ctx.actorId, 'instructor')) ? ctx.actorId : null);
 
     const created = await this.projects.manager.transaction(async (em) => {
       let saved: Project;
@@ -151,7 +188,7 @@ export class ProjectsService {
             domainCategory: input.domainCategory ?? null,
             difficulty: (input.difficulty ?? 'beginner') as Project['difficulty'],
             status: (input.status ?? 'draft') as Project['status'],
-            mentorId,
+            mentorId: effectiveMentorId,
             capacity: input.capacity ?? null,
             startDate: input.startDate ? new Date(input.startDate) : null,
             endDate: input.endDate ? new Date(input.endDate) : null,
@@ -219,7 +256,15 @@ export class ProjectsService {
     },
     ctx: ActorContext,
   ): Promise<ProjectResponse> {
-    const project = await this.getOne(id);
+    const o = await this.ownership(ctx.actorId);
+    const project = await this.getOne(id, o);
+    if (o && !o.isAdmin && project.mentorId !== o.userId) {
+      throw new ForbiddenException({
+        statusCode: 403,
+        code: 'PROJECT_SCOPE_FORBIDDEN',
+        message: 'Only the managing mentor can edit this project. Claim it first.',
+      });
+    }
     if (project.status === 'archived') {
       throw new ConflictException({
         statusCode: 409,
@@ -287,8 +332,42 @@ export class ProjectsService {
     return this.getOneDetailed(id);
   }
 
-  async listMembers(projectId: string): Promise<ProjectMemberRow[]> {
-    await this.getOne(projectId);
+  /**
+   * Claim an unmentored library project: sets mentorId to the actor.
+   * Already-claimed projects (by anyone, including self) → 409, never
+   * silently stolen. Admins manage via PATCH instead.
+   */
+  async claim(id: string, ctx: ActorContext): Promise<ProjectResponse> {
+    const o = await this.ownership(ctx.actorId);
+    if (!o || (!o.isAdmin && !(await this.permissions.hasRole(o.userId, 'instructor')))) {
+      throw new ForbiddenException({
+        statusCode: 403,
+        code: 'PROJECT_CLAIM_FORBIDDEN',
+        message: 'Only instructors can claim library projects.',
+      });
+    }
+    const project = await this.getOne(id, o);
+    if (project.mentorId !== null) {
+      throw new ConflictException({
+        statusCode: 409,
+        code: 'PROJECT_ALREADY_CLAIMED',
+        message: 'Project already has a managing mentor.',
+      });
+    }
+    await this.projects.update(id, { mentorId: o.userId });
+    await this.audit.record({
+      actorId: ctx.actorId ?? null,
+      action: 'project.claimed',
+      targetType: 'project',
+      targetId: id,
+      ip: ctx.ip,
+      userAgent: ctx.userAgent,
+    });
+    return this.getOneDetailed(id, o);
+  }
+
+  async listMembers(projectId: string, o?: Ownership): Promise<ProjectMemberRow[]> {
+    await this.getOne(projectId, o);
     const rows = await this.members
       .createQueryBuilder('m')
       .innerJoin(User, 'u', 'u.id = m.userId')

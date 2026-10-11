@@ -7,6 +7,7 @@ import { ProjectMember } from '../projects/entities/project-member.entity';
 import { InternshipSession } from '../sessions/entities/internship-session.entity';
 import { SessionMember } from '../sessions/entities/session-member.entity';
 import { User } from '../users/entities/user.entity';
+import { PermissionsService } from '../rbac/permissions.service';
 import { AssignmentsService } from './assignments.service';
 import { Assignment } from './entities/assignment.entity';
 
@@ -150,6 +151,7 @@ function buildHarness(opts?: {
 
   const transaction = jest.fn(async (cb: (em2: typeof em) => Promise<unknown>) => cb(em));
   const ds = { transaction } as unknown as DataSource;
+  const permissions = { hasRole: jest.fn(async () => true) } as unknown as PermissionsService;
 
   const service = new AssignmentsService(
     assignmentRepo as unknown as Repository<Assignment>,
@@ -157,6 +159,7 @@ function buildHarness(opts?: {
     projectRepo as unknown as Repository<Project>,
     sessionRepo as unknown as Repository<InternshipSession>,
     ds,
+    permissions,
   );
 
   return {

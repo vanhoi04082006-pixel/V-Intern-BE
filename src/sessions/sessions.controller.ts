@@ -28,27 +28,38 @@ import {
   QueryInstructorOptionsDto,
 } from './dto/session.dtos';
 import { SessionsService, toSessionResponse } from './sessions.service';
+import { PermissionsService } from '../rbac/permissions.service';
+import { resolveOwnership } from '../rbac/ownership';
 
 @ApiTags('sessions')
 @ApiBearerAuth()
 @Controller('sessions')
 export class SessionsController {
-  constructor(private readonly sessionsService: SessionsService) {}
+  constructor(
+    private readonly sessionsService: SessionsService,
+    private readonly permissionsService: PermissionsService,
+  ) {}
 
   private ctx(req: Request, actorId: string): ActorContext {
     return { actorId, ip: clientIp(req), userAgent: userAgent(req) };
   }
 
+  private ownership(userId: string) {
+    return resolveOwnership(this.permissionsService, userId);
+  }
+
   @Get()
   @RequirePermissions('sessions.view')
-  @ApiOperation({ summary: 'Paginated sessions (sessions.view; filters: q, status)' })
-  async list(@Query() query: QuerySessionsDto) {
+  @ApiOperation({ summary: 'Paginated sessions (sessions.view; filters: q, status; scoped to managed sessions)' })
+  async list(@Query() query: QuerySessionsDto, @CurrentUser('userId') userId: string) {
     const { items, total } = await this.sessionsService.list({
       page: query.page,
       pageSize: query.pageSize,
       q: query.q,
       status: query.status,
-    });
+      projectId: query.projectId,
+      leadInstructorId: query.leadInstructorId,
+    }, await this.ownership(userId));
     return toPaginated(items, query.page, query.pageSize, total);
   }
 
@@ -73,9 +84,9 @@ export class SessionsController {
 
   @Get(':id')
   @RequirePermissions('sessions.view')
-  @ApiOperation({ summary: 'Session detail (sessions.view)' })
-  async getOne(@Param('id', ParseUUIDPipe) id: string) {
-    return toSessionResponse(await this.sessionsService.getOne(id));
+  @ApiOperation({ summary: 'Session detail (sessions.view; managed scope only)' })
+  async getOne(@Param('id', ParseUUIDPipe) id: string, @CurrentUser('userId') userId: string) {
+    return toSessionResponse(await this.sessionsService.getOne(id, await this.ownership(userId)));
   }
 
   @Patch(':id')
@@ -95,9 +106,9 @@ export class SessionsController {
 
   @Get(':id/members')
   @RequirePermissions('sessions.view')
-  @ApiOperation({ summary: 'Session members (sessions.view)' })
-  async members(@Param('id', ParseUUIDPipe) id: string) {
-    return { members: await this.sessionsService.listMembers(id) };
+  @ApiOperation({ summary: 'Session members (sessions.view; managed scope only)' })
+  async members(@Param('id', ParseUUIDPipe) id: string, @CurrentUser('userId') userId: string) {
+    return { members: await this.sessionsService.listMembers(id, await this.ownership(userId)) };
   }
 
   @Post(':id/members')
@@ -126,9 +137,9 @@ export class SessionsController {
 
   @Get(':id/instructors')
   @RequirePermissions('sessions.view')
-  @ApiOperation({ summary: 'Session instructors (sessions.view)' })
-  async instructors(@Param('id', ParseUUIDPipe) id: string) {
-    return { instructors: await this.sessionsService.listInstructors(id) };
+  @ApiOperation({ summary: 'Session instructors (sessions.view; managed scope only)' })
+  async instructors(@Param('id', ParseUUIDPipe) id: string, @CurrentUser('userId') userId: string) {
+    return { instructors: await this.sessionsService.listInstructors(id, await this.ownership(userId)) };
   }
 
   @Post(':id/instructors')
@@ -159,9 +170,9 @@ export class SessionsController {
 
   @Get(':id/milestones')
   @RequirePermissions('sessions.view')
-  @ApiOperation({ summary: 'Session milestones (sessions.view; ordered by sortOrder)' })
-  async milestones(@Param('id', ParseUUIDPipe) id: string) {
-    return { milestones: await this.sessionsService.listMilestones(id) };
+  @ApiOperation({ summary: 'Session milestones (sessions.view; ordered by sortOrder; managed scope only)' })
+  async milestones(@Param('id', ParseUUIDPipe) id: string, @CurrentUser('userId') userId: string) {
+    return { milestones: await this.sessionsService.listMilestones(id, await this.ownership(userId)) };
   }
 
   @Post(':id/milestones')

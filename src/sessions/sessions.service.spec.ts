@@ -82,6 +82,7 @@ function buildHarness(opts?: {
     getEffectivePermissionCodes: jest.fn(async () =>
       new Set(opts?.instructorHasPermission === false ? [] : ['sessions.manage']),
     ),
+    hasRole: jest.fn(async () => true),
   } as unknown as PermissionsService;
   const audit = { record: jest.fn(async () => undefined) } as unknown as AuditService;
   const activity = { record: jest.fn(async () => undefined) } as unknown as ActivityService;

@@ -7,6 +7,8 @@ import { toPaginated } from '../common/pagination/paginated';
 import { clientIp, userAgent } from '../common/types/request-info';
 import { ActorContext } from '../users/users.service';
 import { SprintsService } from './sprints.service';
+import { PermissionsService } from '../rbac/permissions.service';
+import { resolveOwnership } from '../rbac/ownership';
 import {
   CreateSprintDto,
   QuerySprintsDto,
@@ -18,23 +20,30 @@ import {
 @ApiBearerAuth()
 @Controller('sprints')
 export class SprintsController {
-  constructor(private readonly sprintsService: SprintsService) {}
+  constructor(
+    private readonly sprintsService: SprintsService,
+    private readonly permissionsService: PermissionsService,
+  ) {}
 
   private ctx(req: Request, actorId: string): ActorContext {
     return { actorId, ip: clientIp(req), userAgent: userAgent(req) };
   }
 
+  private ownership(userId: string) {
+    return resolveOwnership(this.permissionsService, userId);
+  }
+
   @Get()
   @RequirePermissions('sprints.view')
-  @ApiOperation({ summary: 'Paginated sprints (sprints.view; filters: projectId, sessionId, status)' })
-  async list(@Query() query: QuerySprintsDto) {
+  @ApiOperation({ summary: 'Paginated sprints (sprints.view; filters: projectId, sessionId, status; managed scope only)' })
+  async list(@Query() query: QuerySprintsDto, @CurrentUser('userId') userId: string) {
     const { items, total } = await this.sprintsService.list({
       page: query.page,
       pageSize: query.pageSize,
       projectId: query.projectId,
       sessionId: query.sessionId,
       status: query.status,
-    });
+    }, await this.ownership(userId));
     return toPaginated(items, query.page, query.pageSize, total);
   }
 
@@ -54,9 +63,9 @@ export class SprintsController {
 
   @Get(':id')
   @RequirePermissions('sprints.view')
-  @ApiOperation({ summary: 'Sprint detail (sprints.view; includes project/session summaries)' })
-  async getOne(@Param('id', ParseUUIDPipe) id: string) {
-    return this.sprintsService.getOneDetailed(id);
+  @ApiOperation({ summary: 'Sprint detail (sprints.view; includes project/session summaries; managed scope only)' })
+  async getOne(@Param('id', ParseUUIDPipe) id: string, @CurrentUser('userId') userId: string) {
+    return this.sprintsService.getOneDetailed(id, await this.ownership(userId));
   }
 
   @Patch(':id')
@@ -100,12 +109,13 @@ export class SprintsController {
     @Query('status') status: string | undefined,
     @Query('page') page: string | undefined,
     @Query('pageSize') pageSize: string | undefined,
+    @CurrentUser('userId') userId: string,
   ) {
     return this.sprintsService.board(id, {
       page: Math.max(1, Number(page ?? '1') || 1),
       pageSize: Math.min(100, Math.max(1, Number(pageSize ?? '100') || 100)),
       status: status && ['todo', 'doing', 'review', 'done'].includes(status) ? status : undefined,
-    });
+    }, undefined, await this.ownership(userId));
   }
 
   @Get(':id/completion')
@@ -114,7 +124,7 @@ export class SprintsController {
     summary:
       'Sprint completion summary (sprints.view; total/done/open tasks + committed/completed story points aggregated from the DB; NULL when no task declares points)',
   })
-  async completion(@Param('id', ParseUUIDPipe) id: string) {
-    return this.sprintsService.completion(id);
+  async completion(@Param('id', ParseUUIDPipe) id: string, @CurrentUser('userId') userId: string) {
+    return this.sprintsService.completion(id, await this.ownership(userId));
   }
 }

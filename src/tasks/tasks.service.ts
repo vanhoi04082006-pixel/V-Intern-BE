@@ -22,6 +22,7 @@ import { Project } from '../projects/entities/project.entity';
 import { Sprint } from '../sprints/entities/sprint.entity';
 import { User } from '../users/entities/user.entity';
 import { ActorContext } from '../users/users.service';
+import { OWNER_PARAM, scopedProjectSessionClause } from '../rbac/ownership';
 import { PermissionsService } from '../rbac/permissions.service';
 import { Task } from './entities/task.entity';
 import { TaskComment } from './entities/task-comment.entity';
@@ -215,6 +216,14 @@ export class TasksService {
     private readonly permissions: PermissionsService,
   ) {}
 
+  private async isSessionOwned(sessionId: string, userId: string): Promise<boolean> {
+    const rows = await this.dataSource.query(
+      'SELECT 1 AS ok FROM internship_sessions s WHERE s.id = @0 AND (s.leadInstructorId = @1 OR EXISTS (SELECT 1 FROM session_instructors si WHERE si.sessionId = s.id AND si.instructorId = @1))',
+      [sessionId, userId],
+    );
+    return rows.length > 0;
+  }
+
   // ── list (spec 20/21/32/33) ─────────────────────────────────────────────
   async list(
     q: {
@@ -236,15 +245,23 @@ export class TasksService {
   ) {
     const codes = await this.permissions.getEffectivePermissionCodes(principal.userId);
     const broad = codes.has('tasks.view') || codes.has('tasks.manage');
+    const admin = await this.permissions.hasRole(principal.userId, 'admin');
     // Interns (tasks.view.own) and permissionless callers are ALWAYS scoped
     // to their own tasks — request params can never widen the scope (spec 33).
+    // Broad holders see everything only as admin; instructors with
+    // tasks.view/manage see their managed scope (redesign §5).
     const mine = q.mine === true || !broad;
     const qb = this.tasks.createQueryBuilder('t');
     qb.where('t.deletedAt IS NULL');
     if (mine) {
       qb.andWhere('t.assigneeId = :me', { me: principal.userId });
-    } else if (q.assigneeId) {
-      qb.andWhere('t.assigneeId = :assigneeId', { assigneeId: q.assigneeId });
+    } else {
+      if (!admin) {
+        qb.andWhere(scopedProjectSessionClause('t.projectId', '(SELECT s.sessionId FROM sprints s WHERE s.id = t.sprintId)'), { [OWNER_PARAM]: principal.userId });
+      }
+      if (q.assigneeId) {
+        qb.andWhere('t.assigneeId = :assigneeId', { assigneeId: q.assigneeId });
+      }
     }
     if (q.search) {
       qb.andWhere('(UPPER(t.code) LIKE :search OR UPPER(t.title) LIKE :search)', {
@@ -279,6 +296,28 @@ export class TasksService {
         code: 'TASK_ACCESS_DENIED',
         message: 'You can only view your own tasks.',
       });
+    }
+    if (broad) {
+      const admin = await this.permissions.hasRole(principal.userId, 'admin');
+      if (!admin) {
+        const project = await this.projects.findOne({ where: { id: task.projectId } });
+        const projectVisible = project !== null && (project.mentorId === principal.userId || project.mentorId === null);
+        let sessionOwned = true;
+        if (task.sprintId !== null) {
+          const sprint = await this.sprints.findOne({ where: { id: task.sprintId } });
+          sessionOwned =
+            sprint === null ||
+            sprint.sessionId === null ||
+            (await this.isSessionOwned(sprint.sessionId, principal.userId));
+        }
+        if (!projectVisible || !sessionOwned) {
+          throw new ForbiddenException({
+            statusCode: 403,
+            code: 'TASK_ACCESS_DENIED',
+            message: 'You do not manage this task.',
+          });
+        }
+      }
     }
     return this.loadDetailed(task);
   }
@@ -317,6 +356,16 @@ export class TasksService {
           details: { status: project.status },
         });
       }
+      const creator = ctx.actorId
+        ? { userId: ctx.actorId, isAdmin: await this.permissions.hasRole(ctx.actorId, 'admin') }
+        : undefined;
+      if (creator && !creator.isAdmin && project.mentorId !== creator.userId) {
+        throw new ForbiddenException({
+          statusCode: 403,
+          code: 'TASK_ACCESS_DENIED',
+          message: 'Only the managing mentor can create tasks for this project. Claim it first.',
+        });
+      }
       if (input.sprintId) {
         const sprint = await em.getRepository(Sprint).findOne({ where: { id: input.sprintId } });
         if (!sprint) {
@@ -333,6 +382,19 @@ export class TasksService {
             message: 'Sprint belongs to a different project — cross-project task relations are not allowed.',
             details: { sprintProjectId: sprint.projectId, taskProjectId: input.projectId },
           });
+        }
+        if (creator && !creator.isAdmin && sprint.sessionId) {
+          const owned = await em.query(
+            'SELECT 1 AS ok FROM internship_sessions s WHERE s.id = @0 AND (s.leadInstructorId = @1 OR EXISTS (SELECT 1 FROM session_instructors si WHERE si.sessionId = s.id AND si.instructorId = @1))',
+            [sprint.sessionId, creator.userId],
+          );
+          if (owned.length === 0) {
+            throw new ForbiddenException({
+              statusCode: 403,
+              code: 'TASK_ACCESS_DENIED',
+              message: 'You do not manage this sprint.',
+            });
+          }
         }
       }
       if (input.assigneeId) {
@@ -441,8 +503,23 @@ export class TasksService {
     await this.dataSource.transaction(async (em) => {
       const task = await this.lockById(em, id);
       if (!task || task.deletedAt !== null) throw taskNotFound();
+      if (ctx.actorId && !(await this.permissions.hasRole(ctx.actorId, 'admin'))) {
+        const project = await em.getRepository(Project).findOne({ where: { id: task.projectId } });
+        if (!project || project.mentorId !== ctx.actorId) {
+          throw new ForbiddenException({
+            statusCode: 403,
+            code: 'TASK_ACCESS_DENIED',
+            message: 'Only the managing mentor can change this task. Claim the project first.',
+          });
+        }
+      }
       const fields: string[] = [];
       this.assertExpectedVersion(task, patch.expectedVersion);
+
+      if ((patch.assigneeId !== undefined && patch.assigneeId !== task.assigneeId)
+        || (patch.status !== undefined && patch.status !== task.status)) {
+        await this.assertNoPendingSubmission(em, task.id);
+      }
 
       if (patch.sprintId !== undefined && patch.sprintId !== task.sprintId) {
         const sprint = await em.getRepository(Sprint).findOne({ where: { id: patch.sprintId } });
@@ -628,6 +705,17 @@ export class TasksService {
     await this.dataSource.transaction(async (em) => {
       const task = await this.lockById(em, id);
       if (!task || task.deletedAt !== null) throw taskNotFound();
+      if (ctx.actorId && !(await this.permissions.hasRole(ctx.actorId, 'admin'))) {
+        const project = await em.getRepository(Project).findOne({ where: { id: task.projectId } });
+        if (!project || project.mentorId !== ctx.actorId) {
+          throw new ForbiddenException({
+            statusCode: 403,
+            code: 'TASK_ACCESS_DENIED',
+            message: 'Only the managing mentor can delete this task. Claim the project first.',
+          });
+        }
+      }
+      await this.assertNoPendingSubmission(em, task.id);
       task.deletedAt = new Date();
       await this.saveOrConflict(em, task);
       await em.insert(AuditLog, {
@@ -843,6 +931,20 @@ export class TasksService {
         });
       }
       throw err;
+    }
+  }
+
+  private async assertNoPendingSubmission(em: EntityManager, taskId: string): Promise<void> {
+    const rows: unknown[] = await em.query(
+      "SELECT TOP 1 id FROM task_submissions WHERE taskId = @0 AND status = 'submitted'",
+      [taskId],
+    );
+    if (rows.length) {
+      throw new ConflictException({
+        statusCode: 409,
+        code: 'SUBMISSION_PENDING_REVIEW',
+        message: 'Review the pending submission before changing task status, assignee, or deleting it.',
+      });
     }
   }
 

@@ -1,6 +1,7 @@
 import { Repository } from 'typeorm';
 import { ActivityService } from '../audit/activity.service';
 import { AuditService } from '../audit/audit.service';
+import { PermissionsService } from '../rbac/permissions.service';
 import { InternshipSession } from '../sessions/entities/internship-session.entity';
 import { User } from '../users/entities/user.entity';
 import { ClassesService } from './classes.service';
@@ -41,12 +42,14 @@ function buildHarness(opts?: {
   const sessionsRepo: AnyRepo = { findOne: jest.fn(async () => null) };
   const audit = { record: jest.fn(async () => undefined) } as unknown as AuditService;
   const activity = { record: jest.fn(async () => undefined) } as unknown as ActivityService;
+  const permissions = { hasRole: jest.fn(async () => true) } as unknown as PermissionsService;
 
   const service = new ClassesService(
     classesRepo as unknown as Repository<AcademicClass>,
     membersRepo as unknown as Repository<ClassMember>,
     usersRepo as unknown as Repository<User>,
     sessionsRepo as unknown as Repository<InternshipSession>,
+    permissions,
     audit,
     activity,
   );

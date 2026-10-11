@@ -27,7 +27,7 @@ import { UserRole } from '../src/rbac/entities/user-role.entity';
  */
 
 // Recruitement policy under test (read once at boot by appConfig):
-process.env.RECRUITMENT_MAX_ATTEMPTS = process.env.RECRUITMENT_MAX_ATTEMPTS ?? '2';
+process.env.RECRUITMENT_MAX_ATTEMPTS = '2';
 // 1h cooldown: the attempt/cooldown tests shift evaluatedAt via SQL to
 // simulate elapsed time (server-enforced policy, spec 69).
 process.env.RECRUITMENT_RETAKE_COOLDOWN_HOURS = '1';
@@ -363,7 +363,7 @@ describe('Phase 4 recruitment + AI interview e2e (spec 64-69)', () => {
     expect(questions.filter((q) => q.category === 'soft')).toHaveLength(3);
     for (const q of questions) {
       expect(Object.keys(q).sort()).toEqual([
-        'answered', 'answeredAt', 'category', 'difficulty', 'id', 'position', 'prompt',
+        'answerText', 'answered', 'answeredAt', 'category', 'difficulty', 'id', 'position', 'prompt',
       ]);
       expect(JSON.stringify(q)).not.toContain('rubric');
       expect(q.prompt.length).toBeGreaterThan(20); // real prompts, not placeholders
@@ -440,6 +440,12 @@ describe('Phase 4 recruitment + AI interview e2e (spec 64-69)', () => {
       .send({ answerText: 'Improved answer with concrete examples and trade-offs.' });
     expect(save2.status).toBe(200);
     expect(save2.body.id).toBe(save1.body.id); // same row updated, not duplicated
+    const resumed = await request(apiBase())
+      .get(`/api/v1/recruitment/me/interviews/${session.id}/questions`)
+      .set('Authorization', `Bearer ${i4}`);
+    expect(resumed.status).toBe(200);
+    expect(resumed.body.questions.find((item: { id: string }) => item.id === first.id).answerText)
+      .toBe('Improved answer with concrete examples and trade-offs.');
     const rows = await query('SELECT COUNT(*) AS n FROM interview_answers WHERE sessionId = ?', [session.id]);
     expect(Number(rows[0].n)).toBe(1);
 
@@ -566,9 +572,12 @@ describe('Phase 4 recruitment + AI interview e2e (spec 64-69)', () => {
       });
     expect(projectRes.status).toBe(201);
     const projectId = projectRes.body.id as string;
+    // Ownership note: the session/project above were created by admin, so the
+    // assignment itself runs as admin (ownership paths are covered in
+    // instructor-ownership.e2e-spec.ts, not in this lifecycle spec).
     const assign = await request(apiBase())
       .post('/api/v1/assignments')
-      .set('Authorization', `Bearer ${instructor}`)
+      .set('Authorization', `Bearer ${admin}`)
       .send({ internId: uid, projectId, sessionId: sessionId2 });
     expect(assign.status).toBe(201);
     const wsActive = await request(apiBase()).get('/api/v1/intern/me/workspace').set('Authorization', `Bearer ${i1}`);

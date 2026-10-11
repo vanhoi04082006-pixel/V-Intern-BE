@@ -1,9 +1,10 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { ActivityService } from '../audit/activity.service';
 import { AuditService } from '../audit/audit.service';
 import { isUniqueViolation } from '../common/utils/db-errors';
+import { OWNER_PARAM, resolveOwnership, sessionScope, type Ownership } from '../rbac/ownership';
 import { PermissionsService } from '../rbac/permissions.service';
 import { User } from '../users/entities/user.entity';
 import { ActorContext } from '../users/users.service';
@@ -72,13 +73,19 @@ export class SessionsService {
     private readonly activity: ActivityService,
   ) {}
 
-  async list(q: { page: number; pageSize: number; q?: string; status?: string }) {
+  async list(q: { page: number; pageSize: number; q?: string; status?: string; projectId?: string; leadInstructorId?: string }, o?: Ownership) {
     const qb = this.sessions.createQueryBuilder('s');
+    if (o && !o.isAdmin) {
+      const scope = sessionScope('s', o);
+      if (scope) qb.andWhere(scope.clause, { [OWNER_PARAM]: o.userId });
+    }
     if (q.q && q.q.length > 0) {
       const term = `%${q.q}%`;
       qb.andWhere('(s.code LIKE :term OR s.name LIKE :term)', { term });
     }
     if (q.status) qb.andWhere('s.status = :status', { status: q.status });
+    if (q.leadInstructorId) qb.andWhere('s.leadInstructorId = :leadInstructorId', { leadInstructorId: q.leadInstructorId });
+    if (q.projectId) qb.andWhere('EXISTS(SELECT 1 FROM assignments a WHERE a.sessionId=s.id AND a.projectId=:projectId)', { projectId: q.projectId });
     qb.orderBy('s.startDate', 'DESC')
       .skip((q.page - 1) * q.pageSize)
       .take(q.pageSize);
@@ -95,7 +102,13 @@ export class SessionsService {
     return { items: rows.map(u => ({ userId: u.id, displayName: u.displayName, email: u.email })), total };
   }
 
-  async getOne(id: string): Promise<InternshipSession> {
+  /** Resolve request ownership from the actor; undefined actor = trusted internal call. */
+  private async ownership(actorId?: string | null): Promise<Ownership | undefined> {
+    if (!actorId) return undefined;
+    return resolveOwnership(this.permissionsService, actorId);
+  }
+
+  async getOne(id: string, o?: Ownership): Promise<InternshipSession> {
     const session = await this.sessions.findOne({ where: { id } });
     if (!session) {
       throw new NotFoundException({
@@ -103,6 +116,18 @@ export class SessionsService {
         code: 'SESSION_NOT_FOUND',
         message: 'Internship session not found.',
       });
+    }
+    if (o && !o.isAdmin) {
+      const owned =
+        session.leadInstructorId === o.userId ||
+        (await this.instructors.findOne({ where: { sessionId: id, instructorId: o.userId } })) !== null;
+      if (!owned) {
+        throw new ForbiddenException({
+          statusCode: 403,
+          code: 'SESSION_SCOPE_FORBIDDEN',
+          message: 'You do not manage this internship session.',
+        });
+      }
     }
     return session;
   }
@@ -168,6 +193,14 @@ export class SessionsService {
       ip: ctx.ip,
       userAgent: ctx.userAgent,
     });
+    // Ownership bootstrap: an instructor creating a session joins it, so the
+    // session they just created stays visible under instructor scoping.
+    if (ctx.actorId && (await this.permissionsService.hasRole(ctx.actorId, 'instructor'))) {
+      const already = await this.instructors.findOne({ where: { sessionId: created.id, instructorId: ctx.actorId } });
+      if (!already) {
+        await this.instructors.insert({ sessionId: created.id, instructorId: ctx.actorId });
+      }
+    }
     await this.activity.record({
       actorId: ctx.actorId ?? null,
       module: 'sessions',
@@ -195,7 +228,7 @@ export class SessionsService {
     },
     ctx: ActorContext,
   ): Promise<SessionResponse> {
-    const session = await this.getOne(id);
+    const session = await this.getOne(id, await this.ownership(ctx.actorId));
     const patch: Partial<InternshipSession> = {};
 
     if (input.name !== undefined) patch.name = input.name;
@@ -258,11 +291,11 @@ export class SessionsService {
         });
       }
     }
-    return toSessionResponse(await this.getOne(id));
+    return toSessionResponse(await this.getOne(id, await this.ownership(ctx.actorId)));
   }
 
-  async listMembers(sessionId: string): Promise<SessionMemberRow[]> {
-    await this.getOne(sessionId);
+  async listMembers(sessionId: string, o?: Ownership): Promise<SessionMemberRow[]> {
+    await this.getOne(sessionId, o);
     const rows = await this.members
       .createQueryBuilder('m')
       .innerJoin(User, 'u', 'u.id = m.userId')
@@ -275,7 +308,7 @@ export class SessionsService {
 
   /** Idempotent membership add (duplicates prevented + skipped). */
   async addMembers(sessionId: string, userIds: string[], ctx: ActorContext): Promise<{ added: number; skipped: number }> {
-    await this.getOne(sessionId);
+    await this.getOne(sessionId, await this.ownership(ctx.actorId));
     const found = await this.users.find({ where: { id: In(userIds) } });
     const foundIds = new Set(found.map((u) => u.id));
     const unknown = userIds.filter((id) => !foundIds.has(id));
@@ -305,7 +338,7 @@ export class SessionsService {
   }
 
   async removeMember(sessionId: string, userId: string, ctx: ActorContext): Promise<{ removed: number }> {
-    await this.getOne(sessionId);
+    await this.getOne(sessionId, await this.ownership(ctx.actorId));
     const result = await this.members.delete({ sessionId, userId });
     const removed = result.affected ?? 0;
     if (removed > 0) {
@@ -322,8 +355,8 @@ export class SessionsService {
     return { removed };
   }
 
-  async listInstructors(sessionId: string): Promise<SessionInstructorRow[]> {
-    await this.getOne(sessionId);
+  async listInstructors(sessionId: string, o?: Ownership): Promise<SessionInstructorRow[]> {
+    await this.getOne(sessionId, o);
     const rows = await this.instructors
       .createQueryBuilder('i')
       .innerJoin(User, 'u', 'u.id = i.instructorId')
@@ -349,7 +382,7 @@ export class SessionsService {
     instructorIds: string[],
     ctx: ActorContext,
   ): Promise<{ added: number; skipped: number }> {
-    await this.getOne(sessionId);
+    await this.getOne(sessionId, await this.ownership(ctx.actorId));
     const found = await this.users.find({ where: { id: In(instructorIds), status: 'active' } });
     const foundIds = new Set(found.map((u) => u.id));
     const unknown = instructorIds.filter((id) => !foundIds.has(id));
@@ -390,7 +423,7 @@ export class SessionsService {
   }
 
   async removeInstructor(sessionId: string, instructorId: string, ctx: ActorContext): Promise<{ removed: number }> {
-    await this.getOne(sessionId);
+    await this.getOne(sessionId, await this.ownership(ctx.actorId));
     const result = await this.instructors.delete({ sessionId, instructorId });
     const removed = result.affected ?? 0;
     if (removed > 0) {
@@ -412,7 +445,7 @@ export class SessionsService {
     input: { title: string; description?: string; dueDate?: string; status?: string; sortOrder?: number },
     ctx: ActorContext,
   ) {
-    await this.getOne(sessionId);
+    await this.getOne(sessionId, await this.ownership(ctx.actorId));
     const created = await this.milestones.save(
       this.milestones.create({
         sessionId,
@@ -435,8 +468,8 @@ export class SessionsService {
     return created;
   }
 
-  async listMilestones(sessionId: string) {
-    await this.getOne(sessionId);
+  async listMilestones(sessionId: string, o?: Ownership) {
+    await this.getOne(sessionId, o);
     return this.milestones.find({ where: { sessionId }, order: { sortOrder: 'ASC', createdAt: 'ASC' } });
   }
 
@@ -446,7 +479,7 @@ export class SessionsService {
     input: { title?: string; description?: string; dueDate?: string; status?: string; sortOrder?: number },
     ctx: ActorContext,
   ) {
-    await this.getOne(sessionId);
+    await this.getOne(sessionId, await this.ownership(ctx.actorId));
     const milestone = await this.milestones.findOne({ where: { id: milestoneId, sessionId } });
     if (!milestone) {
       throw new NotFoundException({
@@ -477,7 +510,7 @@ export class SessionsService {
   }
 
   async deleteMilestone(sessionId: string, milestoneId: string, ctx: ActorContext): Promise<{ deleted: number }> {
-    await this.getOne(sessionId);
+    await this.getOne(sessionId, await this.ownership(ctx.actorId));
     const milestone = await this.milestones.findOne({ where: { id: milestoneId, sessionId } });
     if (!milestone) {
       throw new NotFoundException({
