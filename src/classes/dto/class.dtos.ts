@@ -4,6 +4,9 @@ import {
   ArrayMinSize,
   IsArray,
   IsIn,
+  IsInt,
+  Min,
+  Max,
   IsISO8601,
   IsOptional,
   IsString,
@@ -17,7 +20,28 @@ import { CLASS_STATUSES } from '../entities/class.entity';
 
 const CODE_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
 
-export class CreateClassDto {
+class ClassScheduleDto {
+  @ApiPropertyOptional({ maxLength: 128 })
+  @IsOptional()
+  @IsString()
+  @MaxLength(128)
+  meetingSchedule?: string;
+
+  @ApiPropertyOptional({ maxLength: 128 })
+  @IsOptional()
+  @IsString()
+  @MaxLength(128)
+  meetingLocation?: string;
+
+  @ApiPropertyOptional({ minimum: 0, maximum: 100 })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(100)
+  progress?: number;
+}
+
+export class CreateClassDto extends ClassScheduleDto {
   @ApiProperty({ minLength: 1, maxLength: 64, example: 'SE-2026A' })
   @IsString()
   @Length(1, 64)
@@ -61,7 +85,7 @@ export class CreateClassDto {
   endDate?: string;
 }
 
-export class UpdateClassDto {
+export class UpdateClassDto extends ClassScheduleDto {
   @ApiPropertyOptional({ minLength: 1, maxLength: 256 })
   @IsOptional()
   @IsString()
@@ -110,6 +134,8 @@ export class AddClassMembersDto {
 }
 
 export class QueryClassesDto extends PaginationQueryDto {
+  @ApiPropertyOptional({ format: 'uuid' }) @IsOptional() @IsUUID('4')
+  leadInstructorId?: string;
   @ApiPropertyOptional({ maxLength: 100 })
   @IsOptional()
   @IsString()
