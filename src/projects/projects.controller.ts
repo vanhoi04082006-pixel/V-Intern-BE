@@ -104,6 +104,13 @@ export class ProjectsController {
     return { members: await this.projectsService.listMembers(id, await this.ownership(userId)) };
   }
 
+  @Get(':id/sessions')
+  @RequirePermissions('projects.view')
+  @ApiOperation({ summary: 'Sessions running on this project, scoped to managed ones (project history across cohorts)' })
+  async sessions(@Param('id', ParseUUIDPipe) id: string, @CurrentUser('userId') userId: string) {
+    return { sessions: await this.projectsService.projectSessions(id, await this.ownership(userId)) };
+  }
+
   @Post(':id/claim')
   @RequirePermissions('projects.manage')
   @ApiOperation({ summary: 'Claim an unmentored library project (projects.manage; 409 when already claimed)' })

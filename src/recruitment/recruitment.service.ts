@@ -47,6 +47,8 @@ export interface RecruitmentResultResponse {
   model: string;
   promptVersion: string;
   evaluatedAt: Date;
+  evaluationSource: 'ai' | 'instructor';
+  evaluatedBy: string | null;
 }
 
 export function toResultResponse(r: RecruitmentResult): RecruitmentResultResponse {
@@ -65,6 +67,8 @@ export function toResultResponse(r: RecruitmentResult): RecruitmentResultRespons
     model: r.model,
     promptVersion: r.promptVersion,
     evaluatedAt: r.evaluatedAt,
+    evaluationSource: r.evaluationSource ?? 'ai',
+    evaluatedBy: r.evaluatedBy ?? null,
   };
 }
 
@@ -272,6 +276,13 @@ export class RecruitmentService {
     for (const r of resultRows) {
       if (!latestResultByProfile.has(r.profileId)) latestResultByProfile.set(r.profileId, r);
     }
+    const activeRows = userIds.length
+      ? await this.dataSource.query(
+          `SELECT internId, projectId FROM assignments WHERE status = 'active' AND internId IN (${userIds.map((_, i) => `@${i}`).join(', ')})`,
+          userIds,
+        )
+      : [];
+    const activeByIntern = new Map((activeRows as Array<{ internId: string; projectId: string }>).map((r) => [r.internId, r.projectId]));
     return {
       items: items.map((p) => {
         const user = userById.get(p.userId);
@@ -284,6 +295,8 @@ export class RecruitmentService {
           selectedRole: p.selectedRole,
           attemptCount: p.attemptCount,
           recruitedAt: p.recruitedAt,
+          hasActiveAssignment: activeByIntern.has(p.userId),
+          activeProjectId: activeByIntern.get(p.userId) ?? null,
           result: result
             ? {
                 overallScore: Number(result.overallScore),

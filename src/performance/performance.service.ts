@@ -4,6 +4,7 @@ import { In, Repository } from 'typeorm';
 import { Assignment } from '../assignments/entities/assignment.entity';
 import { Evaluation } from '../evaluation/entities/evaluation.entity';
 import { Project } from '../projects/entities/project.entity';
+import { InternshipSession } from '../sessions/entities/internship-session.entity';
 import { SessionInstructor } from '../sessions/entities/session-instructor.entity';
 import { Sprint } from '../sprints/entities/sprint.entity';
 import { Task } from '../tasks/entities/task.entity';
@@ -39,6 +40,7 @@ const notFound = (code: string, message: string) =>
 export class PerformanceService {
   constructor(
     @InjectRepository(Assignment) private readonly assignments: Repository<Assignment>,
+    @InjectRepository(InternshipSession) private readonly sessions: Repository<InternshipSession>,
     @InjectRepository(Task) private readonly tasks: Repository<Task>,
     @InjectRepository(TaskStatusHistory) private readonly histories: Repository<TaskStatusHistory>,
     @InjectRepository(Evaluation) private readonly evaluations: Repository<Evaluation>,
@@ -69,9 +71,22 @@ export class PerformanceService {
     if (internIds.length === 0) return { items: [], total: 0 };
     const users = await this.users.find({ where: internIds.map((id) => ({ id })) });
     const nameById = new Map(users.map((u) => [u.id, u.displayName]));
+    const projectIds = [...new Set(rows.map((a) => a.projectId))];
+    const sessionIds = [...new Set(rows.map((a) => a.sessionId))];
+    const [projects, sessions] = await Promise.all([
+      projectIds.length ? this.projects.find({ where: projectIds.map((id) => ({ id })) }) : Promise.resolve([]),
+      sessionIds.length ? this.sessions.find({ where: sessionIds.map((id) => ({ id })) }) : Promise.resolve([]),
+    ]);
+    const projectById = new Map(projects.map((p) => [p.id, p]));
+    const sessionById = new Map(sessions.map((s) => [s.id, s]));
     const items = [];
     for (const internId of internIds) {
-      const metrics = await this.computeForIntern(internId, scope);
+      const ownRows = rows.filter((a) => a.internId === internId);
+      const primary = ownRows.find((a) => a.status === 'active') ?? ownRows.sort((a, b) => b.assignedAt.getTime() - a.assignedAt.getTime())[0];
+      const primaryProject = primary ? projectById.get(primary.projectId) : undefined;
+      const primarySession = primary ? sessionById.get(primary.sessionId) : undefined;
+      const allowedProjectIds = principal.isAdmin ? undefined : new Set(rows.filter(a => a.internId === internId).map(a => a.projectId));
+      const metrics = await this.computeForIntern(internId, { ...scope, allowedProjectIds });
       items.push({
         userId: internId,
         displayName: nameById.get(internId) ?? null,
@@ -80,6 +95,12 @@ export class PerformanceService {
         taskCompletionRate: metrics.taskCompletionRate,
         storyPointCompletionRate: metrics.storyPointCompletionRate,
         averageEvaluationScore: metrics.averageEvaluationScore,
+        overdueOpenTaskCount: metrics.overdueOpenTaskCount,
+        onTimeCompletionRate: metrics.onTimeCompletionRate,
+        primaryProjectId: primary?.projectId ?? null,
+        primaryProjectName: primaryProject?.name ?? null,
+        primarySessionId: primary?.sessionId ?? null,
+        primarySessionName: primarySession?.name ?? null,
       });
     }
     return { items, total: items.length };
@@ -88,6 +109,7 @@ export class PerformanceService {
   /** Full deterministic metrics for ONE intern (ownership enforced, spec 61). */
   async getInternMetrics(principal: { userId: string; isAdmin: boolean }, targetUserId: string, q: PerformanceQuery) {
     const scope = this.parseScope(q);
+    let allowedProjectIds: Set<string> | undefined;
     if (!principal.isAdmin) {
       const assignments = await this.assignments.find({
         where: { internId: targetUserId, status: In(['active', 'completed']) },
@@ -99,8 +121,10 @@ export class PerformanceService {
       if (owned.length === 0) {
         throw forbidden('PERFORMANCE_SCOPE_FORBIDDEN', 'You do not manage this intern.');
       }
+      allowedProjectIds = new Set(owned.map(a => a.projectId));
+      if (scope.projectId && !allowedProjectIds.has(scope.projectId)) throw forbidden('PERFORMANCE_SCOPE_FORBIDDEN', 'You do not manage this project.');
     }
-    const metrics = await this.computeForIntern(targetUserId, scope);
+    const metrics = await this.computeForIntern(targetUserId, { ...scope, allowedProjectIds });
     return {
       userId: targetUserId,
       period: {
@@ -163,7 +187,7 @@ export class PerformanceService {
   }
 
   /** Fetch raw facts and run the PURE deterministic calculator. */
-  private async computeForIntern(internId: string, scope: { from: Date | null; to: Date | null; now: Date; sessionId?: string; projectId?: string }): Promise<PerformanceMetrics> {
+  private async computeForIntern(internId: string, scope: { from: Date | null; to: Date | null; now: Date; sessionId?: string; projectId?: string; allowedProjectIds?: Set<string> }): Promise<PerformanceMetrics> {
     // Projects of this intern's assignments (scope-filtered): the
     // assignment row carries BOTH sessionId and projectId, so scoping is
     // applied directly on the assignment rows (no project.sessionId join
@@ -172,8 +196,10 @@ export class PerformanceService {
       where: { internId, status: In(['active', 'completed']) },
     });
     if (scope.projectId) assignmentRows = assignmentRows.filter((a) => a.projectId === scope.projectId);
+    if (scope.allowedProjectIds) assignmentRows = assignmentRows.filter(a => scope.allowedProjectIds!.has(a.projectId));
     if (scope.sessionId) assignmentRows = assignmentRows.filter((a) => a.sessionId === scope.sessionId);
     const scopedProjectIds = new Set(assignmentRows.map((a) => a.projectId));
+    const scopedSessionIds = new Set(assignmentRows.map((a) => a.sessionId));
 
     // Tasks: assignee = intern, not soft-deleted, project in scope,
     // createdAt ∈ [from, to) (period membership — documented).
@@ -217,6 +243,8 @@ export class PerformanceService {
     });
     const evaluationFacts: PerfEvaluationFact[] = evaluationRows
       .filter((e) => {
+        if (scope.allowedProjectIds && e.projectId && !scope.allowedProjectIds.has(e.projectId)) return false;
+        if (scope.allowedProjectIds && !e.projectId && e.sessionId && !scopedSessionIds.has(e.sessionId)) return false;
         if (scope.sessionId && e.sessionId !== scope.sessionId) return false;
         if (scope.projectId && e.projectId !== scope.projectId) return false;
         return true;

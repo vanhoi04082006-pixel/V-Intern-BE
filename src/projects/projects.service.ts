@@ -11,6 +11,9 @@ import { ActorContext } from '../users/users.service';
 import { Project } from './entities/project.entity';
 import { ProjectMember } from './entities/project-member.entity';
 import { ProjectRoleSlot } from './entities/project-role-slot.entity';
+import { InternshipSession } from '../sessions/entities/internship-session.entity';
+import { SessionInstructor } from '../sessions/entities/session-instructor.entity';
+import { SessionMember } from '../sessions/entities/session-member.entity';
 import { ProjectTechnology } from './entities/project-technology.entity';
 
 export interface ProjectResponse {
@@ -66,6 +69,9 @@ export class ProjectsService {
     @InjectRepository(ProjectMember) private readonly members: Repository<ProjectMember>,
     @InjectRepository(ProjectTechnology) private readonly technologies: Repository<ProjectTechnology>,
     @InjectRepository(ProjectRoleSlot) private readonly slots: Repository<ProjectRoleSlot>,
+    @InjectRepository(InternshipSession) private readonly sessions: Repository<InternshipSession>,
+    @InjectRepository(SessionInstructor) private readonly sessionInstructors: Repository<SessionInstructor>,
+    @InjectRepository(SessionMember) private readonly sessionMembers: Repository<SessionMember>,
     @InjectRepository(User)     private readonly users: Repository<User>,
     private readonly permissions: PermissionsService,
     private readonly audit: AuditService,
@@ -384,6 +390,36 @@ export class ProjectsService {
       .orderBy('m.joinedAt', 'ASC')
       .getRawMany();
     return rows;
+  }
+
+  /**
+   * Sessions running on this project (redesign §8/§30): linked through
+   * assignments (any status → full history) and sprints, then reduced to
+   * the sessions the caller manages. A project is reusable across cohorts
+   * without cloning (§32).
+   */
+  async projectSessions(projectId: string, o?: Ownership): Promise<Array<{ id: string; code: string; name: string; status: string; startDate: Date; endDate: Date; memberCount: number }>> {
+    await this.getOne(projectId, o);
+    const linked = await this.projects.query(
+      `SELECT DISTINCT s.id FROM internship_sessions s
+       WHERE s.id IN (SELECT a.sessionId FROM assignments a WHERE a.projectId = @0)
+          OR s.id IN (SELECT sp.sessionId FROM sprints sp WHERE sp.projectId = @0 AND sp.sessionId IS NOT NULL)`,
+      [projectId],
+    ) as Array<{ id: string }>;
+    const out: Array<{ id: string; code: string; name: string; status: string; startDate: Date; endDate: Date; memberCount: number }> = [];
+    for (const row of linked) {
+      const session = await this.sessions.findOne({ where: { id: row.id } });
+      if (!session) continue;
+      if (o && !o.isAdmin) {
+        const owned =
+          session.leadInstructorId === o.userId ||
+          (await this.sessionInstructors.findOne({ where: { sessionId: session.id, instructorId: o.userId } })) !== null;
+        if (!owned) continue;
+      }
+      const memberCount = await this.sessionMembers.count({ where: { sessionId: session.id } });
+      out.push({ id: session.id, code: session.code, name: session.name, status: session.status, startDate: session.startDate, endDate: session.endDate, memberCount });
+    }
+    return out.sort((a, b) => b.startDate.getTime() - a.startDate.getTime());
   }
 
   /** Role slots with live filled counts (active assignments carrying the role). */
