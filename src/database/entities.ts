@@ -24,6 +24,7 @@ import { Project } from '../projects/entities/project.entity';
 import { ProjectMember } from '../projects/entities/project-member.entity';
 import { ProjectTechnology } from '../projects/entities/project-technology.entity';
 import { ProjectRoleSlot } from '../projects/entities/project-role-slot.entity';
+import { AiGenerationBatch } from '../ai-generation/entities/ai-generation-batch.entity';
 import { Assignment } from '../assignments/entities/assignment.entity';
 import { Sprint } from '../sprints/entities/sprint.entity';
 import { Task } from '../tasks/entities/task.entity';
@@ -82,6 +83,7 @@ export const ENTITIES = [
   ProjectMember,
   ProjectTechnology,
   ProjectRoleSlot,
+  AiGenerationBatch,
   Assignment,
   // Phase 3 — sprint / task core
   Sprint,

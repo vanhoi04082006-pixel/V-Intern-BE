@@ -1,4 +1,6 @@
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
+import { SubmissionsModule } from './submissions/submissions.module';
+import { TemplatesModule } from './templates/templates.module';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_FILTER, APP_GUARD } from '@nestjs/core';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -22,6 +24,7 @@ import { ProjectsModule } from './projects/projects.module';
 import { AiModule } from './ai/ai.module';
 import { AiMentorModule } from './ai/mentor/ai-mentor.module';
 import { EvaluationAssistanceModule } from './ai/evaluation-assistance/evaluation-assistance.module';
+import { AiGenerationModule } from './ai-generation/ai-generation.module';
 import { RecommendationsModule } from './ai/recommendations/recommendations.module';
 import { RecruitmentModule } from './recruitment/recruitment.module';
 import { RbacModule } from './rbac/rbac.module';
@@ -35,6 +38,8 @@ import { PerformanceModule } from './performance/performance.module';
 import { KpiModule } from './kpi/kpi.module';
 import { VirtualSalaryModule } from './salary/virtual-salary.module';
 import { CertificatesModule } from './certificates/certificates.module';
+import { DashboardModule } from './dashboard/dashboard.module';
+import { ReportsModule } from './reports/reports.module';
 
 @Module({
   imports: [
@@ -89,20 +94,25 @@ import { CertificatesModule } from './certificates/certificates.module';
     // Phase 3 — sprint / task core
     SprintsModule,
     TasksModule,
+    SubmissionsModule,
+    TemplatesModule,
     // Phase 4 — recruitment + AI interview core
     AiModule,
     RecruitmentModule,
     // Phase 5 — evaluation + performance + KPI + virtual salary + certificates
     EvaluationModule,
     PerformanceModule,
+    ReportsModule,
     KpiModule,
     VirtualSalaryModule,
     CertificatesModule,
+    DashboardModule,
     // Phase 6 — AI mentor + AI evaluation assistance + AI recommendations
     // (advisory only — the deterministic domain services stay authoritative)
     AiMentorModule,
     EvaluationAssistanceModule,
     RecommendationsModule,
+    AiGenerationModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },
