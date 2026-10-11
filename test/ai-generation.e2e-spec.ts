@@ -134,7 +134,6 @@ beforeAll(async () => {
   const roles = dataSource.getRepository(Role);
   const users = dataSource.getRepository(User);
   const userRoles = dataSource.getRepository(UserRole);
-  const adminRole = await roles.findOneOrFail({ where: { code: 'admin' } });
   const instructorRole = await roles.findOneOrFail({ where: { code: 'instructor' } });
   const internRole = await roles.findOneOrFail({ where: { code: 'intern' } });
   const specs = [
