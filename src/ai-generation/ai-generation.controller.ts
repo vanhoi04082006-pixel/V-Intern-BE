@@ -1,5 +1,6 @@
 import { Body, Controller, Post, Req } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import type { Request } from 'express';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { RequirePermissions } from '../common/decorators/permissions.decorator';
@@ -20,6 +21,7 @@ export class AiGenerationController {
 
   @Post('sprint-plan/draft')
   @RequirePermissions('sprints.manage')
+  @Throttle({ default: { limit: Number(process.env.THROTTLE_AI_GENERATION_PER_MIN ?? 4), ttl: 60_000 } })
   @ApiOperation({
     summary:
       'Generate a sprint/task draft with AI (sprints.manage; managed project+session only; persists nothing)',
@@ -34,6 +36,7 @@ export class AiGenerationController {
 
   @Post('sprint-plan/confirm')
   @RequirePermissions('sprints.manage')
+  @Throttle({ default: { limit: Number(process.env.THROTTLE_AI_GENERATION_PER_MIN ?? 4), ttl: 60_000 } })
   @ApiOperation({
     summary:
       'Confirm an instructor-reviewed draft (sprints.manage; re-validated server-side; idempotent per requestId)',
