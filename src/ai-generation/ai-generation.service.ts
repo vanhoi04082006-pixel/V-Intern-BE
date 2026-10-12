@@ -473,8 +473,39 @@ export class AiGenerationService {
         templateVersion,
       }),
     );
+    // Generation runs detached: a real provider call may take minutes, and the
+    // instructor UI must show "generating" immediately plus poll for the draft
+    // (never block an HTTP request on the AI call — same contract as the
+    // automatic trigger on Start Session).
+    void this.runDetachedGeneration(row, project, session, members, slots, technologies, snapshot, input, ctx);
+    return {
+      planId: row.id,
+      projectId: project.id,
+      sessionId: session.id,
+      templateVersion,
+      status: 'generating' as const,
+      deduped: false,
+      draft: null,
+      warnings: [],
+      error: null,
+      createdAt: row.createdAt,
+    };
+  }
+
+  /** Detached generation: persists the draft or a failure, never throws out. */
+  private async runDetachedGeneration(
+    row: AiGenerationBatch,
+    project: Project,
+    session: InternshipSession,
+    members: MemberContext[],
+    slots: ProjectRoleSlot[],
+    technologies: Array<{ technology: string }>,
+    snapshot: { version: number; definition: Record<string, unknown> } | null,
+    input: { sprintCount?: number; startDate?: string },
+    ctx: ActorContext,
+  ): Promise<void> {
     try {
-      const { data, warnings, run } = await this.runGeneration(project, session, members, slots, technologies, snapshot, {
+      const { data } = await this.runGeneration(project, session, members, slots, technologies, snapshot, {
         sprintCount: input.sprintCount,
         startDate: input.startDate,
         actorId: ctx.actorId,
@@ -487,11 +518,10 @@ export class AiGenerationService {
         action: 'ai.sprint_plan_generated',
         targetType: 'project',
         targetId: project.id,
-        detail: { planId: row.id, sessionId: session.id, templateVersion, sprints: data.sprints.length },
+        detail: { planId: row.id, sessionId: session.id, templateVersion: row.templateVersion, sprints: data.sprints.length },
         ip: ctx.ip ?? null,
         userAgent: ctx.userAgent ?? null,
       });
-      return { planId: row.id, draft: data, warnings, run, status: 'ready' as const, deduped: false };
     } catch (err) {
       row.status = 'failed';
       row.errorJson = JSON.stringify({
@@ -499,7 +529,9 @@ export class AiGenerationService {
         message: err instanceof Error ? err.message : 'Generation failed.',
       });
       await this.batches.save(row);
-      throw err;
+      this.logger.warn(
+        `AI plan generation failed for session ${session.id}: ${err instanceof Error ? err.message : String(err)}`,
+      );
     }
   }
 
