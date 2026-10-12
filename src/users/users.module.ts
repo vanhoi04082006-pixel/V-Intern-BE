@@ -5,6 +5,7 @@ import { Role } from '../rbac/entities/role.entity';
 import { UserRole } from '../rbac/entities/user-role.entity';
 import { AuditModule } from '../audit/audit.module';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { RbacModule } from '../rbac/rbac.module';
 import { UsersController } from './users.controller';
 import { UsersService } from './users.service';
 
@@ -13,6 +14,7 @@ import { UsersService } from './users.service';
     TypeOrmModule.forFeature([User, Role, UserRole]),
     AuditModule,
     NotificationsModule,
+    RbacModule,
   ],
   controllers: [UsersController],
   providers: [UsersService],

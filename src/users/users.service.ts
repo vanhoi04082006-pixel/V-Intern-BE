@@ -8,6 +8,7 @@ import { UserRole } from '../rbac/entities/user-role.entity';
 import { ActivityService } from '../audit/activity.service';
 import { AuditService } from '../audit/audit.service';
 import { isUniqueViolation } from '../common/utils/db-errors';
+import { PermissionsService } from '../rbac/permissions.service';
 import { toUserResponse, UserResponse } from './user-response';
 import { NotificationsService } from '../notifications/notifications.service';
 
@@ -28,6 +29,7 @@ export class UsersService {
     private readonly audit: AuditService,
     private readonly activity: ActivityService,
     private readonly notifications: NotificationsService,
+    private readonly permissions: PermissionsService,
   ) {}
 
   /** Used by JwtAuthGuard on EVERY request — only active accounts pass. */
@@ -214,7 +216,9 @@ export class UsersService {
 
   /** Idempotent direct role assignment by role CODE (bootstrap/admin flows). */
   async assignRoles(userId: string, roleCodes: string[], ctx: ActorContext): Promise<string[]> {
-    const wanted = [...new Set(roleCodes)];
+    // Normalize BEFORE lookup: codes are lowercase by convention; casing or
+    // padding must not bypass (' Admin ' resolves to admin, still gated below).
+    const wanted = [...new Set(roleCodes.map((c) => c.trim().toLowerCase()).filter((c) => c.length > 0))];
     if (wanted.length === 0) return [];
     const roleEntities = await this.roles.find({ where: { code: In(wanted) } });
     const found = new Set(roleEntities.map((r) => r.code));
@@ -226,6 +230,8 @@ export class UsersService {
         message: `Unknown role(s): ${unknown.join(', ')}.`,
       });
     }
+    // P0 BE-001: grant policy — actor may only convey permissions they hold.
+    await this.permissions.assertGrantableRoles(ctx.actorId, roleEntities);
     const existing = await this.userRoles.find({ where: { userId } });
     const existingIds = new Set(existing.map((r) => r.roleId));
     const toAdd = roleEntities.filter((r) => !existingIds.has(r.id));

@@ -25,13 +25,27 @@ function buildService(overrides: {
   roles?: unknown[];
   rolePermissions?: unknown[];
   permissions?: unknown[];
+  /** Optional filter for rolePermissions.find (mocks ignore `where` by default). */
+  rolePermissionsWhere?: (rows: any[], where: any) => unknown[];
+  /** Optional filter for permissions.find (same reason). */
+  permissionsWhere?: (rows: any[], where: any) => unknown[];
 }): PermissionsService {
   const userRoles = makeRepo(overrides.userRoles ?? []);
   const groupMembers = makeRepo(overrides.groupMembers ?? []);
   const groupRoles = makeRepo(overrides.groupRoles ?? []);
   const roles = makeRepo(overrides.roles ?? []);
-  const rolePermissions = makeRepo(overrides.rolePermissions ?? []);
-  const permissions = makeRepo(overrides.permissions ?? []);
+  const rpRows = overrides.rolePermissions ?? [];
+  const rolePermissions = {
+    find: jest.fn(async (opts?: any) =>
+      overrides.rolePermissionsWhere ? overrides.rolePermissionsWhere(rpRows, opts?.where) : rpRows,
+    ),
+  };
+  const pRows = overrides.permissions ?? [];
+  const permissions = {
+    find: jest.fn(async (opts?: any) =>
+      overrides.permissionsWhere ? overrides.permissionsWhere(pRows, opts?.where) : pRows,
+    ),
+  };
   return new PermissionsService(
     userRoles as unknown as Repository<UserRole>,
     groupMembers as unknown as Repository<GroupMember>,
@@ -106,5 +120,82 @@ describe('PermissionsService — effective permissions from DB', () => {
       status: 'active',
     } as never);
     expect(principal).toMatchObject({ roles: ['admin'], permissions: ['users.read'] });
+  });
+});
+
+describe('PermissionsService — role-grant policy (P0 BE-001/BE-002)', () => {
+  const PERMS = [
+    { id: 'p-users.create', code: 'users.create' },
+    { id: 'p-users.read', code: 'users.read' },
+    { id: 'p-workspace', code: 'intern.workspace.view' },
+  ];
+  // Actor holds exactly {users.create, users.read}; intern conveys {intern.workspace.view}.
+  // NOTE: mocked repos ignore query args, so the `roles` table deliberately
+  // omits the admin row — otherwise hasRole('admin') would be true for everyone.
+  function grantSetup() {
+    const rp = [
+      { roleId: 'r-creator', permissionId: 'p-users.create' },
+      { roleId: 'r-creator', permissionId: 'p-users.read' },
+      { roleId: 'r-intern', permissionId: 'p-workspace' },
+    ];
+    return buildService({
+      userRoles: [{ userId: 'actor', roleId: 'r-creator' }],
+      roles: [
+        { id: 'r-creator', code: 'creator' },
+        { id: 'r-intern', code: 'intern' },
+      ],
+      rolePermissions: rp,
+      // Honor TypeORM `where: { roleId: In([...]) | string }` like the real repository.
+      rolePermissionsWhere: (rows, where) => {
+        const raw = where?.roleId;
+        const ids = Array.isArray(raw?.value) ? raw.value : raw !== undefined ? [raw] : [];
+        return rows.filter((r: any) => ids.includes(r.roleId));
+      },
+      permissions: PERMS,
+      // Honor `where: { id: In([...]) }` — otherwise every lookup sees all codes.
+      permissionsWhere: (rows, where) => {
+        const raw = where?.id;
+        const ids = Array.isArray(raw?.value) ? raw.value : raw !== undefined ? [raw] : [];
+        return rows.filter((r: any) => ids.includes(r.id));
+      },
+    });
+  }
+
+  it('allows granting a role whose permissions are a subset of the actor', async () => {
+    const svc = grantSetup();
+    await expect(
+      svc.assertGrantableRoles('actor', [{ id: 'r-creator', code: 'creator' }]),
+    ).resolves.toBeUndefined();
+  });
+
+  it('denies granting admin without the admin role (403 ROLE_GRANT_FORBIDDEN)', async () => {
+    const svc = grantSetup();
+    const err = await svc
+      .assertGrantableRoles('actor', [{ id: 'r-admin', code: 'admin' }])
+      .catch((e) => e);
+    expect(err?.status).toBe(403);
+    expect(err?.response?.code ?? err?.code).toContain('ROLE_GRANT_FORBIDDEN');
+  });
+
+  it('denies granting a role conveying permissions the actor lacks', async () => {
+    const svc = grantSetup();
+    await expect(
+      svc.assertGrantableRoles('actor', [{ id: 'r-intern', code: 'intern' }]),
+    ).rejects.toMatchObject({ status: 403 });
+  });
+
+  it('denies role assignment without an authenticated actor (fail-closed)', async () => {
+    const svc = grantSetup();
+    await expect(svc.assertGrantableRoles(null, [{ id: 'r-intern', code: 'intern' }])).rejects.toMatchObject({
+      status: 403,
+    });
+  });
+
+  it('getRolePermissionCodes maps role ids to their conveyed codes', async () => {
+    const svc = grantSetup();
+    const map = await svc.getRolePermissionCodes(['r-creator', 'r-intern', 'r-empty']);
+    expect([...(map.get('r-creator') ?? [])].sort()).toEqual(['users.create', 'users.read']);
+    expect([...(map.get('r-intern') ?? [])]).toEqual(['intern.workspace.view']);
+    expect(map.get('r-empty')?.size).toBe(0);
   });
 });
