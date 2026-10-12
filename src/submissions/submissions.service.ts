@@ -10,6 +10,7 @@ import { ActivityEvent } from '../audit/entities/activity-event.entity';
 import { Notification } from '../notifications/entities/notification.entity';
 import { RequestPrincipal } from '../common/types/request-principal';
 import { ActorContext } from '../users/users.service';
+import { PermissionsService } from '../rbac/permissions.service';
 import { ReviewSubmissionDto, SubmitTaskDto } from './submission.dto';
 import { assertSubmissionOwner, scoreSubmission, validatePullRequestUrl } from './submission-policy';
 export interface Submission {
@@ -20,7 +21,11 @@ export interface Submission {
 }
 @Injectable()
 export class SubmissionsService {
-  constructor(private readonly db: DataSource, private readonly tasks: TasksService) {}
+  constructor(
+    private readonly db: DataSource,
+    private readonly tasks: TasksService,
+    private readonly permissions: PermissionsService,
+  ) {}
   async list(taskId: string, principal: RequestPrincipal): Promise<Submission[]> {
     await this.tasks.getOneDetailed(taskId, principal);
     return this.db.query('SELECT TOP (50) * FROM task_submissions WHERE taskId=@0 ORDER BY submittedAt DESC,id DESC', [taskId]);
@@ -61,6 +66,49 @@ export class SubmissionsService {
       return rows[0];
     });
   }
+  /**
+   * P0 BE-004: reviewer must manage the task's scope — the project's managing
+   * mentor (claimed) for the project, plus session ownership when the task sits
+   * in a session sprint. Mirrors the sprint write rule (assertSprintManaged);
+   * admin bypasses. Checked BEFORE state early-returns so foreign reviewers
+   * learn nothing about review state.
+   */
+  private async assertReviewerScope(em: EntityManager, task: Task, actorId: string): Promise<void> {
+    if (await this.permissions.hasRole(actorId, 'admin')) return;
+    const projects: Array<{ mentorId: string | null }> = await em.query(
+      'SELECT mentorId FROM projects WHERE id=@0',
+      [task.projectId],
+    );
+    if (!projects.length || projects[0].mentorId !== actorId) {
+      throw new ForbiddenException({
+        statusCode: 403,
+        code: 'SUBMISSION_SCOPE_FORBIDDEN',
+        message: 'Only the managing mentor can review this submission.',
+      });
+    }
+    if (task.sprintId) {
+      const sprints: Array<{ sessionId: string | null }> = await em.query(
+        'SELECT sessionId FROM sprints WHERE id=@0',
+        [task.sprintId],
+      );
+      const sessionId = sprints[0]?.sessionId ?? null;
+      if (sessionId) {
+        const owned: Array<{ n: number }> = await em.query(
+          `SELECT COUNT(1) AS n FROM internship_sessions s
+             LEFT JOIN session_instructors si ON si.sessionId = s.id AND si.instructorId = @1
+           WHERE s.id = @0 AND (s.leadInstructorId = @1 OR si.instructorId = @1)`,
+          [sessionId, actorId],
+        );
+        if (!owned[0]?.n) {
+          throw new ForbiddenException({
+            statusCode: 403,
+            code: 'SUBMISSION_SCOPE_FORBIDDEN',
+            message: 'You do not manage the session of this submission.',
+          });
+        }
+      }
+    }
+  }
   async review(id: string, dto: ReviewSubmissionDto, ctx: ActorContext): Promise<Submission> {
     const score = scoreSubmission(dto.rubric);
     return this.db.transaction(async em => {
@@ -70,6 +118,8 @@ export class SubmissionsService {
       const rows: Submission[] = await em.query('SELECT * FROM task_submissions WITH(UPDLOCK,ROWLOCK) WHERE id=@0', [id]);
       const item = rows[0];
       if (item.internId === ctx.actorId) throw new ForbiddenException('You cannot review your own submission.');
+      if (!ctx.actorId) throw new ForbiddenException('Authentication required.');
+      await this.assertReviewerScope(em, task, ctx.actorId);
       if (item.status !== 'submitted') return item;
       if (task.assigneeId !== item.internId || task.status !== 'review' || task.version !== dto.taskVersion) throw new ConflictException('Task changed. Reload before reviewing.');
       const status = score >= 70 ? 'approved' : 'rework';
