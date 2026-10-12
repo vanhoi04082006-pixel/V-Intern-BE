@@ -42,6 +42,7 @@ export interface SanitizedSessionQuestion {
   prompt: string;
   answered: boolean;
   answeredAt: Date | null;
+  answerText: string | null;
 }
 
 export interface SanitizedSessionView {
@@ -551,6 +552,7 @@ export class InterviewService {
         prompt: q.promptSnapshot,
         answered: Boolean(answer),
         answeredAt: answer?.answeredAt ?? null,
+        answerText: answer?.answerText ?? null,
       };
     });
   }
