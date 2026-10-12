@@ -354,6 +354,8 @@ describe('M5 Start Session and automatic AI planning', () => {
     // Plan row is marked confirmed.
     const history = await request(apiBase()).get(`/api/v1/ai-generations/plans?sessionId=${run.sessionId}`).set('Authorization', `Bearer ${token}`);
     expect(history.body.some((p: { status: string }) => p.status === 'confirmed')).toBe(true);
+    // The confirm idempotency record itself is NOT listed as a new plan.
+    expect(history.body.filter((p: { hasDraft: boolean }) => !p.hasDraft)).toHaveLength(0);
     await cancelAll(ids);
   });
 

@@ -387,6 +387,9 @@ export class AiGenerationService {
         projectId: project.id,
         sessionId: session.id,
         summaryJson: JSON.stringify(summary),
+        // This row records the PUBLISH of a reviewed plan (idempotency anchor),
+        // not a draft generation — plan lifecycle rows carry draftJson.
+        status: 'confirmed',
       }),
     );
     await this.audit.record({
@@ -532,7 +535,10 @@ export class AiGenerationService {
       });
     }
     const rows = await this.batches.find({ where: { sessionId }, order: { createdAt: 'DESC' } });
-    return rows.map((row) => {
+    // Confirm idempotency records (status confirmed, no draft) are bookkeeping
+    // for a publish, not plan drafts — they must not appear as new plans.
+    const planRows = rows.filter((r) => r.draftJson !== null || r.status !== 'confirmed');
+    return planRows.map((row) => {
       let sprintCount = 0;
       let taskCount = 0;
       try {
