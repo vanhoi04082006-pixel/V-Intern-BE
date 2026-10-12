@@ -45,6 +45,7 @@ export class TasksController {
         search: query.search,
         projectId: query.projectId,
         sprintId: query.sprintId,
+        sessionId: query.sessionId,
         assigneeId: query.assigneeId,
         status: query.status,
         priority: query.priority,

@@ -232,6 +232,7 @@ export class TasksService {
       search?: string;
       projectId?: string;
       sprintId?: string;
+      sessionId?: string;
       assigneeId?: string;
       status?: string;
       priority?: string;
@@ -270,6 +271,13 @@ export class TasksService {
     }
     if (q.projectId) qb.andWhere('t.projectId = :projectId', { projectId: q.projectId });
     if (q.sprintId) qb.andWhere('t.sprintId = :sprintId', { sprintId: q.sprintId });
+    // M6: cross-session task overview needs a session filter (task.sprintId →
+    // sprints.sessionId). Kept server-side and inside the existing scope clause.
+    if (q.sessionId) {
+      qb.andWhere('t.sprintId IN (SELECT s.id FROM sprints s WHERE s.sessionId = :sessionId)', {
+        sessionId: q.sessionId,
+      });
+    }
     if (q.status) qb.andWhere('t.status = :status', { status: q.status });
     if (q.priority) qb.andWhere('t.priority = :priority', { priority: q.priority });
     if (q.dueFrom) qb.andWhere('t.dueDate >= :dueFrom', { dueFrom: new Date(q.dueFrom) });

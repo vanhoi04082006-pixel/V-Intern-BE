@@ -188,6 +188,11 @@ export class QueryTasksDto extends PaginationQueryDto {
   @IsUUID('4')
   sprintId?: string;
 
+  @ApiPropertyOptional({ format: 'uuid', description: 'Tasks of the sprints belonging to this session' })
+  @IsOptional()
+  @IsUUID('4')
+  sessionId?: string;
+
   @ApiPropertyOptional({ format: 'uuid' })
   @IsOptional()
   @IsUUID('4')
