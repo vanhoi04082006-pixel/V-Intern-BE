@@ -179,6 +179,18 @@ export class ProjectsService {
       });
     }
     const mentorId = await this.resolveMentor(input.mentorId);
+    // P0 BE-007: creating a project for someone else bypasses the claim flow.
+    // Non-admins may only name themselves (or omit and take the bootstrap below).
+    if (input.mentorId) {
+      const o = await this.ownership(ctx.actorId);
+      if (!o?.isAdmin && input.mentorId !== o?.userId) {
+        throw new ForbiddenException({
+          statusCode: 403,
+          code: 'PROJECT_MENTOR_FORBIDDEN',
+          message: 'Only an admin can assign another mentor. Claim the project instead.',
+        });
+      }
+    }
     // Ownership bootstrap: an instructor creating a project without an
     // explicit mentor becomes its mentor, so the project they just created
     // stays visible under instructor scoping.
@@ -289,7 +301,18 @@ export class ProjectsService {
     if (input.capacity !== undefined) patch.capacity = input.capacity;
     if (input.startDate !== undefined) patch.startDate = input.startDate ? new Date(input.startDate) : null;
     if (input.endDate !== undefined) patch.endDate = input.endDate ? new Date(input.endDate) : null;
-    if (input.mentorId !== undefined) patch.mentorId = await this.resolveMentor(input.mentorId);
+    if (input.mentorId !== undefined) {
+      // P0 BE-007: reassigning mentorId bypasses the unclaimed-only claim flow.
+      // Non-admins cannot change it at all (not even to themselves — use claim).
+      if (!o?.isAdmin) {
+        throw new ForbiddenException({
+          statusCode: 403,
+          code: 'PROJECT_MENTOR_FORBIDDEN',
+          message: 'Only an admin can reassign the mentor. Claim unclaimed projects instead.',
+        });
+      }
+      patch.mentorId = await this.resolveMentor(input.mentorId);
+    }
     if (input.status !== undefined) {
       patch.status = input.status as Project['status'];
       if (input.status === 'archived') patch.archivedAt = new Date();
