@@ -1,4 +1,4 @@
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { ActivityService } from '../audit/activity.service';
 import { AuditService } from '../audit/audit.service';
 import { PermissionsService } from '../rbac/permissions.service';
@@ -78,6 +78,7 @@ function buildHarness(opts?: {
       (opts?.activeUsers ?? []).find((u) => u.id === args?.where?.id) ?? null,
     ),
   };
+  const dataSource = { query: jest.fn(async () => []) } as unknown as DataSource;
   const permissionsService = {
     getEffectivePermissionCodes: jest.fn(async () =>
       new Set(opts?.instructorHasPermission === false ? [] : ['sessions.manage']),
@@ -93,11 +94,12 @@ function buildHarness(opts?: {
     instructorsRepo as unknown as Repository<SessionInstructor>,
     milestonesRepo as unknown as Repository<SessionMilestone>,
     usersRepo as unknown as Repository<User>,
+    dataSource,
     permissionsService,
     audit,
     activity,
   );
-  return { service, sessionsRepo, milestonesRepo, usersRepo, permissionsService, instructorsRepo, audit };
+  return { service, sessionsRepo, milestonesRepo, usersRepo, permissionsService, instructorsRepo, audit, dataSource };
 }
 
 const CTX = { actorId: 'admin-1', ip: '127.0.0.1', userAgent: 'jest' };
@@ -139,6 +141,65 @@ describe('SessionsService.update — backend state machine (spec 11/42)', () => 
     await expect(h.service.update('missing', { name: 'x' }, CTX)).rejects.toMatchObject({
       response: { statusCode: 404, code: 'SESSION_NOT_FOUND' },
     });
+  });
+});
+
+describe('SessionsService.update — M5 Start readiness (WP-5)', () => {
+  const SNAPSHOT = JSON.stringify({
+    roleDetails: [
+      { code: 'frontend', countMin: 1 },
+      { code: 'backend', countMin: 1 },
+    ],
+  });
+  function startHarness(filled: Array<{ roleCode: string; filled: number }>, ineligible: Array<{ internId: string }>) {
+    const h = buildHarness();
+    (h.dataSource.query as unknown as jest.Mock).mockImplementation(async (sql: string) => {
+      if (sql.includes('FROM template_runs')) {
+        return [{ projectId: 'p-1', snapshotJson: SNAPSHOT }];
+      }
+      if (sql.includes('FROM project_members')) {
+        return filled;
+      }
+      if (sql.includes('FROM assignments')) {
+        return ineligible;
+      }
+      return [];
+    });
+    return h;
+  }
+  it('409 SESSION_TEAM_INCOMPLETE when required slots are unfilled', async () => {
+    const { service } = startHarness([{ roleCode: 'frontend', filled: 1 }], []);
+    await expect(service.update('s-1', { status: 'active' }, CTX)).rejects.toMatchObject({
+      response: expect.objectContaining({ code: 'SESSION_TEAM_INCOMPLETE' }),
+    });
+  });
+  it('409 INTERN_NOT_RECRUITED when an assignee lost eligibility', async () => {
+    const { service } = startHarness(
+      [
+        { roleCode: 'frontend', filled: 1 },
+        { roleCode: 'backend', filled: 1 },
+      ],
+      [{ internId: 'u-9' }],
+    );
+    await expect(service.update('s-1', { status: 'active' }, CTX)).rejects.toMatchObject({
+      response: expect.objectContaining({ code: 'INTERN_NOT_RECRUITED' }),
+    });
+  });
+  it('activates when every required slot is filled by eligible members', async () => {
+    const { service } = startHarness(
+      [
+        { roleCode: 'frontend', filled: 1 },
+        { roleCode: 'backend', filled: 1 },
+      ],
+      [],
+    );
+    const updated = await service.update('s-1', { status: 'active' }, CTX);
+    expect(updated.status).toBe('active');
+  });
+  it('starts legacy sessions without a template run freely', async () => {
+    const { service } = buildHarness();
+    const updated = await service.update('s-1', { status: 'active' }, CTX);
+    expect(updated.status).toBe('active');
   });
 });
 

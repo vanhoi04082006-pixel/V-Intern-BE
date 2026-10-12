@@ -1,6 +1,6 @@
 import { ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
+import { DataSource, In, Repository } from 'typeorm';
 import { ActivityService } from '../audit/activity.service';
 import { AuditService } from '../audit/audit.service';
 import { isUniqueViolation } from '../common/utils/db-errors';
@@ -68,6 +68,7 @@ export class SessionsService {
     @InjectRepository(SessionInstructor) private readonly instructors: Repository<SessionInstructor>,
     @InjectRepository(SessionMilestone) private readonly milestones: Repository<SessionMilestone>,
     @InjectRepository(User) private readonly users: Repository<User>,
+    @InjectDataSource() private readonly dataSource: DataSource,
     private readonly permissionsService: PermissionsService,
     private readonly audit: AuditService,
     private readonly activity: ActivityService,
@@ -261,6 +262,13 @@ export class SessionsService {
       }
       transitionedFrom = session.status;
       patch.status = input.status as InternshipSession['status'];
+    }
+
+    // M5 Start preconditions (WP-5, ADR-05/06): upcoming → active validates the
+    // template team (required slots filled) and member eligibility. Sessions
+    // without a template run keep the legacy behavior (no team to validate).
+    if (transitionedFrom === 'upcoming' && patch.status === 'active') {
+      await this.assertStartReady(id);
     }
 
     if (Object.keys(patch).length > 0) {
@@ -546,9 +554,82 @@ export class SessionsService {
     return session;
   }
 
+  /**
+   * M5 Start readiness (WP-5, ADR-05): a template session may go active only
+   * with every required slot (countMin > 0 in the pinned snapshot) filled and
+   * every active assignee still recruitment-passed. Sessions without a
+   * template run keep legacy behavior.
+   */
+  private async assertStartReady(sessionId: string): Promise<void> {
+    const runs: { projectId: string; snapshotJson: string }[] = await this.dataSource.query(
+      'SELECT TOP(1) projectId, snapshotJson FROM template_runs WHERE sessionId = @0 ORDER BY createdAt DESC',
+      [sessionId],
+    );
+    if (!runs.length) return;
+    let required: Array<{ code: string; countMin: number }> = [];
+    try {
+      const definition = JSON.parse(runs[0].snapshotJson) as {
+        roleDetails?: Array<{ code?: unknown; countMin?: unknown }>;
+      };
+      required = (definition.roleDetails ?? [])
+        .filter((r) => typeof r?.code === 'string' && (typeof r?.countMin !== 'number' || r.countMin > 0))
+        .map((r) => ({ code: r.code as string, countMin: typeof r.countMin === 'number' ? r.countMin : 1 }));
+    } catch {
+      return;
+    }
+    if (required.length === 0) return;
+    const projectId = runs[0].projectId;
+    const filled: { roleCode: string; filled: number }[] = await this.dataSource.query(
+      `SELECT pm.roleInProject AS roleCode, COUNT(*) AS filled
+       FROM project_members pm
+       INNER JOIN assignments a ON a.projectId = pm.projectId AND a.internId = pm.userId AND a.status = 'active'
+       WHERE pm.projectId = @0 AND pm.roleInProject IS NOT NULL
+       GROUP BY pm.roleInProject`,
+      [projectId],
+    );
+    const filledByRole = new Map(filled.map((r) => [r.roleCode, Number(r.filled)]));
+    const missing = required
+      .map((r) => ({ roleCode: r.code, need: r.countMin, have: filledByRole.get(r.code) ?? 0 }))
+      .filter((m) => m.have < m.need);
+    if (missing.length > 0) {
+      throw new ConflictException({
+        statusCode: 409,
+        code: 'SESSION_TEAM_INCOMPLETE',
+        message: 'Required role slots are not filled.',
+        details: { missing },
+      });
+    }
+    const ineligible: { internId: string }[] = await this.dataSource.query(
+      `SELECT a.internId AS internId FROM assignments a
+       LEFT JOIN recruitment_profiles p ON p.userId = a.internId
+       WHERE a.projectId = @0 AND a.sessionId = @1 AND a.status = 'active'
+         AND (p.status IS NULL OR p.status <> 'passed')`,
+      [projectId, sessionId],
+    );
+    if (ineligible.length > 0) {
+      throw new ConflictException({
+        statusCode: 409,
+        code: 'INTERN_NOT_RECRUITED',
+        message: 'Every assigned intern must hold a passed recruitment profile.',
+        details: { internIds: ineligible.map((r) => r.internId) },
+      });
+    }
+  }
+
+  /**
+   * M5: latest template-run project of a session (null for legacy sessions
+   * created outside a template — auto-planning skips those).
+   */
+  async resolveSessionProject(sessionId: string): Promise<string | null> {
+    const rows: { projectId: string }[] = await this.dataSource.query(
+      'SELECT TOP(1) projectId FROM template_runs WHERE sessionId = @0 ORDER BY createdAt DESC',
+      [sessionId],
+    );
+    return rows.length ? String(rows[0].projectId).toLowerCase() : null;
+  }
+
   /** Lead instructor must exist, be active, and hold sessions.manage. */
-  private async resolveInstructor(userId?: string): Promise<string | null> {
-    if (!userId) return null;
+  private async resolveInstructor(userId?: string): Promise<string | null> {    if (!userId) return null;
     const user = await this.users.findOne({ where: { id: userId, status: 'active' } });
     if (!user) {
       throw new NotFoundException({

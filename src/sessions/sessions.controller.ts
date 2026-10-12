@@ -1,15 +1,4 @@
-import {
-  Body,
-  Controller,
-  Delete,
-  Get,
-  Param,
-  ParseUUIDPipe,
-  Patch,
-  Post,
-  Query,
-  Req,
-} from '@nestjs/common';
+import { Body, Controller, Delete, Get, Logger, Param, ParseUUIDPipe, Patch, Post, Query, Req } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
@@ -17,6 +6,7 @@ import { RequirePermissions } from '../common/decorators/permissions.decorator';
 import { toPaginated } from '../common/pagination/paginated';
 import { clientIp, userAgent } from '../common/types/request-info';
 import { ActorContext } from '../users/users.service';
+import { AiGenerationService } from '../ai-generation/ai-generation.service';
 import {
   AddSessionInstructorsDto,
   AddSessionMembersDto,
@@ -38,7 +28,10 @@ export class SessionsController {
   constructor(
     private readonly sessionsService: SessionsService,
     private readonly permissionsService: PermissionsService,
+    private readonly generations: AiGenerationService,
   ) {}
+
+  private readonly logger = new Logger(SessionsController.name);
 
   private ctx(req: Request, actorId: string): ActorContext {
     return { actorId, ip: clientIp(req), userAgent: userAgent(req) };
@@ -101,7 +94,36 @@ export class SessionsController {
     @CurrentUser('userId') actorId: string,
     @Req() req: Request,
   ) {
-    return this.sessionsService.update(id, dto, this.ctx(req, actorId));
+    const updated = await this.sessionsService.update(id, dto, this.ctx(req, actorId));
+    // M5 Start → auto-trigger AI planning (fire-and-forget: never fails Start;
+    // generatePlan skips when a usable plan already exists for the session).
+    if (dto.status === 'active' && updated.status === 'active') {
+      this.triggerPlanning(updated.id, actorId, req);
+    }
+    return updated;
+  }
+
+  private triggerPlanning(sessionId: string, actorId: string, req: Request): void {
+    void (async () => {
+      try {
+        const projectId = await this.sessionsService.resolveSessionProject(sessionId);
+        if (!projectId) return;
+        const session = await this.sessionsService.getOne(sessionId);
+        const days = Math.max(
+          1,
+          Math.round((new Date(session.endDate).getTime() - new Date(session.startDate).getTime()) / 86400000),
+        );
+        const sprintCount = Math.min(8, Math.max(1, Math.ceil(days / 14)));
+        await this.generations.generatePlan(
+          { projectId, sessionId, sprintCount },
+          { actorId, ip: clientIp(req), userAgent: userAgent(req) },
+        );
+      } catch (err) {
+        this.logger.warn(
+          `AI auto-plan trigger failed for session ${sessionId}: ${err instanceof Error ? err.message : err}`,
+        );
+      }
+    })();
   }
 
   @Get(':id/members')

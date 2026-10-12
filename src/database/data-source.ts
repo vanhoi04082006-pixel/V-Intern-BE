@@ -7,6 +7,7 @@ import { DataSource } from 'typeorm';
 import { CreateReportSnapshots1761168000000 } from './migrations/1761168000000-CreateReportSnapshots';
 import { CreateProjectRoleSlots1761254400000 } from './migrations/1761254400000-CreateProjectRoleSlots';
 import { CreateAiGenerationBatches1761340800000 } from './migrations/1761340800000-CreateAiGenerationBatches';
+import { AddAiPlanLifecycle1761600000000 } from './migrations/1761600000000-AddAiPlanLifecycle';
 import { AddTemplateLibraryColumns1761427200000 } from './migrations/1761427200000-AddTemplateLibraryColumns';
 import { AddTemplateRunRequest1761513600000 } from './migrations/1761513600000-AddTemplateRunRequest';
 import { AddClassSchedule1760822400000 } from './migrations/1760822400000-AddClassSchedule';
@@ -65,5 +66,6 @@ export default new DataSource({
     CreateAiGenerationBatches1761340800000,
     AddTemplateLibraryColumns1761427200000,
     AddTemplateRunRequest1761513600000,
+    AddAiPlanLifecycle1761600000000,
   ],
 });

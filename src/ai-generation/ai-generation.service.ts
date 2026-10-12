@@ -8,6 +8,7 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
+import { randomUUID } from 'crypto';
 import { DataSource, Repository } from 'typeorm';
 import { AiService } from '../ai/ai.service';
 import { aiErrorCode } from '../ai/ai-errors';
@@ -25,6 +26,7 @@ import { User } from '../users/entities/user.entity';
 import { ActorContext } from '../users/users.service';
 import { PermissionsService } from '../rbac/permissions.service';
 import { resolveOwnership, type Ownership } from '../rbac/ownership';
+import { TemplatesService } from '../templates/templates.service';
 import { validateSprintPlan, type SprintPlan } from './sprint-plan.schema';
 import { AiGenerationBatch } from './entities/ai-generation-batch.entity';
 
@@ -77,6 +79,7 @@ export class AiGenerationService {
     private readonly ai: AiService,
     private readonly permissions: PermissionsService,
     private readonly audit: AuditService,
+    private readonly templates: TemplatesService,
   ) {}
 
   private async ownership(actorId?: string | null): Promise<Ownership | undefined> {
@@ -176,12 +179,58 @@ export class AiGenerationService {
         message: 'Assign at least one intern to this project and session before generating.',
       });
     }
+    const snapshot = await this.templateSnapshot(project.id);
+    const { data, warnings, run } = await this.runGeneration(project, session, members, slots, technologies, snapshot, {
+      sprintCount: input.sprintCount,
+      startDate: input.startDate,
+      actorId: ctx.actorId,
+    });
+    return { draft: data, warnings, run };
+  }
+
+  /** Template snapshot context for the prompt (tolerant: non-template projects proceed without). */
+  private async templateSnapshot(projectId: string): Promise<{ version: number; definition: Record<string, unknown> } | null> {
+    try {
+      const ctx = await this.templates.projectContext(projectId);
+      if (!ctx) return null;
+      return { version: ctx.templateVersion, definition: ctx.definition as Record<string, unknown> };
+    } catch {
+      return null;
+    }
+  }
+
+  private templatePromptInput(snapshot: { version: number; definition: Record<string, unknown> } | null): Record<string, unknown> | null {
+    if (!snapshot) return null;
+    const d = snapshot.definition;
+    const pick = (key: string): unknown => (d[key] === undefined ? null : d[key]);
+    return {
+      version: snapshot.version,
+      objectives: pick('objectives'),
+      scope: { in: pick('scopeIn'), out: pick('scopeOut') },
+      requirements: { functional: pick('functionalRequirements'), nonFunctional: pick('nonFunctionalRequirements') },
+      roles: pick('roleDetails') ?? pick('roles'),
+      blueprint: pick('sprints'),
+      expectedOutputs: pick('expectedOutputs'),
+      acceptance: pick('acceptance'),
+    };
+  }
+
+  /** Shared provider call: prompt assembly + structured generation + role-fit warnings. */
+  private async runGeneration(
+    project: Project,
+    session: InternshipSession,
+    members: MemberContext[],
+    slots: ProjectRoleSlot[],
+    technologies: Array<{ technology: string }>,
+    snapshot: { version: number; definition: Record<string, unknown> } | null,
+    opts: { sprintCount?: number; startDate?: string; actorId?: string | null },
+  ): Promise<{ data: SprintPlan; warnings: PlanWarning[]; run: { id: string; provider: string; model: string; status: string } }> {
     let data: SprintPlan;
     let run: { id: string; provider: string; model: string; status: string };
     try {
       const result = await this.ai.generateStructuredWithRun<SprintPlan>({
         feature: 'sprint-plan',
-        userId: ctx.actorId ?? null,
+        userId: opts.actorId ?? null,
         resourceType: 'project',
         resourceId: project.id,
         promptVersion: PROMPT_VERSION,
@@ -199,8 +248,9 @@ export class AiGenerationService {
             session: { code: session.code, startDate: session.startDate, endDate: session.endDate },
             slots: slots.map((s) => ({ role: s.roleCode, required: s.requiredCount })),
             members,
-            sprintCount: input.sprintCount ?? Math.min(4, Math.max(1, members.length > 4 ? 4 : 2)),
-            startDate: input.startDate ?? session.startDate,
+            template: this.templatePromptInput(snapshot),
+            sprintCount: opts.sprintCount ?? Math.min(4, Math.max(1, members.length > 4 ? 4 : 2)),
+            startDate: opts.startDate ?? session.startDate,
           },
           schemaName: 'sprint-plan',
           validate: validateSprintPlan,
@@ -217,7 +267,7 @@ export class AiGenerationService {
       });
     }
     const warnings = this.roleFitWarnings(data, members);
-    return { draft: data, warnings, run };
+    return { data, warnings, run };
   }
 
   /** Server-side role-fit check: assignee must be assigned; role tags should match member roles. */
@@ -246,7 +296,7 @@ export class AiGenerationService {
   }
 
   async confirm(
-    input: { projectId: string; sessionId: string; draft: Record<string, unknown>; requestId: string },
+    input: { projectId: string; sessionId: string; draft: Record<string, unknown>; requestId: string; planId?: string },
     ctx: ActorContext,
   ) {
     const o = await this.ownership(ctx.actorId);
@@ -348,6 +398,172 @@ export class AiGenerationService {
       ip: ctx.ip ?? null,
       userAgent: ctx.userAgent ?? null,
     });
+    if (input.planId) {
+      await this.batches.update(
+        { id: input.planId, projectId: project.id, sessionId: session.id },
+        { status: 'confirmed' },
+      );
+    }
     return { ...summary, deduped: false };
+  }
+
+  /**
+   * M5 persisted plan generation (WP-5, ADR-07/08): same provider path as
+   * draft(), but the plan row (generating → ready | failed) survives for
+   * instructor review across page loads. Idempotent per session + template
+   * version: an existing usable plan is returned, never regenerated.
+   * Stale `generating` rows (> 30 min, crashed trigger) are failed over.
+   */
+  async generatePlan(
+    input: { projectId: string; sessionId: string; sprintCount?: number; startDate?: string; requestId?: string },
+    ctx: ActorContext,
+  ) {
+    const o = await this.ownership(ctx.actorId);
+    const { project, session } = await this.assertManaged(input.projectId, input.sessionId, o);
+    const snapshot = await this.templateSnapshot(project.id);
+    const templateVersion = snapshot?.version ?? null;
+    if (input.requestId) {
+      const replay = await this.batches.findOne({
+        where: { createdById: ctx.actorId ?? '', requestId: input.requestId },
+      });
+      if (replay?.draftJson) {
+        return this.toPlanResult(replay, true);
+      }
+    }
+    const existing = await this.batches.find({
+      where: { sessionId: session.id },
+      order: { createdAt: 'DESC' },
+    });
+    for (const row of existing) {
+      if (row.status === 'generating' && Date.now() - new Date(row.createdAt).getTime() > 30 * 60_000) {
+        row.status = 'failed';
+        row.errorJson = JSON.stringify({ code: 'GENERATION_STALE', message: 'A previous generation never finished; it was marked failed.' });
+        await this.batches.save(row);
+        continue;
+      }
+      if ((row.status === 'ready' || row.status === 'confirmed') && (row.templateVersion ?? null) === templateVersion && row.draftJson) {
+        return this.toPlanResult(row, true);
+      }
+    }
+    const [members, slots, technologies] = await Promise.all([
+      this.memberContext(input.projectId, input.sessionId),
+      this.slots.find({ where: { projectId: input.projectId }, order: { roleCode: 'ASC' } }),
+      this.dataSource.query('SELECT technology FROM project_technologies WHERE projectId = @0 ORDER BY technology', [input.projectId]) as Promise<Array<{ technology: string }>>,
+    ]);
+    if (members.length === 0) {
+      throw new ConflictException({
+        statusCode: 409,
+        code: 'GENERATION_NO_MEMBERS',
+        message: 'Assign at least one intern to this project and session before generating.',
+      });
+    }
+    const row = await this.batches.save(
+      this.batches.create({
+        requestId: input.requestId ?? randomUUID(),
+        createdById: ctx.actorId ?? '',
+        projectId: project.id,
+        sessionId: session.id,
+        summaryJson: '{}',
+        status: 'generating',
+        draftJson: null,
+        errorJson: null,
+        templateVersion,
+      }),
+    );
+    try {
+      const { data, warnings, run } = await this.runGeneration(project, session, members, slots, technologies, snapshot, {
+        sprintCount: input.sprintCount,
+        startDate: input.startDate,
+        actorId: ctx.actorId,
+      });
+      row.status = 'ready';
+      row.draftJson = JSON.stringify(data);
+      await this.batches.save(row);
+      await this.audit.record({
+        actorId: ctx.actorId ?? null,
+        action: 'ai.sprint_plan_generated',
+        targetType: 'project',
+        targetId: project.id,
+        detail: { planId: row.id, sessionId: session.id, templateVersion, sprints: data.sprints.length },
+        ip: ctx.ip ?? null,
+        userAgent: ctx.userAgent ?? null,
+      });
+      return { planId: row.id, draft: data, warnings, run, status: 'ready' as const, deduped: false };
+    } catch (err) {
+      row.status = 'failed';
+      row.errorJson = JSON.stringify({
+        code: err instanceof Error && 'code' in err ? String((err as { code: unknown }).code) : 'AI_UNAVAILABLE',
+        message: err instanceof Error ? err.message : 'Generation failed.',
+      });
+      await this.batches.save(row);
+      throw err;
+    }
+  }
+
+  private async toPlanResult(row: AiGenerationBatch, deduped: boolean) {
+    const draft = row.draftJson ? (JSON.parse(row.draftJson) as SprintPlan) : null;
+    let warnings: PlanWarning[] = [];
+    if (draft) {
+      const members = await this.memberContext(row.projectId, row.sessionId);
+      warnings = this.roleFitWarnings(draft, members);
+    }
+    return {
+      planId: row.id,
+      projectId: row.projectId,
+      sessionId: row.sessionId,
+      templateVersion: row.templateVersion,
+      status: row.status,
+      createdAt: row.createdAt,
+      draft,
+      warnings,
+      error: row.errorJson ? (JSON.parse(row.errorJson) as unknown) : null,
+      deduped,
+    };
+  }
+
+  /** Plan history of a session (owned scope enforced). */
+  async plans(sessionId: string, actorId?: string | null) {
+    const o = await this.ownership(actorId);
+    if (o && !o.isAdmin && !(await this.isSessionOwned(sessionId, o.userId))) {
+      throw new ForbiddenException({
+        statusCode: 403,
+        code: 'SPRINT_SCOPE_FORBIDDEN',
+        message: 'You do not manage this internship session.',
+      });
+    }
+    const rows = await this.batches.find({ where: { sessionId }, order: { createdAt: 'DESC' } });
+    return rows.map((row) => {
+      let sprintCount = 0;
+      let taskCount = 0;
+      try {
+        const draft = row.draftJson ? (JSON.parse(row.draftJson) as SprintPlan) : null;
+        sprintCount = draft?.sprints.length ?? 0;
+        taskCount = draft?.sprints.reduce((n, s) => n + s.tasks.length, 0) ?? 0;
+      } catch {
+        // Corrupt draft JSON degrades to zero counts, never 500s the list.
+      }
+      return {
+        planId: row.id,
+        projectId: row.projectId,
+        sessionId: row.sessionId,
+        templateVersion: row.templateVersion,
+        status: row.status,
+        createdAt: row.createdAt,
+        sprintCount,
+        taskCount,
+        hasDraft: row.draftJson !== null,
+      };
+    });
+  }
+
+  /** One plan with fresh warnings (team may have changed since generation). */
+  async plan(id: string, actorId?: string | null) {
+    const row = await this.batches.findOne({ where: { id } });
+    if (!row) {
+      throw new NotFoundException({ statusCode: 404, code: 'PLAN_NOT_FOUND', message: 'AI plan not found.' });
+    }
+    const o = await this.ownership(actorId);
+    await this.assertManaged(row.projectId, row.sessionId, o);
+    return this.toPlanResult(row, false);
   }
 }

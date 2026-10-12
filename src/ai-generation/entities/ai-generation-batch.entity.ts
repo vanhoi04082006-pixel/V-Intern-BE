@@ -25,6 +25,18 @@ export class AiGenerationBatch {
   @Column({ type: 'nvarchar', length: 'max', name: 'summaryJson' })
   summaryJson!: string;
 
+  @Column({ type: 'nvarchar', length: 16, name: 'status', default: 'ready' })
+  status!: string;
+
+  @Column({ type: 'nvarchar', length: 'max', name: 'draftJson', nullable: true })
+  draftJson!: string | null;
+
+  @Column({ type: 'nvarchar', length: 'max', name: 'errorJson', nullable: true })
+  errorJson!: string | null;
+
+  @Column({ type: 'int', name: 'templateVersion', nullable: true })
+  templateVersion!: number | null;
+
   @CreateDateColumn({ type: 'datetime2', name: 'createdAt' })
   createdAt!: Date;
 }

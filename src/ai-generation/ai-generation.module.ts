@@ -11,6 +11,7 @@ import { InternshipSession } from '../sessions/entities/internship-session.entit
 import { Sprint } from '../sprints/entities/sprint.entity';
 import { Task } from '../tasks/entities/task.entity';
 import { User } from '../users/entities/user.entity';
+import { TemplatesModule } from '../templates/templates.module';
 import { AiGenerationBatch } from './entities/ai-generation-batch.entity';
 import { AiGenerationController } from './ai-generation.controller';
 import { AiGenerationService } from './ai-generation.service';
@@ -20,6 +21,7 @@ import { AiGenerationService } from './ai-generation.service';
     AiModule,
     AuditModule,
     RbacModule,
+    TemplatesModule,
     TypeOrmModule.forFeature([
       Assignment,
       Project,
