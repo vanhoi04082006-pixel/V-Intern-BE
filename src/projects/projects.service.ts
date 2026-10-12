@@ -44,14 +44,16 @@ export interface ProjectMemberRow {
 
 export function toProjectResponse(p: Project, technologies: string[] = []): ProjectResponse {
   return {
-    id: p.id,
+    // Canonical lowercase UUIDs: mssql returns UNIQUEIDENTIFIER uppercase while
+    // client-generated ids are lowercase; mixed case breaks === comparisons in consumers.
+    id: p.id.toLowerCase(),
     code: p.code,
     name: p.name,
     description: p.description,
     domainCategory: p.domainCategory ?? null,
     difficulty: p.difficulty,
     status: p.status,
-    mentorId: p.mentorId ?? null,
+    mentorId: p.mentorId ? p.mentorId.toLowerCase() : null,
     capacity: p.capacity ?? null,
     startDate: p.startDate ?? null,
     endDate: p.endDate ?? null,

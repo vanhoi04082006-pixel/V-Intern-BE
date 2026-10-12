@@ -23,12 +23,12 @@ function buildService(overrides: {
   groupMembers?: unknown[];
   groupRoles?: unknown[];
   roles?: unknown[];
-  rolePermissions?: unknown[];
-  permissions?: unknown[];
+  rolePermissions?: Array<Record<string, unknown>>;
+  permissions?: Array<Record<string, unknown>>;
   /** Optional filter for rolePermissions.find (mocks ignore `where` by default). */
-  rolePermissionsWhere?: (rows: any[], where: any) => unknown[];
+  rolePermissionsWhere?: (rows: Array<Record<string, unknown>>, where: { roleId?: unknown } | undefined) => unknown[];
   /** Optional filter for permissions.find (same reason). */
-  permissionsWhere?: (rows: any[], where: any) => unknown[];
+  permissionsWhere?: (rows: Array<Record<string, unknown>>, where: { id?: unknown } | undefined) => unknown[];
 }): PermissionsService {
   const userRoles = makeRepo(overrides.userRoles ?? []);
   const groupMembers = makeRepo(overrides.groupMembers ?? []);
@@ -36,14 +36,14 @@ function buildService(overrides: {
   const roles = makeRepo(overrides.roles ?? []);
   const rpRows = overrides.rolePermissions ?? [];
   const rolePermissions = {
-    find: jest.fn(async (opts?: any) =>
-      overrides.rolePermissionsWhere ? overrides.rolePermissionsWhere(rpRows, opts?.where) : rpRows,
+    find: jest.fn(async (opts?: { where?: unknown }) =>
+      overrides.rolePermissionsWhere ? overrides.rolePermissionsWhere(rpRows, opts?.where as { roleId?: unknown } | undefined) : rpRows,
     ),
   };
   const pRows = overrides.permissions ?? [];
   const permissions = {
-    find: jest.fn(async (opts?: any) =>
-      overrides.permissionsWhere ? overrides.permissionsWhere(pRows, opts?.where) : pRows,
+    find: jest.fn(async (opts?: { where?: unknown }) =>
+      overrides.permissionsWhere ? overrides.permissionsWhere(pRows, opts?.where as { id?: unknown } | undefined) : pRows,
     ),
   };
   return new PermissionsService(
@@ -147,16 +147,26 @@ describe('PermissionsService — role-grant policy (P0 BE-001/BE-002)', () => {
       rolePermissions: rp,
       // Honor TypeORM `where: { roleId: In([...]) | string }` like the real repository.
       rolePermissionsWhere: (rows, where) => {
-        const raw = where?.roleId;
-        const ids = Array.isArray(raw?.value) ? raw.value : raw !== undefined ? [raw] : [];
-        return rows.filter((r: any) => ids.includes(r.roleId));
+        const raw = where?.roleId as { value?: unknown } | string | undefined;
+        const ids =
+          raw !== undefined && typeof raw === 'object' && Array.isArray((raw as { value?: unknown }).value)
+            ? ((raw as { value?: unknown }).value as unknown[])
+            : raw !== undefined
+              ? [raw]
+              : [];
+        return rows.filter((r) => ids.includes(r.roleId));
       },
       permissions: PERMS,
       // Honor `where: { id: In([...]) }` — otherwise every lookup sees all codes.
       permissionsWhere: (rows, where) => {
-        const raw = where?.id;
-        const ids = Array.isArray(raw?.value) ? raw.value : raw !== undefined ? [raw] : [];
-        return rows.filter((r: any) => ids.includes(r.id));
+        const raw = where?.id as { value?: unknown } | string | undefined;
+        const ids =
+          raw !== undefined && typeof raw === 'object' && Array.isArray((raw as { value?: unknown }).value)
+            ? ((raw as { value?: unknown }).value as unknown[])
+            : raw !== undefined
+              ? [raw]
+              : [];
+        return rows.filter((r) => ids.includes(r.id));
       },
     });
   }
