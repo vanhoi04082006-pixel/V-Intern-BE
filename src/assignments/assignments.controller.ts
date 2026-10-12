@@ -87,4 +87,17 @@ export class AssignmentsController {
   ) {
     return this.assignmentsService.complete(id, this.ctx(req, actorId));
   }
+
+  @Post(':id/cancel')
+  @RequirePermissions('assignments.manage')
+  @ApiOperation({
+    summary: 'Cancel an active assignment (assignments.manage; session roster row removed; audited; intern notified)',
+  })
+  async cancel(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser('userId') actorId: string,
+    @Req() req: Request,
+  ) {
+    return this.assignmentsService.cancel(id, this.ctx(req, actorId));
+  }
 }

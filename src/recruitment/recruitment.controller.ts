@@ -3,7 +3,6 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { RequirePermissions } from '../common/decorators/permissions.decorator';
-import { PaginationQueryDto } from '../common/pagination/pagination-query.dto';
 import { clientIp, userAgent } from '../common/types/request-info';
 import { InterviewService } from './interview.service';
 import {
@@ -12,7 +11,7 @@ import {
 } from './recruitment-rate-limit.guard';
 import { RecruitmentService } from './recruitment.service';
 import { RecruitmentEvaluationService } from './recruitment-evaluation.service';
-import { SaveAnswerDto, SelectRoleDto } from './dto/recruitment.dto';
+import { SaveAnswerDto, SelectRoleDto, QueryCandidatesDto } from './dto/recruitment.dto';
 
 /**
  * Phase 4 recruitment APIs (spec 41-45).
@@ -156,10 +155,15 @@ export class RecruitmentController {
   @Get('candidates')
   @RequirePermissions('recruitment.view')
   @ApiOperation({ summary: 'Candidate recruitment status list (instructor/admin read-only)' })
-  async candidates(@Query() query: PaginationQueryDto) {
+  async candidates(@Query() query: QueryCandidatesDto) {
     return this.recruitmentService.listCandidates({
       page: query.page,
       pageSize: query.pageSize,
+      search: query.search,
+      role: query.role,
+      eligibility: query.eligibility,
+      status: query.status,
+      sort: query.sort,
     });
   }
 

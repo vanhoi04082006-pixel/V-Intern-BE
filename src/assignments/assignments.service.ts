@@ -469,6 +469,73 @@ export class AssignmentsService {
   }
 
   /**
+   * M4 cancel (setup flow): removes an intern from an upcoming session.
+   * Only active assignments; scope-checked like complete. The session_members
+   * row is removed so the roster reflects reality; project_members stays as
+   * history. Cancelled assignments free availability (same as never assigned).
+   */
+  async cancel(id: string, ctx: ActorContext): Promise<AssignmentResponse> {
+    const cancelled = await this.dataSource.transaction(async (em) => {
+      const assignment = await em
+        .getRepository(Assignment)
+        .createQueryBuilder('a')
+        .setLock('pessimistic_write')
+        .where('a.id = :id', { id })
+        .getOne();
+      if (!assignment) {
+        throw new NotFoundException({
+          statusCode: 404,
+          code: 'ASSIGNMENT_NOT_FOUND',
+          message: 'Assignment not found.',
+        });
+      }
+      await this.assertSessionManagedTx(em, assignment.sessionId, await this.ownership(ctx.actorId));
+      if (assignment.status !== 'active') {
+        throw new ConflictException({
+          statusCode: 409,
+          code: 'INVALID_ASSIGNMENT_TRANSITION',
+          message: `Assignment in status '${assignment.status}' cannot be cancelled.`,
+          details: { status: assignment.status },
+        });
+      }
+      assignment.status = 'cancelled';
+      await em.save(assignment);
+      await em.delete(SessionMember, { sessionId: assignment.sessionId, userId: assignment.internId });
+
+      await em.insert(AuditLog, {
+        actorId: ctx.actorId ?? null,
+        action: 'assignment.cancelled',
+        targetType: 'assignment',
+        targetId: assignment.id,
+        detail: JSON.stringify({ sessionId: assignment.sessionId, projectId: assignment.projectId }),
+        ip: ctx.ip ?? null,
+        userAgent: ctx.userAgent ?? null,
+      });
+
+      await this.notifyInTransaction(em, {
+        userId: assignment.internId,
+        type: 'assignment',
+        category: 'session',
+        title: 'Phân công của bạn đã bị hủy',
+        body: 'Bạn đã được gỡ khỏi phiên thực tập.',
+        linkUrl: `/intern/assignments/${assignment.id}`,
+      });
+
+      await em.insert(ActivityEvent, {
+        actorId: ctx.actorId ?? null,
+        module: 'assignments',
+        action: 'assignment.cancelled',
+        targetType: 'assignment',
+        targetId: assignment.id,
+        summary: 'Một phân công thực tập đã bị hủy',
+      });
+
+      return assignment;
+    });
+    return this.getOneDetailed(cancelled.id);
+  }
+
+  /**
    * Intern workspace (spec 28/29) — identity is ALWAYS the authenticated
    * principal; status is ALWAYS database assignment state.
    */
