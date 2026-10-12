@@ -447,8 +447,8 @@ export class ProjectsService {
     return out.sort((a, b) => b.startDate.getTime() - a.startDate.getTime());
   }
 
-  /** Role slots with live filled counts (active assignments carrying the role). */
-  async getSlots(projectId: string, o?: Ownership): Promise<Array<{ roleCode: string; requiredCount: number; filledCount: number }>> {
+  /** Role slots with live filled counts (active assignments carrying the role) plus holders. */
+  async getSlots(projectId: string, o?: Ownership): Promise<Array<{ roleCode: string; requiredCount: number; filledCount: number; members: Array<{ userId: string; displayName: string | null }> }>> {
     await this.getOne(projectId, o);
     const slots = await this.slots.find({ where: { projectId }, order: { roleCode: 'ASC' } });
     const filled = await this.slots.query(
@@ -460,7 +460,27 @@ export class ProjectsService {
       [projectId],
     ) as Array<{ roleCode: string; filled: number }>;
     const filledByRole = new Map(filled.map((r) => [r.roleCode, Number(r.filled)]));
-    return slots.map((s) => ({ roleCode: s.roleCode, requiredCount: s.requiredCount, filledCount: filledByRole.get(s.roleCode) ?? 0 }));
+    const holders = await this.slots.query(
+      `SELECT pm.roleInProject AS roleCode, pm.userId AS userId, u.displayName AS displayName
+       FROM project_members pm
+       INNER JOIN assignments a ON a.projectId = pm.projectId AND a.internId = pm.userId AND a.status = 'active'
+       INNER JOIN users u ON u.id = pm.userId
+       WHERE pm.projectId = @0 AND pm.roleInProject IS NOT NULL
+       ORDER BY pm.roleInProject ASC, pm.joinedAt ASC`,
+      [projectId],
+    ) as Array<{ roleCode: string; userId: string; displayName: string | null }>;
+    const membersByRole = new Map<string, Array<{ userId: string; displayName: string | null }>>();
+    for (const h of holders) {
+      const list = membersByRole.get(h.roleCode) ?? [];
+      list.push({ userId: h.userId.toLowerCase(), displayName: h.displayName });
+      membersByRole.set(h.roleCode, list);
+    }
+    return slots.map((s) => ({
+      roleCode: s.roleCode,
+      requiredCount: s.requiredCount,
+      filledCount: filledByRole.get(s.roleCode) ?? 0,
+      members: membersByRole.get(s.roleCode) ?? [],
+    }));
   }
 
   /**
