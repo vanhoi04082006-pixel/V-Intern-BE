@@ -47,6 +47,8 @@ export interface RecruitmentResultResponse {
   model: string;
   promptVersion: string;
   evaluatedAt: Date;
+  evaluationSource: 'ai' | 'instructor';
+  evaluatedBy: string | null;
 }
 
 export function toResultResponse(r: RecruitmentResult): RecruitmentResultResponse {
@@ -65,6 +67,8 @@ export function toResultResponse(r: RecruitmentResult): RecruitmentResultRespons
     model: r.model,
     promptVersion: r.promptVersion,
     evaluatedAt: r.evaluatedAt,
+    evaluationSource: r.evaluationSource ?? 'ai',
+    evaluatedBy: r.evaluatedBy ?? null,
   };
 }
 
@@ -246,55 +250,85 @@ export class RecruitmentService {
     return toResultResponse(latest);
   }
 
-  /** Admin/instructor candidates read (spec 44 — recruitment.view only). */
-  async listCandidates(q: { page: number; pageSize: number; status?: string }) {
-    const users = this.dataSource.getRepository(User);
-    const qb = this.profiles
-      .createQueryBuilder('p')
-      .orderBy('p.updatedAt', 'DESC')
-      .skip((q.page - 1) * q.pageSize)
-      .take(q.pageSize);
-    if (q.status) qb.andWhere('p.status = :status', { status: q.status });
-    const [items, total] = await qb.getManyAndCount();
-    const userIds = items.map((p) => p.userId);
-    const userRows = userIds.length
-      ? await users.find({ where: userIds.map((id) => ({ id })) })
-      : [];
-    const userById = new Map(userRows.map((u) => [u.id, u]));
-    const resultRows = userIds.length
-      ? await this.results
-          .createQueryBuilder('r')
-          .where('r.profileId IN (:...pids)', { pids: items.map((p) => p.id) })
-          .orderBy('r.evaluatedAt', 'DESC')
-          .getMany()
-      : [];
-    const latestResultByProfile = new Map<string, RecruitmentResult>();
-    for (const r of resultRows) {
-      if (!latestResultByProfile.has(r.profileId)) latestResultByProfile.set(r.profileId, r);
+  /**
+   * M4 server-side candidate search (WP-4): one JOIN query with search/role/
+   * eligibility/status filters, stable sort (key, userId) and pagination.
+   * Response shape is unchanged (backward compatible with plain page/pageSize).
+   */
+  async listCandidates(q: { page: number; pageSize: number; search?: string; role?: string; eligibility?: string; status?: string; sort?: string }) {
+    const page = q.page || 1;
+    const pageSize = q.pageSize || 20;
+    const clauses = [`u.status = 'active'`];
+    const params: unknown[] = [];
+    const param = (v: unknown) => {
+      params.push(v);
+      return `@${params.length - 1}`;
+    };
+    if (q.search?.trim()) {
+      const like = `%${q.search.trim()}%`;
+      const p = param(like);
+      clauses.push(`(u.displayName LIKE ${p} OR u.email LIKE ${p})`);
     }
+    if (q.role) clauses.push(`p.selectedRole = ${param(q.role)}`);
+    if (q.status) clauses.push(`p.status = ${param(q.status)}`);
+    if (q.eligibility === 'available') {
+      clauses.push(`p.status = 'passed'`);
+      clauses.push(`a.id IS NULL`);
+    }
+    const where = `WHERE ${clauses.join(' AND ')}`;
+    const order =
+      q.sort === 'name'
+        ? 'ORDER BY u.displayName ASC, p.userId ASC'
+        : q.sort === 'overallScore'
+          ? 'ORDER BY r.overallScore DESC, p.updatedAt DESC, p.userId ASC'
+          : 'ORDER BY p.updatedAt DESC, p.userId ASC';
+    const from = `FROM recruitment_profiles p
+      INNER JOIN users u ON u.id = p.userId
+      OUTER APPLY (SELECT TOP(1) r.overallScore, r.technicalScore, r.softSkillScore, r.decision, r.evaluatedAt
+        FROM recruitment_results r WHERE r.profileId = p.id ORDER BY r.evaluatedAt DESC) r
+      LEFT JOIN assignments a ON a.internId = p.userId AND a.status = 'active'`;
+    const totalRows: { n: number }[] = await this.dataSource.query(
+      `SELECT COUNT(*) AS n ${from} ${where}`, params,
+    );
+    const total = Number(totalRows[0]?.n ?? 0);
+    const rows: Array<{
+      userId: string; displayName: string | null; email: string | null; status: string;
+      selectedRole: string | null; attemptCount: number; recruitedAt: Date | null;
+      overallScore: number | null; technicalScore: number | null; softSkillScore: number | null;
+      decision: string | null; evaluatedAt: Date | null;
+      activeAssignmentId: string | null; activeProjectId: string | null;
+    }> = await this.dataSource.query(
+      `SELECT p.userId AS userId, u.displayName AS displayName, u.email AS email,
+        p.status AS status, p.selectedRole AS selectedRole, p.attemptCount AS attemptCount, p.recruitedAt AS recruitedAt,
+        r.overallScore AS overallScore, r.technicalScore AS technicalScore, r.softSkillScore AS softSkillScore,
+        r.decision AS decision, r.evaluatedAt AS evaluatedAt,
+        a.id AS activeAssignmentId, a.projectId AS activeProjectId
+       ${from} ${where} ${order}
+       OFFSET ${(page - 1) * pageSize} ROWS FETCH NEXT ${pageSize} ROWS ONLY`,
+      params,
+    );
     return {
-      items: items.map((p) => {
-        const user = userById.get(p.userId);
-        const result = latestResultByProfile.get(p.id);
-        return {
-          userId: p.userId,
-          displayName: user?.displayName ?? null,
-          email: user?.email ?? null,
-          status: p.status,
-          selectedRole: p.selectedRole,
-          attemptCount: p.attemptCount,
-          recruitedAt: p.recruitedAt,
-          result: result
-            ? {
-                overallScore: Number(result.overallScore),
-                technicalScore: Number(result.technicalScore),
-                softSkillScore: Number(result.softSkillScore),
-                decision: result.decision,
-                evaluatedAt: result.evaluatedAt,
-              }
-            : null,
-        };
-      }),
+      items: rows.map((row) => ({
+        userId: String(row.userId).toLowerCase(),
+        displayName: row.displayName,
+        email: row.email,
+        status: row.status,
+        selectedRole: row.selectedRole,
+        attemptCount: row.attemptCount,
+        recruitedAt: row.recruitedAt,
+        hasActiveAssignment: row.activeAssignmentId !== null,
+        activeProjectId: row.activeProjectId ? String(row.activeProjectId).toLowerCase() : null,
+        result:
+          row.overallScore === null || row.overallScore === undefined
+            ? null
+            : {
+                overallScore: Number(row.overallScore),
+                technicalScore: row.technicalScore === null ? null : Number(row.technicalScore),
+                softSkillScore: row.softSkillScore === null ? null : Number(row.softSkillScore),
+                decision: row.decision,
+                evaluatedAt: row.evaluatedAt,
+              },
+      })),
       total,
     };
   }

@@ -1,0 +1,80 @@
+import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Query, Req } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
+import type { Request } from 'express';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { RequirePermissions } from '../common/decorators/permissions.decorator';
+import { clientIp, userAgent } from '../common/types/request-info';
+import { ActorContext } from '../users/users.service';
+import { AiGenerationService } from './ai-generation.service';
+import { ConfirmSprintPlanDto, DraftSprintPlanDto, GeneratePlanDto, PlanSessionQueryDto } from './dto/ai-generation.dtos';
+
+@ApiTags('ai-generations')
+@ApiBearerAuth()
+@Controller('ai-generations')
+export class AiGenerationController {
+  constructor(private readonly generations: AiGenerationService) {}
+
+  private ctx(req: Request, actorId: string): ActorContext {
+    return { actorId, ip: clientIp(req), userAgent: userAgent(req) };
+  }
+
+  @Post('sprint-plan/draft')
+  @RequirePermissions('sprints.manage')
+  @Throttle({ default: { limit: Number(process.env.THROTTLE_AI_GENERATION_PER_MIN ?? 4), ttl: 60_000 } })
+  @ApiOperation({
+    summary:
+      'Generate a sprint/task draft with AI (sprints.manage; managed project+session only; persists nothing)',
+  })
+  async draft(
+    @Body() dto: DraftSprintPlanDto,
+    @CurrentUser('userId') actorId: string,
+    @Req() req: Request,
+  ) {
+    return this.generations.draft(dto, this.ctx(req, actorId));
+  }
+
+  @Post('sprint-plan/confirm')
+  @RequirePermissions('sprints.manage')
+  @Throttle({ default: { limit: Number(process.env.THROTTLE_AI_GENERATION_PER_MIN ?? 4), ttl: 60_000 } })
+  @ApiOperation({
+    summary:
+      'Confirm an instructor-reviewed draft (sprints.manage; re-validated server-side; idempotent per requestId)',
+  })
+  async confirm(
+    @Body() dto: ConfirmSprintPlanDto,
+    @CurrentUser('userId') actorId: string,
+    @Req() req: Request,
+  ) {
+    return this.generations.confirm(dto, this.ctx(req, actorId));
+  }
+
+  @Post('plans/generate')
+  @RequirePermissions('sprints.manage')
+  @Throttle({ default: { limit: Number(process.env.THROTTLE_AI_GENERATION_PER_MIN ?? 4), ttl: 60_000 } })
+  @ApiOperation({
+    summary:
+      'Generate and persist an AI plan draft (sprints.manage; idempotent per session+version; review before confirm)',
+  })
+  async generate(
+    @Body() dto: GeneratePlanDto,
+    @CurrentUser('userId') actorId: string,
+    @Req() req: Request,
+  ) {
+    return this.generations.generatePlan(dto, this.ctx(req, actorId));
+  }
+
+  @Get('plans')
+  @RequirePermissions('sprints.manage')
+  @ApiOperation({ summary: 'AI plan history of one session (owned scope)' })
+  async plans(@Query() query: PlanSessionQueryDto, @CurrentUser('userId') actorId: string) {
+    return this.generations.plans(query.sessionId, actorId);
+  }
+
+  @Get('plans/:id')
+  @RequirePermissions('sprints.manage')
+  @ApiOperation({ summary: 'One AI plan with fresh warnings (owned scope)' })
+  async plan(@Param('id', ParseUUIDPipe) id: string, @CurrentUser('userId') actorId: string) {
+    return this.generations.plan(id, actorId);
+  }
+}

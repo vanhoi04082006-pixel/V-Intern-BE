@@ -1,13 +1,19 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ActivityService } from '../audit/activity.service';
 import { AuditService } from '../audit/audit.service';
 import { isUniqueViolation } from '../common/utils/db-errors';
+import { OWNER_PARAM, projectScope, resolveOwnership, type Ownership } from '../rbac/ownership';
+import { PermissionsService } from '../rbac/permissions.service';
 import { User } from '../users/entities/user.entity';
 import { ActorContext } from '../users/users.service';
 import { Project } from './entities/project.entity';
 import { ProjectMember } from './entities/project-member.entity';
+import { ProjectRoleSlot } from './entities/project-role-slot.entity';
+import { InternshipSession } from '../sessions/entities/internship-session.entity';
+import { SessionInstructor } from '../sessions/entities/session-instructor.entity';
+import { SessionMember } from '../sessions/entities/session-member.entity';
 import { ProjectTechnology } from './entities/project-technology.entity';
 
 export interface ProjectResponse {
@@ -38,14 +44,16 @@ export interface ProjectMemberRow {
 
 export function toProjectResponse(p: Project, technologies: string[] = []): ProjectResponse {
   return {
-    id: p.id,
+    // Canonical lowercase UUIDs: mssql returns UNIQUEIDENTIFIER uppercase while
+    // client-generated ids are lowercase; mixed case breaks === comparisons in consumers.
+    id: p.id.toLowerCase(),
     code: p.code,
     name: p.name,
     description: p.description,
     domainCategory: p.domainCategory ?? null,
     difficulty: p.difficulty,
     status: p.status,
-    mentorId: p.mentorId ?? null,
+    mentorId: p.mentorId ? p.mentorId.toLowerCase() : null,
     capacity: p.capacity ?? null,
     startDate: p.startDate ?? null,
     endDate: p.endDate ?? null,
@@ -62,10 +70,21 @@ export class ProjectsService {
     @InjectRepository(Project) private readonly projects: Repository<Project>,
     @InjectRepository(ProjectMember) private readonly members: Repository<ProjectMember>,
     @InjectRepository(ProjectTechnology) private readonly technologies: Repository<ProjectTechnology>,
-    @InjectRepository(User) private readonly users: Repository<User>,
+    @InjectRepository(ProjectRoleSlot) private readonly slots: Repository<ProjectRoleSlot>,
+    @InjectRepository(InternshipSession) private readonly sessions: Repository<InternshipSession>,
+    @InjectRepository(SessionInstructor) private readonly sessionInstructors: Repository<SessionInstructor>,
+    @InjectRepository(SessionMember) private readonly sessionMembers: Repository<SessionMember>,
+    @InjectRepository(User)     private readonly users: Repository<User>,
+    private readonly permissions: PermissionsService,
     private readonly audit: AuditService,
     private readonly activity: ActivityService,
   ) {}
+
+  /** Resolve request ownership from the actor; undefined actor = trusted internal call. */
+  private async ownership(actorId?: string | null): Promise<Ownership | undefined> {
+    if (!actorId) return undefined;
+    return resolveOwnership(this.permissions, actorId);
+  }
 
   async list(q: {
     page: number;
@@ -73,16 +92,24 @@ export class ProjectsService {
     q?: string;
     status?: string;
     difficulty?: string;
+    domainCategory?: string;
+    technology?: string;
     sort?: 'createdAt' | 'code' | 'name';
     order?: 'ASC' | 'DESC';
-  }) {
+  }, o?: Ownership) {
     const qb = this.projects.createQueryBuilder('p');
+    if (o && !o.isAdmin) {
+      const scope = projectScope('p', o);
+      if (scope) qb.andWhere(scope.clause, { [OWNER_PARAM]: o.userId });
+    }
     if (q.q && q.q.length > 0) {
       const term = `%${q.q}%`;
       qb.andWhere('(p.code LIKE :term OR p.name LIKE :term)', { term });
     }
     if (q.status) qb.andWhere('p.status = :status', { status: q.status });
     if (q.difficulty) qb.andWhere('p.difficulty = :difficulty', { difficulty: q.difficulty });
+    if (q.domainCategory) qb.andWhere('p.domainCategory = :domainCategory', { domainCategory: q.domainCategory });
+    if (q.technology) qb.andWhere('EXISTS(SELECT 1 FROM project_technologies pt WHERE pt.projectId=p.id AND pt.technology=:technology)', { technology: q.technology });
     const sortCol = q.sort ?? 'createdAt';
     qb.orderBy(`p.${sortCol}`, q.order ?? 'DESC')
       .skip((q.page - 1) * q.pageSize)
@@ -92,7 +119,7 @@ export class ProjectsService {
     return { items: items.map((p) => toProjectResponse(p, techMap.get(p.id) ?? [])), total };
   }
 
-  async getOne(id: string): Promise<Project> {
+  async getOne(id: string, o?: Ownership): Promise<Project> {
     const project = await this.projects.findOne({ where: { id } });
     if (!project) {
       throw new NotFoundException({
@@ -101,11 +128,26 @@ export class ProjectsService {
         message: 'Project not found.',
       });
     }
+    if (o && !o.isAdmin && project.mentorId !== o.userId && project.mentorId !== null) {
+      throw new ForbiddenException({
+        statusCode: 403,
+        code: 'PROJECT_SCOPE_FORBIDDEN',
+        message: 'You do not manage this project.',
+      });
+    }
     return project;
   }
 
-  async getOneDetailed(id: string): Promise<ProjectResponse> {
-    const project = await this.getOne(id);
+  async filterOptions() {
+    const [domains,technologies] = await Promise.all([
+      this.projects.query("SELECT DISTINCT domainCategory value FROM projects WHERE domainCategory IS NOT NULL AND domainCategory<>'' ORDER BY domainCategory"),
+      this.projects.query('SELECT DISTINCT technology value FROM project_technologies ORDER BY technology'),
+    ]);
+    return {domains:domains.map((r:{value:string})=>r.value),technologies:technologies.map((r:{value:string})=>r.value)};
+  }
+
+  async getOneDetailed(id: string, o?: Ownership): Promise<ProjectResponse> {
+    const project = await this.getOne(id, o);
     const techMap = await this.loadTechnologies([project.id]);
     return toProjectResponse(project, techMap.get(project.id) ?? []);
   }
@@ -139,6 +181,23 @@ export class ProjectsService {
       });
     }
     const mentorId = await this.resolveMentor(input.mentorId);
+    // P0 BE-007: creating a project for someone else bypasses the claim flow.
+    // Non-admins may only name themselves (or omit and take the bootstrap below).
+    if (input.mentorId) {
+      const o = await this.ownership(ctx.actorId);
+      if (!o?.isAdmin && input.mentorId !== o?.userId) {
+        throw new ForbiddenException({
+          statusCode: 403,
+          code: 'PROJECT_MENTOR_FORBIDDEN',
+          message: 'Only an admin can assign another mentor. Claim the project instead.',
+        });
+      }
+    }
+    // Ownership bootstrap: an instructor creating a project without an
+    // explicit mentor becomes its mentor, so the project they just created
+    // stays visible under instructor scoping.
+    const effectiveMentorId =
+      mentorId ?? (ctx.actorId && (await this.permissions.hasRole(ctx.actorId, 'instructor')) ? ctx.actorId : null);
 
     const created = await this.projects.manager.transaction(async (em) => {
       let saved: Project;
@@ -151,7 +210,7 @@ export class ProjectsService {
             domainCategory: input.domainCategory ?? null,
             difficulty: (input.difficulty ?? 'beginner') as Project['difficulty'],
             status: (input.status ?? 'draft') as Project['status'],
-            mentorId,
+            mentorId: effectiveMentorId,
             capacity: input.capacity ?? null,
             startDate: input.startDate ? new Date(input.startDate) : null,
             endDate: input.endDate ? new Date(input.endDate) : null,
@@ -219,7 +278,15 @@ export class ProjectsService {
     },
     ctx: ActorContext,
   ): Promise<ProjectResponse> {
-    const project = await this.getOne(id);
+    const o = await this.ownership(ctx.actorId);
+    const project = await this.getOne(id, o);
+    if (o && !o.isAdmin && project.mentorId !== o.userId) {
+      throw new ForbiddenException({
+        statusCode: 403,
+        code: 'PROJECT_SCOPE_FORBIDDEN',
+        message: 'Only the managing mentor can edit this project. Claim it first.',
+      });
+    }
     if (project.status === 'archived') {
       throw new ConflictException({
         statusCode: 409,
@@ -236,7 +303,18 @@ export class ProjectsService {
     if (input.capacity !== undefined) patch.capacity = input.capacity;
     if (input.startDate !== undefined) patch.startDate = input.startDate ? new Date(input.startDate) : null;
     if (input.endDate !== undefined) patch.endDate = input.endDate ? new Date(input.endDate) : null;
-    if (input.mentorId !== undefined) patch.mentorId = await this.resolveMentor(input.mentorId);
+    if (input.mentorId !== undefined) {
+      // P0 BE-007: reassigning mentorId bypasses the unclaimed-only claim flow.
+      // Non-admins cannot change it at all (not even to themselves — use claim).
+      if (!o?.isAdmin) {
+        throw new ForbiddenException({
+          statusCode: 403,
+          code: 'PROJECT_MENTOR_FORBIDDEN',
+          message: 'Only an admin can reassign the mentor. Claim unclaimed projects instead.',
+        });
+      }
+      patch.mentorId = await this.resolveMentor(input.mentorId);
+    }
     if (input.status !== undefined) {
       patch.status = input.status as Project['status'];
       if (input.status === 'archived') patch.archivedAt = new Date();
@@ -287,8 +365,42 @@ export class ProjectsService {
     return this.getOneDetailed(id);
   }
 
-  async listMembers(projectId: string): Promise<ProjectMemberRow[]> {
-    await this.getOne(projectId);
+  /**
+   * Claim an unmentored library project: sets mentorId to the actor.
+   * Already-claimed projects (by anyone, including self) → 409, never
+   * silently stolen. Admins manage via PATCH instead.
+   */
+  async claim(id: string, ctx: ActorContext): Promise<ProjectResponse> {
+    const o = await this.ownership(ctx.actorId);
+    if (!o || (!o.isAdmin && !(await this.permissions.hasRole(o.userId, 'instructor')))) {
+      throw new ForbiddenException({
+        statusCode: 403,
+        code: 'PROJECT_CLAIM_FORBIDDEN',
+        message: 'Only instructors can claim library projects.',
+      });
+    }
+    const project = await this.getOne(id, o);
+    if (project.mentorId !== null) {
+      throw new ConflictException({
+        statusCode: 409,
+        code: 'PROJECT_ALREADY_CLAIMED',
+        message: 'Project already has a managing mentor.',
+      });
+    }
+    await this.projects.update(id, { mentorId: o.userId });
+    await this.audit.record({
+      actorId: ctx.actorId ?? null,
+      action: 'project.claimed',
+      targetType: 'project',
+      targetId: id,
+      ip: ctx.ip,
+      userAgent: ctx.userAgent,
+    });
+    return this.getOneDetailed(id, o);
+  }
+
+  async listMembers(projectId: string, o?: Ownership): Promise<ProjectMemberRow[]> {
+    await this.getOne(projectId, o);
     const rows = await this.members
       .createQueryBuilder('m')
       .innerJoin(User, 'u', 'u.id = m.userId')
@@ -303,6 +415,115 @@ export class ProjectsService {
       .orderBy('m.joinedAt', 'ASC')
       .getRawMany();
     return rows;
+  }
+
+  /**
+   * Sessions running on this project (redesign §8/§30): linked through
+   * assignments (any status → full history) and sprints, then reduced to
+   * the sessions the caller manages. A project is reusable across cohorts
+   * without cloning (§32).
+   */
+  async projectSessions(projectId: string, o?: Ownership): Promise<Array<{ id: string; code: string; name: string; status: string; startDate: Date; endDate: Date; memberCount: number }>> {
+    await this.getOne(projectId, o);
+    const linked = await this.projects.query(
+      `SELECT DISTINCT s.id FROM internship_sessions s
+       WHERE s.id IN (SELECT a.sessionId FROM assignments a WHERE a.projectId = @0)
+          OR s.id IN (SELECT sp.sessionId FROM sprints sp WHERE sp.projectId = @0 AND sp.sessionId IS NOT NULL)`,
+      [projectId],
+    ) as Array<{ id: string }>;
+    const out: Array<{ id: string; code: string; name: string; status: string; startDate: Date; endDate: Date; memberCount: number }> = [];
+    for (const row of linked) {
+      const session = await this.sessions.findOne({ where: { id: row.id } });
+      if (!session) continue;
+      if (o && !o.isAdmin) {
+        const owned =
+          session.leadInstructorId === o.userId ||
+          (await this.sessionInstructors.findOne({ where: { sessionId: session.id, instructorId: o.userId } })) !== null;
+        if (!owned) continue;
+      }
+      const memberCount = await this.sessionMembers.count({ where: { sessionId: session.id } });
+      out.push({ id: session.id, code: session.code, name: session.name, status: session.status, startDate: session.startDate, endDate: session.endDate, memberCount });
+    }
+    return out.sort((a, b) => b.startDate.getTime() - a.startDate.getTime());
+  }
+
+  /** Role slots with live filled counts (active assignments carrying the role) plus holders. */
+  async getSlots(projectId: string, o?: Ownership): Promise<Array<{ roleCode: string; requiredCount: number; filledCount: number; members: Array<{ userId: string; displayName: string | null }> }>> {
+    await this.getOne(projectId, o);
+    const slots = await this.slots.find({ where: { projectId }, order: { roleCode: 'ASC' } });
+    const filled = await this.slots.query(
+      `SELECT pm.roleInProject AS roleCode, COUNT(*) AS filled
+       FROM project_members pm
+       INNER JOIN assignments a ON a.projectId = pm.projectId AND a.internId = pm.userId AND a.status = 'active'
+       WHERE pm.projectId = @0 AND pm.roleInProject IS NOT NULL
+       GROUP BY pm.roleInProject`,
+      [projectId],
+    ) as Array<{ roleCode: string; filled: number }>;
+    const filledByRole = new Map(filled.map((r) => [r.roleCode, Number(r.filled)]));
+    const holders = await this.slots.query(
+      `SELECT pm.roleInProject AS roleCode, pm.userId AS userId, u.displayName AS displayName
+       FROM project_members pm
+       INNER JOIN assignments a ON a.projectId = pm.projectId AND a.internId = pm.userId AND a.status = 'active'
+       INNER JOIN users u ON u.id = pm.userId
+       WHERE pm.projectId = @0 AND pm.roleInProject IS NOT NULL
+       ORDER BY pm.roleInProject ASC, pm.joinedAt ASC`,
+      [projectId],
+    ) as Array<{ roleCode: string; userId: string; displayName: string | null }>;
+    const membersByRole = new Map<string, Array<{ userId: string; displayName: string | null }>>();
+    for (const h of holders) {
+      const list = membersByRole.get(h.roleCode) ?? [];
+      list.push({ userId: h.userId.toLowerCase(), displayName: h.displayName });
+      membersByRole.set(h.roleCode, list);
+    }
+    return slots.map((s) => ({
+      roleCode: s.roleCode,
+      requiredCount: s.requiredCount,
+      filledCount: filledByRole.get(s.roleCode) ?? 0,
+      members: membersByRole.get(s.roleCode) ?? [],
+    }));
+  }
+
+  /**
+   * Replace all role slots (projects.manage + managing mentor).
+   * Empty array clears the plan. Duplicate role codes → 400.
+   */
+  async setSlots(projectId: string, input: { slots: Array<{ roleCode: string; requiredCount: number }> }, ctx: ActorContext) {
+    const o = await this.ownership(ctx.actorId);
+    const project = await this.getOne(projectId, o);
+    if (o && !o.isAdmin && project.mentorId !== o.userId) {
+      throw new ForbiddenException({
+        statusCode: 403,
+        code: 'PROJECT_SCOPE_FORBIDDEN',
+        message: 'Only the managing mentor can edit role slots. Claim the project first.',
+      });
+    }
+    const codes = input.slots.map((s) => s.roleCode.trim());
+    if (codes.some((c) => c.length === 0) || new Set(codes).size !== codes.length) {
+      throw new ConflictException({
+        statusCode: 409,
+        code: 'ROLE_SLOT_INVALID',
+        message: 'Role codes must be unique and non-blank.',
+      });
+    }
+    await this.slots.manager.transaction(async (em) => {
+      await em.delete(ProjectRoleSlot, { projectId });
+      if (codes.length > 0) {
+        await em.insert(
+          ProjectRoleSlot,
+          codes.map((roleCode, i) => ({ projectId, roleCode, requiredCount: input.slots[i].requiredCount })),
+        );
+      }
+    });
+    await this.audit.record({
+      actorId: ctx.actorId ?? null,
+      action: 'project.slots_updated',
+      targetType: 'project',
+      targetId: projectId,
+      detail: { slots: codes.length },
+      ip: ctx.ip,
+      userAgent: ctx.userAgent,
+    });
+    return this.getSlots(projectId, o);
   }
 
   /** Mentor must exist and be active (404 otherwise). */

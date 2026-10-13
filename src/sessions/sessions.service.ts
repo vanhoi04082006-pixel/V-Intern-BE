@@ -1,9 +1,12 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
+import { DataSource, EntityManager, In, Repository } from 'typeorm';
 import { ActivityService } from '../audit/activity.service';
 import { AuditService } from '../audit/audit.service';
+import { AuditLog } from '../audit/entities/audit-log.entity';
+import { ActivityEvent } from '../audit/entities/activity-event.entity';
 import { isUniqueViolation } from '../common/utils/db-errors';
+import { OWNER_PARAM, resolveOwnership, sessionScope, type Ownership } from '../rbac/ownership';
 import { PermissionsService } from '../rbac/permissions.service';
 import { User } from '../users/entities/user.entity';
 import { ActorContext } from '../users/users.service';
@@ -67,23 +70,155 @@ export class SessionsService {
     @InjectRepository(SessionInstructor) private readonly instructors: Repository<SessionInstructor>,
     @InjectRepository(SessionMilestone) private readonly milestones: Repository<SessionMilestone>,
     @InjectRepository(User) private readonly users: Repository<User>,
+    @InjectDataSource() private readonly dataSource: DataSource,
     private readonly permissionsService: PermissionsService,
     private readonly audit: AuditService,
     private readonly activity: ActivityService,
   ) {}
 
-  async list(q: { page: number; pageSize: number; q?: string; status?: string }) {
+  async list(q: { page: number; pageSize: number; q?: string; status?: string; projectId?: string; leadInstructorId?: string }, o?: Ownership) {
     const qb = this.sessions.createQueryBuilder('s');
+    if (o && !o.isAdmin) {
+      const scope = sessionScope('s', o);
+      if (scope) qb.andWhere(scope.clause, { [OWNER_PARAM]: o.userId });
+    }
     if (q.q && q.q.length > 0) {
       const term = `%${q.q}%`;
       qb.andWhere('(s.code LIKE :term OR s.name LIKE :term)', { term });
     }
     if (q.status) qb.andWhere('s.status = :status', { status: q.status });
+    if (q.leadInstructorId) qb.andWhere('s.leadInstructorId = :leadInstructorId', { leadInstructorId: q.leadInstructorId });
+    if (q.projectId) qb.andWhere('(EXISTS(SELECT 1 FROM assignments a WHERE a.sessionId=s.id AND a.projectId=:projectId) OR EXISTS(SELECT 1 FROM template_runs r WHERE r.sessionId=s.id AND r.projectId=:projectId))', { projectId: q.projectId });
     qb.orderBy('s.startDate', 'DESC')
       .skip((q.page - 1) * q.pageSize)
       .take(q.pageSize);
     const [items, total] = await qb.getManyAndCount();
     return { items: items.map(toSessionResponse), total };
+  }
+
+  async memberOptions(q: { page: number; pageSize: number; q?: string; sessionId?: string; projectId?: string }, o: Ownership) {
+    const scope = sessionScope('s', o);
+    const clauses = ['m.userId = u.id'];
+    if (scope) clauses.push(scope.clause);
+    if (q.sessionId) clauses.push('s.id = :sessionId');
+    if (q.projectId) clauses.push('(EXISTS (SELECT 1 FROM template_runs r WHERE r.sessionId=s.id AND r.projectId=:projectId) OR EXISTS (SELECT 1 FROM assignments a WHERE a.sessionId=s.id AND a.projectId=:projectId))');
+    const qb = this.users.createQueryBuilder('u')
+      .where(`EXISTS (SELECT 1 FROM session_members m JOIN internship_sessions s ON s.id=m.sessionId WHERE ${clauses.join(' AND ')})`, {
+        ...scope?.params, sessionId: q.sessionId, projectId: q.projectId,
+      });
+    if (q.q?.trim()) qb.andWhere('(u.displayName LIKE :term OR u.email LIKE :term)', { term: `%${q.q.trim()}%` });
+    qb.orderBy('u.displayName', 'ASC').addOrderBy('u.id', 'ASC').skip((q.page - 1) * q.pageSize).take(q.pageSize);
+    const [users, total] = await qb.getManyAndCount();
+    return { items: users.map(u => ({ userId: u.id.toLowerCase(), displayName: u.displayName, email: u.email })), total };
+  }
+
+  /**
+   * M6 management overview (WP-6): two bounded queries per page — project
+   * (latest template run), member count, sprint count, task done/total.
+   * Same filters and managed scope as list(); no per-row queries (no N+1).
+   */
+  async listOverview(
+    q: { page: number; pageSize: number; q?: string; status?: string; projectId?: string; leadInstructorId?: string; id?: string },
+    o?: Ownership,
+  ) {
+    const page = q.page || 1;
+    const pageSize = q.pageSize || 20;
+    const clauses = ['1=1'];
+    const params: unknown[] = [];
+    const param = (v: unknown): string => {
+      params.push(v);
+      return `@${params.length - 1}`;
+    };
+    if (o && !o.isAdmin) {
+      const p = param(o.userId);
+      clauses.push(
+        `(s.leadInstructorId = ${p} OR EXISTS (SELECT 1 FROM session_instructors si WHERE si.sessionId = s.id AND si.instructorId = ${p}))`,
+      );
+    }
+    if (q.q?.trim()) {
+      const like = `%${q.q.trim()}%`;
+      const p = param(like);
+      clauses.push(`(s.code LIKE ${p} OR s.name LIKE ${p})`);
+    }
+    if (q.status) clauses.push(`s.status = ${param(q.status)}`);
+    if (q.id) clauses.push(`s.id = ${param(q.id)}`);
+    if (q.leadInstructorId) clauses.push(`s.leadInstructorId = ${param(q.leadInstructorId)}`);
+    if (q.projectId) {
+      const project = param(q.projectId);
+      clauses.push(`(EXISTS (SELECT 1 FROM template_runs r2 WHERE r2.sessionId = s.id AND r2.projectId = ${project}) OR EXISTS (SELECT 1 FROM assignments a WHERE a.sessionId = s.id AND a.projectId = ${project}))`);
+    }
+    const where = `WHERE ${clauses.join(' AND ')}`;
+    const from = `FROM internship_sessions s
+      OUTER APPLY (SELECT TOP(1) r.projectId, r.templateVersion FROM template_runs r WHERE r.sessionId = s.id ORDER BY r.createdAt DESC) tr
+      LEFT JOIN projects p ON p.id = tr.projectId`;
+    const totalRows: Array<{ n: number }> = await this.dataSource.query(
+      `SELECT COUNT(*) AS n ${from} ${where}`,
+      params,
+    );
+    const total = Number(totalRows[0]?.n ?? 0);
+    const rows: Array<{
+      id: string; code: string; name: string; status: string; startDate: Date; endDate: Date;
+      projectId: string | null; projectCode: string | null; projectName: string | null; templateVersion: number | null;
+      memberCount: number; sprintCount: number; taskTotal: number; taskDone: number;
+    }> = await this.dataSource.query(
+      `SELECT s.id AS id, s.code AS code, s.name AS name, s.status AS status,
+        s.startDate AS startDate, s.endDate AS endDate,
+        tr.projectId AS projectId, p.code AS projectCode, p.name AS projectName, tr.templateVersion AS templateVersion,
+        (SELECT COUNT(*) FROM session_members m WHERE m.sessionId = s.id) AS memberCount,
+        (SELECT COUNT(*) FROM sprints sp WHERE sp.sessionId = s.id) AS sprintCount,
+        (SELECT COUNT(*) FROM tasks t WHERE t.deletedAt IS NULL AND t.sprintId IN (SELECT sp2.id FROM sprints sp2 WHERE sp2.sessionId = s.id)) AS taskTotal,
+        (SELECT COUNT(*) FROM tasks t2 WHERE t2.deletedAt IS NULL AND t2.status = 'done' AND t2.sprintId IN (SELECT sp3.id FROM sprints sp3 WHERE sp3.sessionId = s.id)) AS taskDone
+       ${from} ${where}
+       ORDER BY s.startDate DESC, s.id OFFSET ${(page - 1) * pageSize} ROWS FETCH NEXT ${pageSize} ROWS ONLY`,
+      params,
+    );
+    return {
+      items: rows.map((r) => ({
+        id: String(r.id).toLowerCase(),
+        code: r.code,
+        name: r.name,
+        status: r.status,
+        startDate: r.startDate,
+        endDate: r.endDate,
+        project: r.projectId
+          ? {
+              id: String(r.projectId).toLowerCase(),
+              code: r.projectCode,
+              name: r.projectName,
+              templateVersion: r.templateVersion,
+            }
+          : null,
+        memberCount: Number(r.memberCount),
+        sprintCount: Number(r.sprintCount),
+        taskTotal: Number(r.taskTotal),
+        taskDone: Number(r.taskDone),
+        taskPercent: Number(r.taskTotal) === 0 ? 0 : Math.round((Number(r.taskDone) / Number(r.taskTotal)) * 100),
+      })),
+      total,
+    };
+  }
+
+  async detail(id: string, o: Ownership) {
+    const session = await this.getOne(id, o);
+    const [overview, members, milestones, snapshots, progress] = await Promise.all([
+      this.listOverview({ id, page: 1, pageSize: 1 }, o),
+      this.listMembers(id, o),
+      this.listMilestones(id, o),
+      this.dataSource.query('SELECT TOP(1) snapshotJson FROM template_runs WHERE sessionId = @0 ORDER BY createdAt DESC, id DESC', [id]) as Promise<Array<{ snapshotJson: string }>>,
+      this.dataSource.query(`SELECT sp.id, sp.status, COUNT(t.id) AS taskTotal,
+        SUM(CASE WHEN t.status = 'done' THEN 1 ELSE 0 END) AS taskDone,
+        SUM(CASE WHEN t.status = 'review' THEN 1 ELSE 0 END) AS taskReview
+        FROM sprints sp LEFT JOIN tasks t ON t.sprintId = sp.id AND t.deletedAt IS NULL
+        WHERE sp.sessionId = @0 GROUP BY sp.id, sp.status`, [id]) as Promise<Array<{ id: string; status: string; taskTotal: number; taskDone: number; taskReview: number }>>,
+    ]);
+    return {
+      ...toSessionResponse(session),
+      overview: overview.items[0],
+      members,
+      milestones,
+      projectSnapshot: snapshots.length ? JSON.parse(snapshots[0].snapshotJson) as unknown : null,
+      sprintProgress: progress.map((p) => ({ ...p, id: p.id.toLowerCase(), taskTotal: Number(p.taskTotal), taskDone: Number(p.taskDone), taskReview: Number(p.taskReview) })),
+    };
   }
 
   async instructorOptions(q: { page: number; pageSize: number; q?: string }) {
@@ -95,7 +230,13 @@ export class SessionsService {
     return { items: rows.map(u => ({ userId: u.id, displayName: u.displayName, email: u.email })), total };
   }
 
-  async getOne(id: string): Promise<InternshipSession> {
+  /** Resolve request ownership from the actor; undefined actor = trusted internal call. */
+  private async ownership(actorId?: string | null): Promise<Ownership | undefined> {
+    if (!actorId) return undefined;
+    return resolveOwnership(this.permissionsService, actorId);
+  }
+
+  async getOne(id: string, o?: Ownership): Promise<InternshipSession> {
     const session = await this.sessions.findOne({ where: { id } });
     if (!session) {
       throw new NotFoundException({
@@ -103,6 +244,18 @@ export class SessionsService {
         code: 'SESSION_NOT_FOUND',
         message: 'Internship session not found.',
       });
+    }
+    if (o && !o.isAdmin) {
+      const owned =
+        session.leadInstructorId === o.userId ||
+        (await this.instructors.findOne({ where: { sessionId: id, instructorId: o.userId } })) !== null;
+      if (!owned) {
+        throw new ForbiddenException({
+          statusCode: 403,
+          code: 'SESSION_SCOPE_FORBIDDEN',
+          message: 'You do not manage this internship session.',
+        });
+      }
     }
     return session;
   }
@@ -168,6 +321,14 @@ export class SessionsService {
       ip: ctx.ip,
       userAgent: ctx.userAgent,
     });
+    // Ownership bootstrap: an instructor creating a session joins it, so the
+    // session they just created stays visible under instructor scoping.
+    if (ctx.actorId && (await this.permissionsService.hasRole(ctx.actorId, 'instructor'))) {
+      const already = await this.instructors.findOne({ where: { sessionId: created.id, instructorId: ctx.actorId } });
+      if (!already) {
+        await this.instructors.insert({ sessionId: created.id, instructorId: ctx.actorId });
+      }
+    }
     await this.activity.record({
       actorId: ctx.actorId ?? null,
       module: 'sessions',
@@ -195,74 +356,89 @@ export class SessionsService {
     },
     ctx: ActorContext,
   ): Promise<SessionResponse> {
-    const session = await this.getOne(id);
-    const patch: Partial<InternshipSession> = {};
+    const ownership = await this.ownership(ctx.actorId);
+    return this.dataSource.transaction(async em => {
+      const session = await em.findOne(InternshipSession, { where: { id }, lock: { mode: 'pessimistic_write' } });
+      if (!session) throw new NotFoundException({ statusCode: 404, code: 'SESSION_NOT_FOUND', message: 'Session not found.' });
+      if (ownership && !ownership.isAdmin && session.leadInstructorId?.toLowerCase() !== ownership.userId.toLowerCase()) {
+        const managed = await em.findOneBy(SessionInstructor, { sessionId: id, instructorId: ownership.userId });
+        if (!managed) throw new ForbiddenException({ statusCode: 403, code: 'SESSION_SCOPE_FORBIDDEN', message: 'You do not manage this session.' });
+      }
+      const patch: Partial<InternshipSession> = {};
 
-    if (input.name !== undefined) patch.name = input.name;
-    if (input.description !== undefined) patch.description = input.description;
-    if (input.startDate !== undefined) patch.startDate = new Date(input.startDate);
-    if (input.endDate !== undefined) patch.endDate = new Date(input.endDate);
-    if (input.leadInstructorId !== undefined) {
-      patch.leadInstructorId = await this.resolveInstructor(input.leadInstructorId);
-    }
+      if (input.name !== undefined) patch.name = input.name;
+      if (input.description !== undefined) patch.description = input.description;
+      if (input.startDate !== undefined) patch.startDate = new Date(input.startDate);
+      if (input.endDate !== undefined) patch.endDate = new Date(input.endDate);
+      if (input.leadInstructorId !== undefined) {
+        patch.leadInstructorId = await this.resolveInstructor(input.leadInstructorId);
+      }
 
-    const nextStart = (patch.startDate ?? session.startDate) as Date;
-    const nextEnd = (patch.endDate ?? session.endDate) as Date;
-    if (nextEnd < nextStart) {
-      throw new ConflictException({
-        statusCode: 409,
-        code: 'SESSION_DATE_RANGE_INVALID',
-        message: 'endDate must be greater than or equal to startDate.',
-      });
-    }
-
-    let transitionedFrom: string | null = null;
-    if (input.status !== undefined && input.status !== session.status) {
-      if (!canTransitionSession(session.status, input.status as InternshipSession['status'])) {
+      const nextStart = (patch.startDate ?? session.startDate) as Date;
+      const nextEnd = (patch.endDate ?? session.endDate) as Date;
+      if (nextEnd < nextStart) {
         throw new ConflictException({
           statusCode: 409,
-          code: 'INVALID_SESSION_TRANSITION',
-          message: `Illegal session transition ${session.status} -> ${input.status}.`,
-          details: { from: session.status, to: input.status },
+          code: 'SESSION_DATE_RANGE_INVALID',
+          message: 'endDate must be greater than or equal to startDate.',
         });
       }
-      transitionedFrom = session.status;
-      patch.status = input.status as InternshipSession['status'];
-    }
 
-    if (Object.keys(patch).length > 0) {
-      await this.sessions.update(id, patch);
-      await this.audit.record({
-        actorId: ctx.actorId ?? null,
-        action: transitionedFrom ? 'session.status_changed' : 'session.updated',
-        targetType: 'internship_session',
-        targetId: id,
-        detail: transitionedFrom
-          ? { from: transitionedFrom, to: patch.status }
-          : {
-              ...patch,
-              startDate: patch.startDate?.toISOString() ?? null,
-              endDate: patch.endDate?.toISOString() ?? null,
-            },
-        ip: ctx.ip,
-        userAgent: ctx.userAgent,
-      });
-      if (patch.status === 'active') {
-        await this.activity.record({
+      let transitionedFrom: string | null = null;
+      if (input.status !== undefined && input.status !== session.status) {
+        if (!canTransitionSession(session.status, input.status as InternshipSession['status'])) {
+          throw new ConflictException({
+            statusCode: 409,
+            code: 'INVALID_SESSION_TRANSITION',
+            message: `Illegal session transition ${session.status} -> ${input.status}.`,
+            details: { from: session.status, to: input.status },
+          });
+        }
+        transitionedFrom = session.status;
+        patch.status = input.status as InternshipSession['status'];
+      }
+
+      // M5 Start preconditions (WP-5, ADR-05/06): upcoming → active validates the
+      // template team (required slots filled) and member eligibility. Sessions
+      // without a template run keep the legacy behavior (no team to validate).
+      if (transitionedFrom === 'upcoming' && patch.status === 'active') {
+        await this.assertStartReady(id, em);
+      }
+
+      if (Object.keys(patch).length > 0) {
+        await em.update(InternshipSession, id, patch);
+        await em.insert(AuditLog, {
           actorId: ctx.actorId ?? null,
-          module: 'sessions',
-          action: 'session.activated',
+          action: transitionedFrom ? 'session.status_changed' : 'session.updated',
           targetType: 'internship_session',
           targetId: id,
-          summary: `Phiên thực tập ${session.code} đã kích hoạt`,
+          detail: JSON.stringify(transitionedFrom
+            ? { from: transitionedFrom, to: patch.status }
+            : {
+                ...patch,
+                startDate: patch.startDate?.toISOString() ?? null,
+                endDate: patch.endDate?.toISOString() ?? null,
+              }),
+          ip: ctx.ip ?? null,
+          userAgent: ctx.userAgent ?? null,
         });
+        if (patch.status === 'active') {
+          await em.insert(ActivityEvent, {
+            actorId: ctx.actorId ?? null,
+            module: 'sessions',
+            action: 'session.activated',
+            targetType: 'internship_session',
+            targetId: id,
+            summary: `Phiên thực tập ${session.code} đã kích hoạt`,
+          });
+        }
       }
-    }
-    return toSessionResponse(await this.getOne(id));
+      return toSessionResponse(Object.assign(session, patch));
+    });
   }
 
-  async listMembers(sessionId: string): Promise<SessionMemberRow[]> {
-    await this.getOne(sessionId);
+  async listMembers(sessionId: string, o?: Ownership): Promise<SessionMemberRow[]> {
+    await this.getOne(sessionId, o);
     const rows = await this.members
       .createQueryBuilder('m')
       .innerJoin(User, 'u', 'u.id = m.userId')
@@ -275,7 +451,7 @@ export class SessionsService {
 
   /** Idempotent membership add (duplicates prevented + skipped). */
   async addMembers(sessionId: string, userIds: string[], ctx: ActorContext): Promise<{ added: number; skipped: number }> {
-    await this.getOne(sessionId);
+    await this.getOne(sessionId, await this.ownership(ctx.actorId));
     const found = await this.users.find({ where: { id: In(userIds) } });
     const foundIds = new Set(found.map((u) => u.id));
     const unknown = userIds.filter((id) => !foundIds.has(id));
@@ -305,7 +481,7 @@ export class SessionsService {
   }
 
   async removeMember(sessionId: string, userId: string, ctx: ActorContext): Promise<{ removed: number }> {
-    await this.getOne(sessionId);
+    await this.getOne(sessionId, await this.ownership(ctx.actorId));
     const result = await this.members.delete({ sessionId, userId });
     const removed = result.affected ?? 0;
     if (removed > 0) {
@@ -322,8 +498,8 @@ export class SessionsService {
     return { removed };
   }
 
-  async listInstructors(sessionId: string): Promise<SessionInstructorRow[]> {
-    await this.getOne(sessionId);
+  async listInstructors(sessionId: string, o?: Ownership): Promise<SessionInstructorRow[]> {
+    await this.getOne(sessionId, o);
     const rows = await this.instructors
       .createQueryBuilder('i')
       .innerJoin(User, 'u', 'u.id = i.instructorId')
@@ -349,7 +525,7 @@ export class SessionsService {
     instructorIds: string[],
     ctx: ActorContext,
   ): Promise<{ added: number; skipped: number }> {
-    await this.getOne(sessionId);
+    await this.getOne(sessionId, await this.ownership(ctx.actorId));
     const found = await this.users.find({ where: { id: In(instructorIds), status: 'active' } });
     const foundIds = new Set(found.map((u) => u.id));
     const unknown = instructorIds.filter((id) => !foundIds.has(id));
@@ -390,7 +566,7 @@ export class SessionsService {
   }
 
   async removeInstructor(sessionId: string, instructorId: string, ctx: ActorContext): Promise<{ removed: number }> {
-    await this.getOne(sessionId);
+    await this.getOne(sessionId, await this.ownership(ctx.actorId));
     const result = await this.instructors.delete({ sessionId, instructorId });
     const removed = result.affected ?? 0;
     if (removed > 0) {
@@ -412,7 +588,7 @@ export class SessionsService {
     input: { title: string; description?: string; dueDate?: string; status?: string; sortOrder?: number },
     ctx: ActorContext,
   ) {
-    await this.getOne(sessionId);
+    await this.getOne(sessionId, await this.ownership(ctx.actorId));
     const created = await this.milestones.save(
       this.milestones.create({
         sessionId,
@@ -435,8 +611,8 @@ export class SessionsService {
     return created;
   }
 
-  async listMilestones(sessionId: string) {
-    await this.getOne(sessionId);
+  async listMilestones(sessionId: string, o?: Ownership) {
+    await this.getOne(sessionId, o);
     return this.milestones.find({ where: { sessionId }, order: { sortOrder: 'ASC', createdAt: 'ASC' } });
   }
 
@@ -446,7 +622,7 @@ export class SessionsService {
     input: { title?: string; description?: string; dueDate?: string; status?: string; sortOrder?: number },
     ctx: ActorContext,
   ) {
-    await this.getOne(sessionId);
+    await this.getOne(sessionId, await this.ownership(ctx.actorId));
     const milestone = await this.milestones.findOne({ where: { id: milestoneId, sessionId } });
     if (!milestone) {
       throw new NotFoundException({
@@ -477,7 +653,7 @@ export class SessionsService {
   }
 
   async deleteMilestone(sessionId: string, milestoneId: string, ctx: ActorContext): Promise<{ deleted: number }> {
-    await this.getOne(sessionId);
+    await this.getOne(sessionId, await this.ownership(ctx.actorId));
     const milestone = await this.milestones.findOne({ where: { id: milestoneId, sessionId } });
     if (!milestone) {
       throw new NotFoundException({
@@ -513,9 +689,85 @@ export class SessionsService {
     return session;
   }
 
+  /**
+   * M5 Start readiness (WP-5, ADR-05): a template session may go active only
+   * with every required slot (countMin > 0 in the pinned snapshot) filled and
+   * every active assignee still recruitment-passed. Sessions without a
+   * template run keep legacy behavior.
+   */
+  private async assertStartReady(sessionId: string, em: EntityManager): Promise<void> {
+    const runs: { projectId: string; snapshotJson: string }[] = await em.query(
+      'SELECT TOP(1) projectId, snapshotJson FROM template_runs WHERE sessionId = @0 ORDER BY createdAt DESC',
+      [sessionId],
+    );
+    if (!runs.length) return;
+    let required: Array<{ code: string; countMin: number }> = [];
+    try {
+      const definition = JSON.parse(runs[0].snapshotJson) as {
+        roleDetails?: Array<{ code?: unknown; countMin?: unknown }>;
+        roles?: string[];
+      };
+      const roles = definition.roleDetails?.length ? definition.roleDetails : (definition.roles ?? []).map(code => ({ code, countMin: 1 }));
+      required = roles
+        .filter((r) => typeof r?.code === 'string' && (typeof r?.countMin !== 'number' || r.countMin > 0))
+        .map((r) => ({ code: r.code as string, countMin: typeof r.countMin === 'number' ? r.countMin : 1 }));
+    } catch {
+      throw new ConflictException({ statusCode: 409, code: 'SESSION_SNAPSHOT_INVALID', message: 'The pinned template snapshot is invalid. Repair it before starting.' });
+    }
+    const projectId = runs[0].projectId;
+    const filled: { roleCode: string; filled: number }[] = await em.query(
+      `SELECT pm.roleInProject AS roleCode, COUNT(*) AS filled
+       FROM project_members pm
+       INNER JOIN assignments a ON a.projectId = pm.projectId AND a.internId = pm.userId AND a.status = 'active' AND a.sessionId = @1
+       WHERE pm.projectId = @0 AND pm.roleInProject IS NOT NULL
+       GROUP BY pm.roleInProject`,
+      [projectId, sessionId],
+    );
+    const filledByRole = new Map(filled.map((r) => [r.roleCode, Number(r.filled)]));
+    const missing = required
+      .map((r) => ({ roleCode: r.code, need: r.countMin, have: filledByRole.get(r.code) ?? 0 }))
+      .filter((m) => m.have < m.need);
+    if (missing.length > 0) {
+      throw new ConflictException({
+        statusCode: 409,
+        code: 'SESSION_TEAM_INCOMPLETE',
+        message: 'Required role slots are not filled.',
+        details: { missing },
+      });
+    }
+    const ineligible: { internId: string }[] = await em.query(
+      `SELECT a.internId AS internId FROM assignments a
+       LEFT JOIN recruitment_profiles p ON p.userId = a.internId
+       LEFT JOIN users u ON u.id = a.internId
+       LEFT JOIN project_members pm ON pm.projectId=a.projectId AND pm.userId=a.internId
+       WHERE a.projectId = @0 AND a.sessionId = @1 AND a.status = 'active'
+         AND (p.status IS NULL OR p.status <> 'passed' OR u.status <> 'active' OR pm.roleInProject IS NULL OR p.selectedRole IS NULL OR p.selectedRole <> pm.roleInProject)`,
+      [projectId, sessionId],
+    );
+    if (ineligible.length > 0) {
+      throw new ConflictException({
+        statusCode: 409,
+        code: 'INTERN_NOT_RECRUITED',
+        message: 'Every assigned intern must be active, passed recruitment and assigned to their recruited role.',
+        details: { internIds: ineligible.map((r) => r.internId) },
+      });
+    }
+  }
+
+  /**
+   * M5: latest template-run project of a session (null for legacy sessions
+   * created outside a template — auto-planning skips those).
+   */
+  async resolveSessionProject(sessionId: string): Promise<string | null> {
+    const rows: { projectId: string }[] = await this.dataSource.query(
+      'SELECT TOP(1) projectId FROM template_runs WHERE sessionId = @0 ORDER BY createdAt DESC',
+      [sessionId],
+    );
+    return rows.length ? String(rows[0].projectId).toLowerCase() : null;
+  }
+
   /** Lead instructor must exist, be active, and hold sessions.manage. */
-  private async resolveInstructor(userId?: string): Promise<string | null> {
-    if (!userId) return null;
+  private async resolveInstructor(userId?: string): Promise<string | null> {    if (!userId) return null;
     const user = await this.users.findOne({ where: { id: userId, status: 'active' } });
     if (!user) {
       throw new NotFoundException({

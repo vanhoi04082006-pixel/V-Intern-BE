@@ -27,7 +27,7 @@ import { UserRole } from '../src/rbac/entities/user-role.entity';
  */
 
 // Recruitement policy under test (read once at boot by appConfig):
-process.env.RECRUITMENT_MAX_ATTEMPTS = process.env.RECRUITMENT_MAX_ATTEMPTS ?? '2';
+process.env.RECRUITMENT_MAX_ATTEMPTS = '2';
 // 1h cooldown: the attempt/cooldown tests shift evaluatedAt via SQL to
 // simulate elapsed time (server-enforced policy, spec 69).
 process.env.RECRUITMENT_RETAKE_COOLDOWN_HOURS = '1';
@@ -115,15 +115,16 @@ let app: INestApplication;
 let dataSource: DataSource;
 let testProvider: ScriptableTestAiProvider;
 
+const RUN = Date.now().toString(36);
 const EMAILS = {
-  admin: 'e2e-rec-admin@vintern.test',
-  instructor: 'e2e-rec-instructor@vintern.test',
-  i1: 'e2e-rec-i1@vintern.test',
-  i2: 'e2e-rec-i2@vintern.test',
-  i3: 'e2e-rec-i3@vintern.test',
-  i4: 'e2e-rec-i4@vintern.test',
-  i5: 'e2e-rec-i5@vintern.test',
-  i6: 'e2e-rec-i6@vintern.test',
+  admin: `e2e-rec-${RUN}-admin@vintern.test`,
+  instructor: `e2e-rec-${RUN}-instructor@vintern.test`,
+  i1: `e2e-rec-${RUN}-i1@vintern.test`,
+  i2: `e2e-rec-${RUN}-i2@vintern.test`,
+  i3: `e2e-rec-${RUN}-i3@vintern.test`,
+  i4: `e2e-rec-${RUN}-i4@vintern.test`,
+  i5: `e2e-rec-${RUN}-i5@vintern.test`,
+  i6: `e2e-rec-${RUN}-i6@vintern.test`,
 };
 const PASSWORD = 'E2e-Password-1';
 
@@ -193,11 +194,11 @@ beforeAll(async () => {
   const instructorRole = await roles.findOneOrFail({ where: { code: 'instructor' } });
   const internRole = await roles.findOneOrFail({ where: { code: 'intern' } });
   const specs = [
-    { email: EMAILS.admin, username: 'e2e-rec-admin', roleId: adminRole.id },
-    { email: EMAILS.instructor, username: 'e2e-rec-instructor', roleId: instructorRole.id },
+    { email: EMAILS.admin, username: `e2e-rec-${RUN}-admin`, roleId: adminRole.id },
+    { email: EMAILS.instructor, username: `e2e-rec-${RUN}-instructor`, roleId: instructorRole.id },
     ...Object.values(EMAILS)
       .filter((e) => /-i\d@/.test(e))
-      .map((email, i) => ({ email, username: `e2e-rec-i${i + 1}`, roleId: internRole.id })),
+      .map((email, i) => ({ email, username: `e2e-rec-${RUN}-i${i + 1}`, roleId: internRole.id })),
   ];
   for (const spec of specs) {
     const existing = await users.findOne({ where: { email: spec.email } });
@@ -363,7 +364,7 @@ describe('Phase 4 recruitment + AI interview e2e (spec 64-69)', () => {
     expect(questions.filter((q) => q.category === 'soft')).toHaveLength(3);
     for (const q of questions) {
       expect(Object.keys(q).sort()).toEqual([
-        'answered', 'answeredAt', 'category', 'difficulty', 'id', 'position', 'prompt',
+        'answerText', 'answered', 'answeredAt', 'category', 'difficulty', 'id', 'position', 'prompt',
       ]);
       expect(JSON.stringify(q)).not.toContain('rubric');
       expect(q.prompt.length).toBeGreaterThan(20); // real prompts, not placeholders
@@ -440,6 +441,12 @@ describe('Phase 4 recruitment + AI interview e2e (spec 64-69)', () => {
       .send({ answerText: 'Improved answer with concrete examples and trade-offs.' });
     expect(save2.status).toBe(200);
     expect(save2.body.id).toBe(save1.body.id); // same row updated, not duplicated
+    const resumed = await request(apiBase())
+      .get(`/api/v1/recruitment/me/interviews/${session.id}/questions`)
+      .set('Authorization', `Bearer ${i4}`);
+    expect(resumed.status).toBe(200);
+    expect(resumed.body.questions.find((item: { id: string }) => item.id === first.id).answerText)
+      .toBe('Improved answer with concrete examples and trade-offs.');
     const rows = await query('SELECT COUNT(*) AS n FROM interview_answers WHERE sessionId = ?', [session.id]);
     expect(Number(rows[0].n)).toBe(1);
 
@@ -566,9 +573,12 @@ describe('Phase 4 recruitment + AI interview e2e (spec 64-69)', () => {
       });
     expect(projectRes.status).toBe(201);
     const projectId = projectRes.body.id as string;
+    // Ownership note: the session/project above were created by admin, so the
+    // assignment itself runs as admin (ownership paths are covered in
+    // instructor-ownership.e2e-spec.ts, not in this lifecycle spec).
     const assign = await request(apiBase())
       .post('/api/v1/assignments')
-      .set('Authorization', `Bearer ${instructor}`)
+      .set('Authorization', `Bearer ${admin}`)
       .send({ internId: uid, projectId, sessionId: sessionId2 });
     expect(assign.status).toBe(201);
     const wsActive = await request(apiBase()).get('/api/v1/intern/me/workspace').set('Authorization', `Bearer ${i1}`);

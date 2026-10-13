@@ -86,6 +86,7 @@ export class GeminiProvider implements AiProvider {
     const timer = setTimeout(() => controller.abort(), this.timeoutMs);
 
     let response: { status: number; ok: boolean; text: () => Promise<string> };
+    let body: string;
     try {
       response = await this.fetchImpl(
         `${this.endpoint}/${encodeURIComponent(this.model)}:generateContent`,
@@ -106,6 +107,9 @@ export class GeminiProvider implements AiProvider {
           signal: controller.signal,
         },
       );
+      // fetch resolves at headers. Keep the deadline active until the body is
+      // consumed too; a stalled successful response must not hang generation.
+      body = response.ok ? await response.text() : '';
     } catch (err) {
       if (isAbortError(err)) throw new AiProviderTimeoutError(this.timeoutMs);
       // Network-layer failure (DNS, socket, TLS) — transient by definition.
@@ -143,7 +147,7 @@ export class GeminiProvider implements AiProvider {
 
     let envelope: GeminiEnvelope;
     try {
-      envelope = JSON.parse(await response.text()) as GeminiEnvelope;
+      envelope = JSON.parse(body) as GeminiEnvelope;
     } catch {
       throw new AiProviderError('server', 'AI provider returned a non-JSON envelope.', {
         retryable: false,

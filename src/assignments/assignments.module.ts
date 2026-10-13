@@ -4,6 +4,7 @@ import { ActivityEvent } from '../audit/entities/activity-event.entity';
 import { AuditLog } from '../audit/entities/audit-log.entity';
 import { Notification } from '../notifications/entities/notification.entity';
 import { NotificationPreference } from '../notifications/entities/notification-preference.entity';
+import { RbacModule } from '../rbac/rbac.module';
 import { InternshipSession } from '../sessions/entities/internship-session.entity';
 import { SessionMember } from '../sessions/entities/session-member.entity';
 import { Project } from '../projects/entities/project.entity';
@@ -20,6 +21,7 @@ import { AssignmentsService } from './assignments.service';
  */
 @Module({
   imports: [
+    RbacModule,
     TypeOrmModule.forFeature([
       RecruitmentProfile,
       Assignment,

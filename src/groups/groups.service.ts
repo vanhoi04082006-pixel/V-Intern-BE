@@ -4,6 +4,7 @@ import { In, Repository } from 'typeorm';
 import { ActivityService } from '../audit/activity.service';
 import { AuditService } from '../audit/audit.service';
 import { isUniqueViolation } from '../common/utils/db-errors';
+import { PermissionsService } from '../rbac/permissions.service';
 import { Role } from '../rbac/entities/role.entity';
 import { User } from '../users/entities/user.entity';
 import { ActorContext } from '../users/users.service';
@@ -41,6 +42,7 @@ export class GroupsService {
     @InjectRepository(Role) private readonly roles: Repository<Role>,
     private readonly audit: AuditService,
     private readonly activity: ActivityService,
+    private readonly permissions: PermissionsService,
   ) {}
 
   async list(q: { page: number; pageSize: number; q?: string }) {
@@ -188,7 +190,7 @@ export class GroupsService {
   /** REPLACE strategy: requested role code set becomes the group's exact roles. */
   async setRoles(groupId: string, roleCodes: string[], ctx: ActorContext) {
     await this.getOne(groupId);
-    const wanted = [...new Set(roleCodes)];
+    const wanted = [...new Set(roleCodes.map((c) => c.trim().toLowerCase()).filter((c) => c.length > 0))];
     const roleEntities = wanted.length > 0 ? await this.roles.find({ where: { code: In(wanted) } }) : [];
     const found = new Set(roleEntities.map((r) => r.code));
     const unknown = wanted.filter((c) => !found.has(c));
@@ -199,6 +201,9 @@ export class GroupsService {
         message: `Unknown role(s): ${unknown.join(', ')}.`,
       });
     }
+    // P0 BE-002: same grant policy as direct assignment — group indirection
+    // must not escalate beyond the actor's own permissions.
+    await this.permissions.assertGrantableRoles(ctx.actorId, roleEntities);
     await this.groupRoles.manager.transaction(async (em) => {
       await em.delete(GroupRole, { groupId });
       if (roleEntities.length > 0) {

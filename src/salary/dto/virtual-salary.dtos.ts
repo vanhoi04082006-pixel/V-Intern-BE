@@ -29,4 +29,11 @@ export class CreateSalaryAdjustmentDto {
   @IsNotEmpty()
   @Length(1, 512)
   reason!: string;
+
+  @ApiPropertyOptional({
+    description: 'Client-generated idempotency key (UUID). Replays with the same key return the original row instead of minting duplicates.',
+  })
+  @IsOptional()
+  @IsUUID()
+  requestId?: string;
 }

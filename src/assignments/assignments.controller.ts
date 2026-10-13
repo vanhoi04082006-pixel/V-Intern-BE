@@ -16,24 +16,33 @@ import { toPaginated } from '../common/pagination/paginated';
 import { clientIp, userAgent } from '../common/types/request-info';
 import { ActorContext } from '../users/users.service';
 import { AssignmentsService } from './assignments.service';
+import { PermissionsService } from '../rbac/permissions.service';
+import { resolveOwnership } from '../rbac/ownership';
 import { CreateAssignmentDto, QueryAssignmentsDto } from './dto/assignment.dtos';
 
 @ApiTags('assignments')
 @ApiBearerAuth()
 @Controller('assignments')
 export class AssignmentsController {
-  constructor(private readonly assignmentsService: AssignmentsService) {}
+  constructor(
+    private readonly assignmentsService: AssignmentsService,
+    private readonly permissionsService: PermissionsService,
+  ) {}
 
   private ctx(req: Request, actorId: string): ActorContext {
     return { actorId, ip: clientIp(req), userAgent: userAgent(req) };
   }
 
+  private ownership(userId: string) {
+    return resolveOwnership(this.permissionsService, userId);
+  }
+
   @Get()
   @RequirePermissions('assignments.view')
   @ApiOperation({
-    summary: 'Paginated assignments (assignments.view; filters: internId, sessionId, projectId, status)',
+    summary: 'Paginated assignments (assignments.view; filters: internId, sessionId, projectId, status; own or managed-session scope)',
   })
-  async list(@Query() query: QueryAssignmentsDto) {
+  async list(@Query() query: QueryAssignmentsDto, @CurrentUser('userId') userId: string) {
     const { items, total } = await this.assignmentsService.list({
       page: query.page,
       pageSize: query.pageSize,
@@ -41,7 +50,7 @@ export class AssignmentsController {
       sessionId: query.sessionId,
       projectId: query.projectId,
       status: query.status,
-    });
+    }, await this.ownership(userId));
     return toPaginated(items, query.page, query.pageSize, total);
   }
 
@@ -61,9 +70,9 @@ export class AssignmentsController {
 
   @Get(':id')
   @RequirePermissions('assignments.view')
-  @ApiOperation({ summary: 'Assignment detail (assignments.view; includes project/session/intern summaries)' })
-  async getOne(@Param('id', ParseUUIDPipe) id: string) {
-    return this.assignmentsService.getOneDetailed(id);
+  @ApiOperation({ summary: 'Assignment detail (assignments.view; includes project/session/intern summaries; own or managed-session scope)' })
+  async getOne(@Param('id', ParseUUIDPipe) id: string, @CurrentUser('userId') userId: string) {
+    return this.assignmentsService.getOneDetailed(id, await this.ownership(userId));
   }
 
   @Post(':id/complete')
@@ -77,5 +86,18 @@ export class AssignmentsController {
     @Req() req: Request,
   ) {
     return this.assignmentsService.complete(id, this.ctx(req, actorId));
+  }
+
+  @Post(':id/cancel')
+  @RequirePermissions('assignments.manage')
+  @ApiOperation({
+    summary: 'Cancel an active assignment (assignments.manage; session roster row removed; audited; intern notified)',
+  })
+  async cancel(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser('userId') actorId: string,
+    @Req() req: Request,
+  ) {
+    return this.assignmentsService.cancel(id, this.ctx(req, actorId));
   }
 }

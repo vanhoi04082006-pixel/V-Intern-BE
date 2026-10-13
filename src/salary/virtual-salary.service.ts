@@ -2,6 +2,7 @@ import { ConflictException, Injectable, NotFoundException } from '@nestjs/common
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { AuditLog } from '../audit/entities/audit-log.entity';
+import { isUniqueViolation } from '../common/utils/db-errors';
 import { SettingsService } from '../settings/settings.service';
 import { notifyInTransaction } from '../common/utils/notify';
 import {
@@ -139,7 +140,7 @@ export class VirtualSalaryService {
    * adjustment/reversal — always reason + actor + audit; reversals are
    * derived from the source row and double-reversal is a 409.
    */
-  async adjust(input: { userId: string; type: VirtualSalaryLedgerType; amount?: number; sourceId?: string; reason: string }, actorId: string, ctx: ActorContext): Promise<VirtualSalaryLedger> {
+  async adjust(input: { userId: string; type: VirtualSalaryLedgerType; amount?: number; sourceId?: string; reason: string; requestId?: string }, actorId: string, ctx: ActorContext): Promise<VirtualSalaryLedger> {
     if (!input.reason || input.reason.trim().length === 0) {
       throw new AdjustmentError('reason is required for every adjustment (audit trail)');
     }
@@ -205,22 +206,42 @@ export class VirtualSalaryService {
       throw err;
     }
 
+    // P0 BE-010: client-supplied requestId makes retries idempotent. Without it
+    // the key embeds Date.now() and can never dedupe (legacy, documented).
+    const idempotencyKey = input.requestId
+      ? `adjustment:req:${input.requestId}`
+      : `adjustment:${input.userId}:${validated.type}:${Date.now()}:v1`;
     return this.dataSource.transaction(async (em) => {
-      const row = await em.save(
-        em.create(VirtualSalaryLedger, {
-          userId: input.userId,
-          kpiPeriodId: null,
-          type: validated.type,
-          amount: validated.amount,
-          unit,
-          sourceType: 'manual_adjustment',
-          sourceId: null,
-          description: input.reason,
-          createdById: actorId,
-          idempotencyKey: `adjustment:${input.userId}:${validated.type}:${Date.now()}:v1`,
-          metadataJson: JSON.stringify({ reason: input.reason }),
-        }),
-      );
+      if (input.requestId) {
+        const existing = await em.getRepository(VirtualSalaryLedger).findOne({ where: { idempotencyKey } });
+        if (existing) return existing;
+      }
+      let row: VirtualSalaryLedger;
+      try {
+        row = await em.save(
+          em.create(VirtualSalaryLedger, {
+            userId: input.userId,
+            kpiPeriodId: null,
+            type: validated.type,
+            amount: validated.amount,
+            unit,
+            sourceType: 'manual_adjustment',
+            sourceId: null,
+            description: input.reason,
+            createdById: actorId,
+            idempotencyKey,
+            metadataJson: JSON.stringify({ reason: input.reason }),
+          }),
+        );
+      } catch (err) {
+        // Concurrent replays racing past the pre-check hit the UNIQUE index;
+        // return the winner instead of 500.
+        if (input.requestId && isUniqueViolation(err)) {
+          const winner = await em.getRepository(VirtualSalaryLedger).findOne({ where: { idempotencyKey } });
+          if (winner) return winner;
+        }
+        throw err;
+      }
       await em.insert(AuditLog, {
         actorId,
         action: 'virtual_salary.adjusted',

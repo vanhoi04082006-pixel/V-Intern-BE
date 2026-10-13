@@ -1,4 +1,4 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, EntityManager, Repository } from 'typeorm';
 import { ActivityEvent } from '../audit/entities/activity-event.entity';
@@ -8,11 +8,14 @@ import { Notification } from '../notifications/entities/notification.entity';
 import { NotificationPreference } from '../notifications/entities/notification-preference.entity';
 import { InternshipSession } from '../sessions/entities/internship-session.entity';
 import { SessionMember } from '../sessions/entities/session-member.entity';
+import { OWNER_PARAM, assignmentScope, resolveOwnership, type Ownership } from '../rbac/ownership';
+import { PermissionsService } from '../rbac/permissions.service';
 import { isSessionAssignable } from '../sessions/session-status.machine';
 import { User } from '../users/entities/user.entity';
 import { ActorContext } from '../users/users.service';
 import { Assignment } from './entities/assignment.entity';
 import { Project } from '../projects/entities/project.entity';
+import { ProjectRoleSlot } from '../projects/entities/project-role-slot.entity';
 import { RecruitmentProfile } from '../recruitment/entities/recruitment-profile.entity';
 import { ProjectMember } from '../projects/entities/project-member.entity';
 
@@ -92,7 +95,43 @@ export class AssignmentsService {
     @InjectRepository(Project) private readonly projects: Repository<Project>,
     @InjectRepository(InternshipSession) private readonly sessions: Repository<InternshipSession>,
     private readonly dataSource: DataSource,
+    private readonly permissions: PermissionsService,
   ) {}
+
+  private async ownership(actorId?: string | null): Promise<Ownership | undefined> {
+    if (!actorId) return undefined;
+    return resolveOwnership(this.permissions, actorId);
+  }
+
+  private async assertSessionManaged(sessionId: string, o?: Ownership): Promise<void> {
+    if (!o || o.isAdmin) return;
+    const rows = await this.dataSource.query(
+      'SELECT 1 AS ok FROM internship_sessions s WHERE s.id = @0 AND (s.leadInstructorId = @1 OR EXISTS (SELECT 1 FROM session_instructors si WHERE si.sessionId = s.id AND si.instructorId = @1))',
+      [sessionId, o.userId],
+    );
+    if (rows.length === 0) {
+      throw new ForbiddenException({
+        statusCode: 403,
+        code: 'ASSIGNMENT_SCOPE_FORBIDDEN',
+        message: 'You do not manage this internship session.',
+      });
+    }
+  }
+
+  private async assertSessionManagedTx(em: EntityManager, sessionId: string, o?: Ownership): Promise<void> {
+    if (!o || o.isAdmin) return;
+    const rows = await em.query(
+      'SELECT 1 AS ok FROM internship_sessions s WHERE s.id = @0 AND (s.leadInstructorId = @1 OR EXISTS (SELECT 1 FROM session_instructors si WHERE si.sessionId = s.id AND si.instructorId = @1))',
+      [sessionId, o.userId],
+    );
+    if (rows.length === 0) {
+      throw new ForbiddenException({
+        statusCode: 403,
+        code: 'ASSIGNMENT_SCOPE_FORBIDDEN',
+        message: 'You do not manage this internship session.',
+      });
+    }
+  }
 
   async list(q: {
     page: number;
@@ -101,8 +140,12 @@ export class AssignmentsService {
     sessionId?: string;
     projectId?: string;
     status?: string;
-  }) {
+  }, o?: Ownership) {
     const qb = this.assignments.createQueryBuilder('a');
+    if (o && !o.isAdmin) {
+      const scope = assignmentScope('a', o);
+      if (scope) qb.andWhere(scope.clause, { [OWNER_PARAM]: o.userId });
+    }
     if (q.internId) qb.andWhere('a.internId = :internId', { internId: q.internId });
     if (q.sessionId) qb.andWhere('a.sessionId = :sessionId', { sessionId: q.sessionId });
     if (q.projectId) qb.andWhere('a.projectId = :projectId', { projectId: q.projectId });
@@ -114,7 +157,7 @@ export class AssignmentsService {
     return { items: items.map((a) => toAssignmentResponse(a)), total };
   }
 
-  async getOneDetailed(id: string): Promise<AssignmentResponse> {
+  async getOneDetailed(id: string, o?: Ownership): Promise<AssignmentResponse> {
     const assignment = await this.assignments.findOne({ where: { id } });
     if (!assignment) {
       throw new NotFoundException({
@@ -122,6 +165,9 @@ export class AssignmentsService {
         code: 'ASSIGNMENT_NOT_FOUND',
         message: 'Assignment not found.',
       });
+    }
+    if (o && !o.isAdmin && assignment.internId !== o.userId) {
+      await this.assertSessionManaged(assignment.sessionId, o);
     }
     const [intern, project, session] = await Promise.all([
       this.users.findOne({ where: { id: assignment.internId } }),
@@ -145,10 +191,29 @@ export class AssignmentsService {
    * with repositories bound to the outer connection (spec 39).
    */
   async create(
-    input: { internId: string; projectId: string; sessionId: string },
+    input: { internId: string; projectId: string; sessionId: string; role?: string },
     ctx: ActorContext,
   ): Promise<AssignmentResponse> {
     const created = await this.dataSource.transaction(async (em) => {
+      // (3) Validate target session and its assignability.
+      const session = await em.getRepository(InternshipSession).findOne({ where: { id: input.sessionId }, lock: { mode: 'pessimistic_write' } });
+      if (!session) {
+        throw new NotFoundException({
+          statusCode: 404,
+          code: 'SESSION_NOT_FOUND',
+          message: 'Internship session not found.',
+        });
+      }
+      if (!isSessionAssignable(session.status)) {
+        throw new ConflictException({
+          statusCode: 409,
+          code: 'SESSION_NOT_ASSIGNABLE',
+          message: `Session status '${session.status}' does not accept new assignments.`,
+          details: { status: session.status },
+        });
+      }
+      await this.assertSessionManagedTx(em, input.sessionId, await this.ownership(ctx.actorId));
+
       // (1+2) Lock + validate the intern row — serializes concurrent
       // assignments targeting the same intern.
       const intern = await em
@@ -183,22 +248,9 @@ export class AssignmentsService {
         });
       }
 
-      // (3) Validate target session and its assignability.
-      const session = await em.getRepository(InternshipSession).findOne({ where: { id: input.sessionId } });
-      if (!session) {
-        throw new NotFoundException({
-          statusCode: 404,
-          code: 'SESSION_NOT_FOUND',
-          message: 'Internship session not found.',
-        });
-      }
-      if (!isSessionAssignable(session.status)) {
-        throw new ConflictException({
-          statusCode: 409,
-          code: 'SESSION_NOT_ASSIGNABLE',
-          message: `Session status '${session.status}' does not accept new assignments.`,
-          details: { status: session.status },
-        });
+      const role = input.role?.trim() || undefined;
+      if (role && role !== 'intern' && recruitmentProfile.selectedRole !== role) {
+        throw new ConflictException({ statusCode: 409, code: 'INTERVIEW_ROLE_MISMATCH', message: 'Assigned role must match the passed recruitment role.' });
       }
 
       // (4+5) Lock + validate the project row and capacity — serializes
@@ -224,6 +276,13 @@ export class AssignmentsService {
           details: { status: project.status },
         });
       }
+      const templateRuns: { projectId: string }[] = await em.query('SELECT TOP(1) projectId FROM template_runs WHERE sessionId=@0 ORDER BY createdAt DESC', [session.id]);
+      if (templateRuns.length && templateRuns[0].projectId.toLowerCase() !== project.id.toLowerCase()) {
+        throw new ConflictException({ statusCode: 409, code: 'SESSION_PROJECT_MISMATCH', message: 'Assignment project must match the pinned session project.' });
+      }
+      if (templateRuns.length && (!role || role === 'intern')) {
+        throw new ConflictException({ statusCode: 409, code: 'SESSION_ROLE_REQUIRED', message: 'Select a required project role for this template session.' });
+      }
       if (project.capacity !== null) {
         const activeCount = await em.getRepository(Assignment).count({
           where: { projectId: project.id, status: 'active' },
@@ -245,6 +304,32 @@ export class AssignmentsService {
       });
       if (existingActive) {
         throw conflict('Intern already has an active assignment.', { assignmentId: existingActive.id });
+      }
+
+      // (6b) Role slot cap (redesign §12/§15): only enforced when the caller
+      // names a role AND the project defines that slot. Role-less assignment
+      // stays open for backward compatibility.
+      if (role) {
+        const slot = await em.getRepository(ProjectRoleSlot).findOne({
+          where: { projectId: project.id, roleCode: role },
+        });
+        if (templateRuns.length && !slot) throw new ConflictException({ statusCode: 409, code: 'SESSION_ROLE_INVALID', message: 'Role is not defined by this session project.' });
+        if (slot) {
+          const filled = await em.query(
+            `SELECT COUNT(*) AS filled FROM project_members pm
+             INNER JOIN assignments a ON a.projectId = pm.projectId AND a.internId = pm.userId AND a.status = 'active'
+             WHERE pm.projectId = @0 AND pm.roleInProject = @1`,
+            [project.id, role],
+          ) as Array<{ filled: number }>;
+          if (Number(filled[0]?.filled ?? 0) >= slot.requiredCount) {
+            throw new ConflictException({
+              statusCode: 409,
+              code: 'ROLE_SLOT_FULL',
+              message: `No open '${role}' slot left on this project (${slot.requiredCount} required).`,
+              details: { roleCode: role, requiredCount: slot.requiredCount },
+            });
+          }
+        }
       }
 
       // (7) Create the assignment (unique/deadlock → 409, not 500).
@@ -275,7 +360,7 @@ export class AssignmentsService {
         await em.insert(SessionMember, { sessionId: session.id, userId: intern.id });
       }
 
-      // (9) Ensure project membership.
+      // (9) Ensure project membership, recording the assigned role.
       const projectMember = await em.getRepository(ProjectMember).findOne({
         where: { projectId: project.id, userId: intern.id },
       });
@@ -283,8 +368,10 @@ export class AssignmentsService {
         await em.insert(ProjectMember, {
           projectId: project.id,
           userId: intern.id,
-          roleInProject: 'intern',
+          roleInProject: role ?? 'intern',
         });
+      } else if (role && projectMember.roleInProject !== role) {
+        await em.update(ProjectMember, { projectId: project.id, userId: intern.id }, { roleInProject: role });
       }
 
       // (10) Notification — preference-aware, written IN the transaction.
@@ -333,7 +420,12 @@ export class AssignmentsService {
    * reach this service method (guard enforced). History is never deleted.
    */
   async complete(id: string, ctx: ActorContext): Promise<AssignmentResponse> {
+    // Session-first lock ordering matches Start and AI Confirm.
+    const target = await this.assignments.findOne({ where: { id } });
+    if (!target) throw new NotFoundException({ statusCode: 404, code: 'ASSIGNMENT_NOT_FOUND', message: 'Assignment not found.' });
     const completed = await this.dataSource.transaction(async (em) => {
+      const session = await em.getRepository(InternshipSession).findOne({ where: { id: target.sessionId }, lock: { mode: 'pessimistic_write' } });
+      if (!session) throw new NotFoundException({ statusCode: 404, code: 'SESSION_NOT_FOUND', message: 'Session not found.' });
       const assignment = await em
         .getRepository(Assignment)
         .createQueryBuilder('a')
@@ -347,6 +439,7 @@ export class AssignmentsService {
           message: 'Assignment not found.',
         });
       }
+      await this.assertSessionManagedTx(em, assignment.sessionId, await this.ownership(ctx.actorId));
       if (assignment.status !== 'active') {
         throw new ConflictException({
           statusCode: 409,
@@ -393,6 +486,82 @@ export class AssignmentsService {
   }
 
   /**
+   * M4 cancel (setup flow): removes an intern from an upcoming session.
+   * Only active assignments; scope-checked like complete. The session_members
+   * row is removed so the roster reflects reality; project_members stays as
+   * history. Cancelled assignments free availability (same as never assigned).
+   */
+  async cancel(id: string, ctx: ActorContext): Promise<AssignmentResponse> {
+    // Session-first lock ordering matches Start and AI Confirm.
+    const target = await this.assignments.findOne({ where: { id } });
+    if (!target) throw new NotFoundException({ statusCode: 404, code: 'ASSIGNMENT_NOT_FOUND', message: 'Assignment not found.' });
+    const cancelled = await this.dataSource.transaction(async (em) => {
+      const session = await em.getRepository(InternshipSession).findOne({ where: { id: target.sessionId }, lock: { mode: 'pessimistic_write' } });
+      if (!session) throw new NotFoundException({ statusCode: 404, code: 'SESSION_NOT_FOUND', message: 'Session not found.' });
+      const assignment = await em
+        .getRepository(Assignment)
+        .createQueryBuilder('a')
+        .setLock('pessimistic_write')
+        .where('a.id = :id', { id })
+        .getOne();
+      if (!assignment) {
+        throw new NotFoundException({
+          statusCode: 404,
+          code: 'ASSIGNMENT_NOT_FOUND',
+          message: 'Assignment not found.',
+        });
+      }
+      await this.assertSessionManagedTx(em, assignment.sessionId, await this.ownership(ctx.actorId));
+      if (assignment.status !== 'active') {
+        throw new ConflictException({
+          statusCode: 409,
+          code: 'INVALID_ASSIGNMENT_TRANSITION',
+          message: `Assignment in status '${assignment.status}' cannot be cancelled.`,
+          details: { status: assignment.status },
+        });
+      }
+      const runs = await em.query('SELECT TOP(1) id FROM template_runs WHERE sessionId=@0', [session.id]);
+      if (runs.length && session.status !== 'upcoming') {
+        throw new ConflictException({ statusCode: 409, code: 'SESSION_NOT_SETUP', message: 'Template session members can only be removed before Start.' });
+      }
+      assignment.status = 'cancelled';
+      await em.save(assignment);
+      await em.delete(SessionMember, { sessionId: assignment.sessionId, userId: assignment.internId });
+
+      await em.insert(AuditLog, {
+        actorId: ctx.actorId ?? null,
+        action: 'assignment.cancelled',
+        targetType: 'assignment',
+        targetId: assignment.id,
+        detail: JSON.stringify({ sessionId: assignment.sessionId, projectId: assignment.projectId }),
+        ip: ctx.ip ?? null,
+        userAgent: ctx.userAgent ?? null,
+      });
+
+      await this.notifyInTransaction(em, {
+        userId: assignment.internId,
+        type: 'assignment',
+        category: 'session',
+        title: 'Phân công của bạn đã bị hủy',
+        body: 'Bạn đã được gỡ khỏi phiên thực tập.',
+        linkUrl: `/intern/assignments/${assignment.id}`,
+      });
+
+      await em.insert(ActivityEvent, {
+        actorId: ctx.actorId ?? null,
+        module: 'assignments',
+        action: 'assignment.cancelled',
+        targetType: 'assignment',
+        targetId: assignment.id,
+        summary: 'Một phân công thực tập đã bị hủy',
+      });
+
+      return assignment;
+    });
+    return this.getOneDetailed(cancelled.id);
+  }
+
+  /**
    * Intern workspace (spec 28/29) — identity is ALWAYS the authenticated
    * principal; status is ALWAYS database assignment state.
    */
@@ -414,11 +583,11 @@ export class AssignmentsService {
         id: active.id,
         assignedAt: active.assignedAt,
         project: project
-          ? { id: project.id, code: project.code, name: project.name, status: project.status }
-          : { id: active.projectId, code: 'UNKNOWN', name: 'Unknown project', status: 'unknown' },
+          ? { id: project.id.toLowerCase(), code: project.code, name: project.name, status: project.status }
+          : { id: active.projectId.toLowerCase(), code: 'UNKNOWN', name: 'Unknown project', status: 'unknown' },
         session: session
-          ? { id: session.id, code: session.code, name: session.name, status: session.status }
-          : { id: active.sessionId, code: 'UNKNOWN', name: 'Unknown session', status: 'unknown' },
+          ? { id: session.id.toLowerCase(), code: session.code, name: session.name, status: session.status }
+          : { id: active.sessionId.toLowerCase(), code: 'UNKNOWN', name: 'Unknown session', status: 'unknown' },
       },
     };
   }

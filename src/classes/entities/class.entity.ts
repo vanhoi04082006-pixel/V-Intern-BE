@@ -5,7 +5,7 @@ import { Column, CreateDateColumn, Entity, Index, PrimaryGeneratedColumn, Update
  * transition machine (the machine is specified for internship sessions);
  * documented decision, DB CHECK mirrors the enum.
  */
-export const CLASS_STATUSES = ['upcoming', 'active', 'completed', 'cancelled'] as const;
+export const CLASS_STATUSES = ['upcoming', 'active', 'paused', 'completed', 'cancelled'] as const;
 export type ClassStatus = (typeof CLASS_STATUSES)[number];
 
 @Entity({ name: 'classes' })
@@ -34,6 +34,15 @@ export class AcademicClass {
 
   @Column({ type: 'nvarchar', length: 16, name: 'status', default: 'upcoming' })
   status!: ClassStatus;
+
+  @Column({ type: 'nvarchar', length: 128, nullable: true })
+  meetingSchedule!: string | null;
+
+  @Column({ type: 'nvarchar', length: 128, nullable: true })
+  meetingLocation!: string | null;
+
+  @Column({ type: 'int', default: 0 })
+  progress!: number;
 
   @Column({ type: 'datetime2', name: 'startDate', nullable: true })
   startDate!: Date | null;

@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, EntityManager, IsNull, Repository } from 'typeorm';
 import { ActivityEvent } from '../audit/entities/activity-event.entity';
@@ -11,6 +11,8 @@ import { InternshipSession } from '../sessions/entities/internship-session.entit
 import { Task } from '../tasks/entities/task.entity';
 import { ActorContext } from '../users/users.service';
 import { Project } from '../projects/entities/project.entity';
+import { OWNER_PARAM, resolveOwnership, scopedProjectSessionClause, type Ownership } from '../rbac/ownership';
+import { PermissionsService } from '../rbac/permissions.service';
 import { Sprint } from './entities/sprint.entity';
 import { canTransitionSprint, isSprintTerminal, type SprintStatus } from './sprint-status.machine';
 
@@ -48,6 +50,8 @@ export interface SprintBoardTask {
   id: string;
   code: string;
   title: string;
+  description: string | null;
+  storyPoints: number | null;
   status: string;
   priority: string;
   assigneeId: string | null;
@@ -94,17 +98,18 @@ function toSprintResponse(
   extras?: { project?: SprintResponse['project']; session?: SprintResponse['session'] },
 ): SprintResponse {
   return {
-    id: s.id,
+    // Canonical lowercase UUIDs (mssql UNIQUEIDENTIFIER reads back uppercase).
+    id: s.id.toLowerCase(),
     code: s.code,
     name: s.name,
     description: s.description ?? null,
-    projectId: s.projectId,
-    sessionId: s.sessionId ?? null,
+    projectId: s.projectId.toLowerCase(),
+    sessionId: s.sessionId ? s.sessionId.toLowerCase() : null,
     status: s.status,
     goal: s.goal ?? null,
     startDate: s.startDate,
     endDate: s.endDate,
-    createdById: s.createdById ?? null,
+    createdById: s.createdById ? s.createdById.toLowerCase() : null,
     createdAt: s.createdAt,
     updatedAt: s.updatedAt,
     ...(extras ?? {}),
@@ -116,6 +121,8 @@ function toBoardTask(t: Task): SprintBoardTask {
     id: t.id,
     code: t.code,
     title: t.title,
+    description: t.description ?? null,
+    storyPoints: t.storyPoints ?? null,
     status: t.status,
     priority: t.priority,
     assigneeId: t.assigneeId ?? null,
@@ -132,23 +139,94 @@ export class SprintsService {
     @InjectRepository(InternshipSession) private readonly sessions: Repository<InternshipSession>,
     @InjectRepository(Task) private readonly tasks: Repository<Task>,
     private readonly dataSource: DataSource,
+    private readonly permissions: PermissionsService,
   ) {}
 
-  async list(q: { page: number; pageSize: number; projectId?: string; sessionId?: string; status?: string }) {
+  private async ownership(actorId?: string | null): Promise<Ownership | undefined> {
+    if (!actorId) return undefined;
+    return resolveOwnership(this.permissions, actorId);
+  }
+
+  private async isSessionOwned(sessionId: string, userId: string): Promise<boolean> {
+    const rows = await this.dataSource.query(
+      'SELECT 1 AS ok FROM internship_sessions s WHERE s.id = @0 AND (s.leadInstructorId = @1 OR EXISTS (SELECT 1 FROM session_instructors si WHERE si.sessionId = s.id AND si.instructorId = @1))',
+      [sessionId, userId],
+    );
+    return rows.length > 0;
+  }
+
+  private async isSessionOwnedTx(em: EntityManager, sessionId: string, userId: string): Promise<boolean> {
+    const rows = await em.query(
+      'SELECT 1 AS ok FROM internship_sessions s WHERE s.id = @0 AND (s.leadInstructorId = @1 OR EXISTS (SELECT 1 FROM session_instructors si WHERE si.sessionId = s.id AND si.instructorId = @1))',
+      [sessionId, userId],
+    );
+    return rows.length > 0;
+  }
+
+  /** Read rule: parent project visible AND session (if any) owned. */
+  private async assertSprintVisible(sprint: Sprint, o?: Ownership): Promise<void> {
+    if (!o || o.isAdmin) return;
+    const project = await this.projects.findOne({ where: { id: sprint.projectId } });
+    if (!project || (project.mentorId !== o.userId && project.mentorId !== null)) {
+      throw new ForbiddenException({
+        statusCode: 403,
+        code: 'SPRINT_SCOPE_FORBIDDEN',
+        message: 'You do not manage this sprint.',
+      });
+    }
+    if (sprint.sessionId && !(await this.isSessionOwned(sprint.sessionId, o.userId))) {
+      throw new ForbiddenException({
+        statusCode: 403,
+        code: 'SPRINT_SCOPE_FORBIDDEN',
+        message: 'You do not manage this sprint.',
+      });
+    }
+  }
+
+  /** Write rule: project claimed by the actor AND session (if any) owned. */
+  private async assertSprintManaged(sprint: Sprint, o?: Ownership): Promise<void> {
+    if (!o || o.isAdmin) return;
+    const project = await this.projects.findOne({ where: { id: sprint.projectId } });
+    if (!project || project.mentorId !== o.userId) {
+      throw new ForbiddenException({
+        statusCode: 403,
+        code: 'SPRINT_SCOPE_FORBIDDEN',
+        message: 'Only the managing mentor can change this sprint. Claim the project first.',
+      });
+    }
+    if (sprint.sessionId && !(await this.isSessionOwned(sprint.sessionId, o.userId))) {
+      throw new ForbiddenException({
+        statusCode: 403,
+        code: 'SPRINT_SCOPE_FORBIDDEN',
+        message: 'You do not manage this sprint.',
+      });
+    }
+  }
+
+  async list(q: { page: number; pageSize: number; projectId?: string; sessionId?: string; status?: string; assigneeId?: string; dueFrom?: string; dueTo?: string; search?: string }, o?: Ownership) {
     const qb = this.sprints.createQueryBuilder('s');
+    if (o && !o.isAdmin) {
+      qb.andWhere(scopedProjectSessionClause('s.projectId', 's.sessionId'), { [OWNER_PARAM]: o.userId });
+    }
     if (q.projectId) qb.andWhere('s.projectId = :projectId', { projectId: q.projectId });
     if (q.sessionId) qb.andWhere('s.sessionId = :sessionId', { sessionId: q.sessionId });
     if (q.status) qb.andWhere('s.status = :status', { status: q.status });
+    if (q.assigneeId) qb.andWhere('EXISTS (SELECT 1 FROM tasks t WHERE t.sprintId=s.id AND t.deletedAt IS NULL AND t.assigneeId=:assigneeId)', { assigneeId: q.assigneeId });
+    if (q.dueFrom) qb.andWhere('s.endDate >= :dueFrom', { dueFrom: new Date(q.dueFrom) });
+    if (q.dueTo) qb.andWhere('s.endDate <= :dueTo', { dueTo: new Date(q.dueTo) });
+    if (q.search?.trim()) qb.andWhere('(s.code LIKE :search OR s.name LIKE :search OR s.goal LIKE :search)', { search: `%${q.search.trim()}%` });
     qb.orderBy('s.createdAt', 'DESC')
+      .addOrderBy('s.id', 'ASC')
       .skip((q.page - 1) * q.pageSize)
       .take(q.pageSize);
     const [items, total] = await qb.getManyAndCount();
     return { items: items.map((s) => toSprintResponse(s)), total };
   }
 
-  async getOneDetailed(id: string): Promise<SprintResponse> {
+  async getOneDetailed(id: string, o?: Ownership): Promise<SprintResponse> {
     const sprint = await this.sprints.findOne({ where: { id } });
     if (!sprint) throw notFound();
+    await this.assertSprintVisible(sprint, o);
     const [project, session] = await Promise.all([
       this.projects.findOne({ where: { id: sprint.projectId } }),
       sprint.sessionId ? this.sessions.findOne({ where: { id: sprint.sessionId } }) : Promise.resolve(null),
@@ -177,6 +255,7 @@ export class SprintsService {
     ctx: ActorContext,
   ): Promise<SprintResponse> {
     let createdId = '';
+    const creator = await this.ownership(ctx.actorId);
     await this.dataSource.transaction(async (em) => {
       const project = await em.getRepository(Project).findOne({ where: { id: input.projectId } });
       if (!project) {
@@ -184,6 +263,13 @@ export class SprintsService {
           statusCode: 404,
           code: 'PROJECT_NOT_FOUND',
           message: 'Project not found.',
+        });
+      }
+      if (creator && !creator.isAdmin && project.mentorId !== creator.userId) {
+        throw new ForbiddenException({
+          statusCode: 403,
+          code: 'SPRINT_SCOPE_FORBIDDEN',
+          message: 'Only the managing mentor can create sprints for this project. Claim it first.',
         });
       }
       if (project.status !== 'active') {
@@ -201,6 +287,13 @@ export class SprintsService {
             statusCode: 404,
             code: 'SESSION_NOT_FOUND',
             message: 'Internship session not found.',
+          });
+        }
+        if (creator && !creator.isAdmin && !(await this.isSessionOwnedTx(em, input.sessionId, creator.userId))) {
+          throw new ForbiddenException({
+            statusCode: 403,
+            code: 'SPRINT_SCOPE_FORBIDDEN',
+            message: 'You do not manage this internship session.',
           });
         }
       }
@@ -250,6 +343,7 @@ export class SprintsService {
     await this.dataSource.transaction(async (em) => {
       const sprint = await this.lockById(em, id);
       if (!sprint) throw notFound();
+      await this.assertSprintManaged(sprint, await this.ownership(ctx.actorId));
       if (isSprintTerminal(sprint.status)) {
         throw new ConflictException({
           statusCode: 409,
@@ -302,6 +396,7 @@ export class SprintsService {
     await this.dataSource.transaction(async (em) => {
       const sprint = await this.lockById(em, id);
       if (!sprint) throw notFound();
+      await this.assertSprintManaged(sprint, await this.ownership(ctx?.actorId));
       const from = sprint.status;
       if (!canTransitionSprint(from, to)) {
         throw new ConflictException({
@@ -399,9 +494,10 @@ export class SprintsService {
    * the true column size. Ordered priority (critical→low), then dueDate
    * (nulls last), then createdAt.
    */
-  async board(id: string, q: { page: number; pageSize: number; status?: string }, assigneeId?: string): Promise<SprintBoardResponse> {
+  async board(id: string, q: { page: number; pageSize: number; status?: string }, assigneeId?: string, o?: Ownership): Promise<SprintBoardResponse> {
     const sprint = await this.sprints.findOne({ where: { id } });
     if (!sprint) throw notFound();
+    await this.assertSprintVisible(sprint, o);
     const qb = this.tasks
       .createQueryBuilder('t')
       .where('t.sprintId = :id AND t.deletedAt IS NULL', { id });
@@ -425,11 +521,11 @@ export class SprintsService {
     );
     return {
       sprint: {
-        id: sprint.id,
+        id: sprint.id.toLowerCase(),
         code: sprint.code,
         name: sprint.name,
         status: sprint.status,
-        projectId: sprint.projectId,
+        projectId: sprint.projectId.toLowerCase(),
         startDate: sprint.startDate,
         endDate: sprint.endDate,
       },
@@ -442,9 +538,10 @@ export class SprintsService {
    * Story-point aggregation straight from the DB (spec 30). NULL when no
    * task in scope declares story points — never fabricated metrics.
    */
-  async completion(id: string): Promise<SprintCompletionSummary> {
+  async completion(id: string, o?: Ownership): Promise<SprintCompletionSummary> {
     const sprint = await this.sprints.findOne({ where: { id } });
     if (!sprint) throw notFound();
+    await this.assertSprintVisible(sprint, o);
     const total = await this.tasks.count({ where: { sprintId: id, deletedAt: IsNull() } });
     const done = await this.tasks.count({ where: { sprintId: id, deletedAt: IsNull(), status: 'done' } });
     const committedRow = await this.tasks

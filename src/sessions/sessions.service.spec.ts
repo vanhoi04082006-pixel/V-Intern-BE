@@ -1,6 +1,7 @@
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { ActivityService } from '../audit/activity.service';
 import { AuditService } from '../audit/audit.service';
+import { AuditLog } from '../audit/entities/audit-log.entity';
 import { PermissionsService } from '../rbac/permissions.service';
 import { User } from '../users/entities/user.entity';
 import { InternshipSession } from './entities/internship-session.entity';
@@ -78,10 +79,14 @@ function buildHarness(opts?: {
       (opts?.activeUsers ?? []).find((u) => u.id === args?.where?.id) ?? null,
     ),
   };
+  const query = jest.fn(async () => []);
+  const em = { findOne: jest.fn(async (_entity, args) => sessionsRepo.findOne(args)), findOneBy: jest.fn(async () => null), update: jest.fn(async (_entity, id, patch) => sessionsRepo.update(id, patch)), query, insert: jest.fn(async () => ({})) };
+  const dataSource = { query, transaction: jest.fn(async cb => cb(em)) } as unknown as DataSource;
   const permissionsService = {
     getEffectivePermissionCodes: jest.fn(async () =>
       new Set(opts?.instructorHasPermission === false ? [] : ['sessions.manage']),
     ),
+    hasRole: jest.fn(async () => true),
   } as unknown as PermissionsService;
   const audit = { record: jest.fn(async () => undefined) } as unknown as AuditService;
   const activity = { record: jest.fn(async () => undefined) } as unknown as ActivityService;
@@ -92,11 +97,12 @@ function buildHarness(opts?: {
     instructorsRepo as unknown as Repository<SessionInstructor>,
     milestonesRepo as unknown as Repository<SessionMilestone>,
     usersRepo as unknown as Repository<User>,
+    dataSource,
     permissionsService,
     audit,
     activity,
   );
-  return { service, sessionsRepo, milestonesRepo, usersRepo, permissionsService, instructorsRepo, audit };
+  return { service, sessionsRepo, milestonesRepo, usersRepo, permissionsService, instructorsRepo, audit, dataSource, em };
 }
 
 const CTX = { actorId: 'admin-1', ip: '127.0.0.1', userAgent: 'jest' };
@@ -109,10 +115,10 @@ describe('SessionsService.update — backend state machine (spec 11/42)', () => 
       's-1',
       expect.objectContaining({ status: 'ending' }),
     );
-    expect(h.audit.record).toHaveBeenCalledWith(
+    expect(h.em.insert).toHaveBeenCalledWith(AuditLog,
       expect.objectContaining({
         action: 'session.status_changed',
-        detail: { from: 'active', to: 'ending' },
+        detail: JSON.stringify({ from: 'active', to: 'ending' }),
       }),
     );
     expect(res.status).toBe('ending');
@@ -138,6 +144,88 @@ describe('SessionsService.update — backend state machine (spec 11/42)', () => 
     await expect(h.service.update('missing', { name: 'x' }, CTX)).rejects.toMatchObject({
       response: { statusCode: 404, code: 'SESSION_NOT_FOUND' },
     });
+  });
+});
+
+describe('SessionsService.update — M5 Start readiness (WP-5)', () => {
+  it('serializes competing transitions and rejects a stale Start after cancellation', async () => {
+    const h = buildHarness();
+    let tail: Promise<unknown> = Promise.resolve();
+    (h.dataSource.transaction as jest.Mock).mockImplementation(cb => {
+      const next = tail.then(() => cb(h.em)); tail = next.catch(() => undefined); return next;
+    });
+    const results = await Promise.allSettled([
+      h.service.update('s-1', { status: 'cancelled' }, CTX),
+      h.service.update('s-1', { status: 'active' }, CTX),
+    ]);
+    expect(results[0].status).toBe('fulfilled');
+    expect(results[1]).toMatchObject({ status: 'rejected', reason: { response: { code: 'INVALID_SESSION_TRANSITION' } } });
+    expect(h.sessionsRepo.update).toHaveBeenCalledTimes(1);
+    expect(h.em.findOne).toHaveBeenCalledWith(InternshipSession, expect.objectContaining({ lock: { mode: 'pessimistic_write' } }));
+  });
+  it('fails closed on an invalid pinned snapshot and never activates', async () => {
+    const h = buildHarness();
+    (h.dataSource.query as jest.Mock).mockResolvedValue([{ projectId: 'p1', snapshotJson: 'null' }]);
+    await expect(h.service.update('s-1', { status: 'active' }, CTX)).rejects.toMatchObject({
+      response: { code: 'SESSION_SNAPSHOT_INVALID' },
+    });
+    expect(h.sessionsRepo.update).not.toHaveBeenCalled();
+  });
+  const SNAPSHOT = JSON.stringify({
+    roleDetails: [
+      { code: 'frontend', countMin: 1 },
+      { code: 'backend', countMin: 1 },
+    ],
+  });
+  function startHarness(filled: Array<{ roleCode: string; filled: number }>, ineligible: Array<{ internId: string }>) {
+    const h = buildHarness();
+    (h.dataSource.query as unknown as jest.Mock).mockImplementation(async (sql: string) => {
+      if (sql.includes('FROM template_runs')) {
+        return [{ projectId: 'p-1', snapshotJson: SNAPSHOT }];
+      }
+      if (sql.includes('FROM project_members')) {
+        return filled;
+      }
+      if (sql.includes('FROM assignments')) {
+        return ineligible;
+      }
+      return [];
+    });
+    return h;
+  }
+  it('409 SESSION_TEAM_INCOMPLETE when required slots are unfilled', async () => {
+    const { service } = startHarness([{ roleCode: 'frontend', filled: 1 }], []);
+    await expect(service.update('s-1', { status: 'active' }, CTX)).rejects.toMatchObject({
+      response: expect.objectContaining({ code: 'SESSION_TEAM_INCOMPLETE' }),
+    });
+  });
+  it('409 INTERN_NOT_RECRUITED when an assignee lost eligibility', async () => {
+    const { service } = startHarness(
+      [
+        { roleCode: 'frontend', filled: 1 },
+        { roleCode: 'backend', filled: 1 },
+      ],
+      [{ internId: 'u-9' }],
+    );
+    await expect(service.update('s-1', { status: 'active' }, CTX)).rejects.toMatchObject({
+      response: expect.objectContaining({ code: 'INTERN_NOT_RECRUITED' }),
+    });
+  });
+  it('activates when every required slot is filled by eligible members', async () => {
+    const { service } = startHarness(
+      [
+        { roleCode: 'frontend', filled: 1 },
+        { roleCode: 'backend', filled: 1 },
+      ],
+      [],
+    );
+    const updated = await service.update('s-1', { status: 'active' }, CTX);
+    expect(updated.status).toBe('active');
+  });
+  it('starts legacy sessions without a template run freely', async () => {
+    const { service } = buildHarness();
+    const updated = await service.update('s-1', { status: 'active' }, CTX);
+    expect(updated.status).toBe('active');
   });
 });
 

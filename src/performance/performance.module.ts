@@ -1,9 +1,10 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { RbacModule } from '../rbac/rbac.module';
 import { Assignment } from '../assignments/entities/assignment.entity';
 import { Evaluation } from '../evaluation/entities/evaluation.entity';
 import { Project } from '../projects/entities/project.entity';
-import { RbacModule } from '../rbac/rbac.module';
+import { InternshipSession } from '../sessions/entities/internship-session.entity';
 import { SessionInstructor } from '../sessions/entities/session-instructor.entity';
 import { Sprint } from '../sprints/entities/sprint.entity';
 import { Task } from '../tasks/entities/task.entity';
@@ -18,6 +19,7 @@ import { PerformanceService } from './performance.service';
     RbacModule,
     TypeOrmModule.forFeature([
       Assignment,
+      InternshipSession,
       Task,
       TaskStatusHistory,
       Evaluation,

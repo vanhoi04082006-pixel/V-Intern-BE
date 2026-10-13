@@ -1,15 +1,4 @@
-import {
-  Body,
-  Controller,
-  Delete,
-  Get,
-  Param,
-  ParseUUIDPipe,
-  Patch,
-  Post,
-  Query,
-  Req,
-} from '@nestjs/common';
+import { Body, Controller, Delete, Get, Logger, Param, ParseUUIDPipe, Patch, Post, Query, Req } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
@@ -17,6 +6,7 @@ import { RequirePermissions } from '../common/decorators/permissions.decorator';
 import { toPaginated } from '../common/pagination/paginated';
 import { clientIp, userAgent } from '../common/types/request-info';
 import { ActorContext } from '../users/users.service';
+import { AiGenerationService } from '../ai-generation/ai-generation.service';
 import {
   AddSessionInstructorsDto,
   AddSessionMembersDto,
@@ -26,29 +16,62 @@ import {
   UpdateMilestoneDto,
   UpdateSessionDto,
   QueryInstructorOptionsDto,
+  QueryMemberOptionsDto,
 } from './dto/session.dtos';
-import { SessionsService, toSessionResponse } from './sessions.service';
+import { SessionsService } from './sessions.service';
+import { PermissionsService } from '../rbac/permissions.service';
+import { resolveOwnership } from '../rbac/ownership';
 
 @ApiTags('sessions')
 @ApiBearerAuth()
 @Controller('sessions')
 export class SessionsController {
-  constructor(private readonly sessionsService: SessionsService) {}
+  constructor(
+    private readonly sessionsService: SessionsService,
+    private readonly permissionsService: PermissionsService,
+    private readonly generations: AiGenerationService,
+  ) {}
+
+  private readonly logger = new Logger(SessionsController.name);
 
   private ctx(req: Request, actorId: string): ActorContext {
     return { actorId, ip: clientIp(req), userAgent: userAgent(req) };
   }
 
+  private ownership(userId: string) {
+    return resolveOwnership(this.permissionsService, userId);
+  }
+
   @Get()
   @RequirePermissions('sessions.view')
-  @ApiOperation({ summary: 'Paginated sessions (sessions.view; filters: q, status)' })
-  async list(@Query() query: QuerySessionsDto) {
+  @ApiOperation({ summary: 'Paginated sessions (sessions.view; filters: q, status; scoped to managed sessions)' })
+  async list(@Query() query: QuerySessionsDto, @CurrentUser('userId') userId: string) {
     const { items, total } = await this.sessionsService.list({
       page: query.page,
       pageSize: query.pageSize,
       q: query.q,
       status: query.status,
-    });
+      projectId: query.projectId,
+      leadInstructorId: query.leadInstructorId,
+    }, await this.ownership(userId));
+    return toPaginated(items, query.page, query.pageSize, total);
+  }
+
+  @Get('overview')
+  @RequirePermissions('sessions.view')
+  @ApiOperation({
+    summary:
+      'Session management overview (sessions.view; bounded aggregate queries; scoped; no N+1)',
+  })
+  async overview(@Query() query: QuerySessionsDto, @CurrentUser('userId') userId: string) {
+    const { items, total } = await this.sessionsService.listOverview({
+      page: query.page,
+      pageSize: query.pageSize,
+      q: query.q,
+      status: query.status,
+      projectId: query.projectId,
+      leadInstructorId: query.leadInstructorId,
+    }, await this.ownership(userId));
     return toPaginated(items, query.page, query.pageSize, total);
   }
 
@@ -71,11 +94,18 @@ export class SessionsController {
     return toPaginated(items, query.page, query.pageSize, total);
   }
 
+  @Get('member-options')
+  @RequirePermissions('sessions.view')
+  async memberOptions(@Query() query: QueryMemberOptionsDto, @CurrentUser('userId') userId: string) {
+    const { items, total } = await this.sessionsService.memberOptions(query, await this.ownership(userId));
+    return toPaginated(items, query.page, query.pageSize, total);
+  }
+
   @Get(':id')
   @RequirePermissions('sessions.view')
-  @ApiOperation({ summary: 'Session detail (sessions.view)' })
-  async getOne(@Param('id', ParseUUIDPipe) id: string) {
-    return toSessionResponse(await this.sessionsService.getOne(id));
+  @ApiOperation({ summary: 'Session detail (sessions.view; managed scope only)' })
+  async getOne(@Param('id', ParseUUIDPipe) id: string, @CurrentUser('userId') userId: string) {
+    return this.sessionsService.detail(id, await this.ownership(userId));
   }
 
   @Patch(':id')
@@ -90,14 +120,43 @@ export class SessionsController {
     @CurrentUser('userId') actorId: string,
     @Req() req: Request,
   ) {
-    return this.sessionsService.update(id, dto, this.ctx(req, actorId));
+    const updated = await this.sessionsService.update(id, dto, this.ctx(req, actorId));
+    // M5 Start → auto-trigger AI planning (fire-and-forget: never fails Start;
+    // generatePlan skips when a usable plan already exists for the session).
+    if (dto.status === 'active' && updated.status === 'active') {
+      this.triggerPlanning(updated.id, actorId, req);
+    }
+    return updated;
+  }
+
+  private triggerPlanning(sessionId: string, actorId: string, req: Request): void {
+    void (async () => {
+      try {
+        const projectId = await this.sessionsService.resolveSessionProject(sessionId);
+        if (!projectId) return;
+        const session = await this.sessionsService.getOne(sessionId);
+        const days = Math.max(
+          1,
+          Math.round((new Date(session.endDate).getTime() - new Date(session.startDate).getTime()) / 86400000),
+        );
+        const sprintCount = Math.min(8, Math.max(1, Math.ceil(days / 14)));
+        await this.generations.generatePlan(
+          { projectId, sessionId, sprintCount },
+          { actorId, ip: clientIp(req), userAgent: userAgent(req) },
+        );
+      } catch (err) {
+        this.logger.warn(
+          `AI auto-plan trigger failed for session ${sessionId}: ${err instanceof Error ? err.message : err}`,
+        );
+      }
+    })();
   }
 
   @Get(':id/members')
   @RequirePermissions('sessions.view')
-  @ApiOperation({ summary: 'Session members (sessions.view)' })
-  async members(@Param('id', ParseUUIDPipe) id: string) {
-    return { members: await this.sessionsService.listMembers(id) };
+  @ApiOperation({ summary: 'Session members (sessions.view; managed scope only)' })
+  async members(@Param('id', ParseUUIDPipe) id: string, @CurrentUser('userId') userId: string) {
+    return { members: await this.sessionsService.listMembers(id, await this.ownership(userId)) };
   }
 
   @Post(':id/members')
@@ -126,9 +185,9 @@ export class SessionsController {
 
   @Get(':id/instructors')
   @RequirePermissions('sessions.view')
-  @ApiOperation({ summary: 'Session instructors (sessions.view)' })
-  async instructors(@Param('id', ParseUUIDPipe) id: string) {
-    return { instructors: await this.sessionsService.listInstructors(id) };
+  @ApiOperation({ summary: 'Session instructors (sessions.view; managed scope only)' })
+  async instructors(@Param('id', ParseUUIDPipe) id: string, @CurrentUser('userId') userId: string) {
+    return { instructors: await this.sessionsService.listInstructors(id, await this.ownership(userId)) };
   }
 
   @Post(':id/instructors')
@@ -159,9 +218,9 @@ export class SessionsController {
 
   @Get(':id/milestones')
   @RequirePermissions('sessions.view')
-  @ApiOperation({ summary: 'Session milestones (sessions.view; ordered by sortOrder)' })
-  async milestones(@Param('id', ParseUUIDPipe) id: string) {
-    return { milestones: await this.sessionsService.listMilestones(id) };
+  @ApiOperation({ summary: 'Session milestones (sessions.view; ordered by sortOrder; managed scope only)' })
+  async milestones(@Param('id', ParseUUIDPipe) id: string, @CurrentUser('userId') userId: string) {
+    return { milestones: await this.sessionsService.listMilestones(id, await this.ownership(userId)) };
   }
 
   @Post(':id/milestones')

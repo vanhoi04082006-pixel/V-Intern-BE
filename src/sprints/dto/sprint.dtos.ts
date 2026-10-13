@@ -81,6 +81,10 @@ export class TransitionSprintDto {
 }
 
 export class QuerySprintsDto extends PaginationQueryDto {
+  @IsOptional() @IsUUID('4') assigneeId?: string;
+  @IsOptional() @IsISO8601() dueFrom?: string;
+  @IsOptional() @IsISO8601() dueTo?: string;
+  @IsOptional() @IsString() @MaxLength(100) search?: string;
   @ApiPropertyOptional({ format: 'uuid' })
   @IsOptional()
   @IsUUID('4')

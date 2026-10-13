@@ -173,6 +173,10 @@ export class UpdateMilestoneDto {
 }
 
 export class QuerySessionsDto extends PaginationQueryDto {
+  @ApiPropertyOptional({ format: 'uuid' }) @IsOptional() @IsUUID('4')
+  projectId?: string;
+  @ApiPropertyOptional({ format: 'uuid' }) @IsOptional() @IsUUID('4')
+  leadInstructorId?: string;
   @ApiPropertyOptional({ maxLength: 100 })
   @IsOptional()
   @IsString()
@@ -191,4 +195,9 @@ export class QueryInstructorOptionsDto extends PaginationQueryDto {
   @IsString()
   @MaxLength(100)
   q?: string;
+}
+
+export class QueryMemberOptionsDto extends QueryInstructorOptionsDto {
+  @IsOptional() @IsUUID('4') sessionId?: string;
+  @IsOptional() @IsUUID('4') projectId?: string;
 }

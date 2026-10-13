@@ -25,6 +25,12 @@ export class RecruitmentResult {
   @Column('uuid', { name: 'aiRunId', nullable: true })
   aiRunId!: string | null;
 
+  @Column({ type: 'nvarchar', length: 16, default: 'ai' })
+  evaluationSource!: 'ai' | 'instructor';
+
+  @Column('uuid', { nullable: true })
+  evaluatedBy!: string | null;
+
   @Column({ type: 'decimal', precision: 5, scale: 1, name: 'technicalScore' })
   technicalScore!: number;
 
