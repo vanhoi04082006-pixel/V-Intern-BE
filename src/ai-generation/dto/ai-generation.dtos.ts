@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsDateString, IsInt, IsObject, IsOptional, IsUUID, Max, Min } from 'class-validator';
+import { IsBoolean, IsDateString, IsInt, IsObject, IsOptional, IsUUID, Max, Min } from 'class-validator';
 
 export class DraftSprintPlanDto {
   @ApiProperty({ format: 'uuid' })
@@ -47,6 +47,10 @@ export class ConfirmSprintPlanDto {
 }
 
 export class GeneratePlanDto {
+  @ApiPropertyOptional({ description: 'Request a fresh draft; an in-flight or published plan is always reused.' })
+  @IsOptional()
+  @IsBoolean()
+  regenerate?: boolean;
   @ApiProperty({ format: 'uuid' })
   @IsUUID('4')
   projectId!: string;

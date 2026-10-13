@@ -19,6 +19,11 @@ const sprint = (overrides: Record<string, unknown> = {}) => ({
 });
 
 describe('validateSprintPlan', () => {
+  it('retains bounded acceptance criteria and rejects malformed criteria', () => {
+    const plan = validateSprintPlan({ sprints: [sprint({ tasks: [{ title: 'Task', acceptanceCriteria: [' Tests pass '] }] })] });
+    expect(plan.sprints[0].tasks[0]).toMatchObject({ acceptanceCriteria: ['Tests pass'] });
+    expect(() => validateSprintPlan({ sprints: [sprint({ tasks: [{ title: 'Task', acceptanceCriteria: [42] }] })] })).toThrow(/criteria/i);
+  });
   it('accepts a well-formed plan and normalizes it', () => {
     const plan = validateSprintPlan({ sprints: [sprint(), sprint({ name: 'Sprint 2' })] });
     expect(plan.sprints).toHaveLength(2);

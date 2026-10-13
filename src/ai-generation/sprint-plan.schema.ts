@@ -11,6 +11,7 @@ import { AiInvalidResponseError } from '../ai/ai-errors';
  */
 
 export interface PlannedTask {
+  acceptanceCriteria: string[];
   title: string;
   description: string | null;
   priority: 'low' | 'medium' | 'high' | 'critical';
@@ -99,7 +100,10 @@ function uuidOrNull(value: unknown, field: string): string | null {
 
 function plannedTask(raw: unknown, index: number): PlannedTask {
   const v = record(raw, `tasks[${index}]`);
+  const criteria = v.acceptanceCriteria ?? [];
+  if (!Array.isArray(criteria) || criteria.length > 20) fail('acceptance criteria must be an array of at most 20 strings');
   return {
+    acceptanceCriteria: criteria.map((item) => boundedString(item, 'acceptance criteria', 512, false)).filter((item): item is string => item !== null),
     title: boundedString(v.title, `tasks[${index}].title`, MAX_NAME, true) as string,
     description: boundedString(v.description, `tasks[${index}].description`, MAX_TEXT, false),
     priority: priority(v.priority),
