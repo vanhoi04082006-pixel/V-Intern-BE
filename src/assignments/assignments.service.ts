@@ -583,11 +583,11 @@ export class AssignmentsService {
         id: active.id,
         assignedAt: active.assignedAt,
         project: project
-          ? { id: project.id, code: project.code, name: project.name, status: project.status }
-          : { id: active.projectId, code: 'UNKNOWN', name: 'Unknown project', status: 'unknown' },
+          ? { id: project.id.toLowerCase(), code: project.code, name: project.name, status: project.status }
+          : { id: active.projectId.toLowerCase(), code: 'UNKNOWN', name: 'Unknown project', status: 'unknown' },
         session: session
-          ? { id: session.id, code: session.code, name: session.name, status: session.status }
-          : { id: active.sessionId, code: 'UNKNOWN', name: 'Unknown session', status: 'unknown' },
+          ? { id: session.id.toLowerCase(), code: session.code, name: session.name, status: session.status }
+          : { id: active.sessionId.toLowerCase(), code: 'UNKNOWN', name: 'Unknown session', status: 'unknown' },
       },
     };
   }

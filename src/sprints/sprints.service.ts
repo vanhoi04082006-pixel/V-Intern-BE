@@ -521,11 +521,11 @@ export class SprintsService {
     );
     return {
       sprint: {
-        id: sprint.id,
+        id: sprint.id.toLowerCase(),
         code: sprint.code,
         name: sprint.name,
         status: sprint.status,
-        projectId: sprint.projectId,
+        projectId: sprint.projectId.toLowerCase(),
         startDate: sprint.startDate,
         endDate: sprint.endDate,
       },

@@ -376,6 +376,16 @@ describe('sprints.service — update (spec 19)', () => {
 });
 
 describe('sprints.service — board + completion (spec 22/30)', () => {
+  it('uses the same canonical sprint/project UUIDs on a board as sprint detail', async () => {
+    const id = 'AABBCCDD-1111-4222-8333-123456789ABC';
+    const projectId = 'BBCCDDEE-1111-4222-8333-123456789ABC';
+    const h = buildHarness({ sprint: sprintRow({ id, projectId }) });
+    const detail = await h.service.getOneDetailed(id);
+    const board = await h.service.board(id, { page: 1, pageSize: 10 });
+    expect(board.sprint.id).toBe(id.toLowerCase());
+    expect(board.sprint.projectId).toBe(projectId.toLowerCase());
+    expect(board.sprint.id).toBe(detail.id);
+  });
   it('board groups REAL tasks by actual status with true counts (no fake columns)', async () => {
     const h = buildHarness({ sprint: sprintRow({ status: 'active' }) });
     h.taskRepo.createQueryBuilder.mockImplementation(() => {

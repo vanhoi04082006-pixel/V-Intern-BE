@@ -372,6 +372,21 @@ describe('AssignmentsService.complete (spec 23)', () => {
 });
 
 describe('AssignmentsService.workspace (spec 28/29 — DB is the source of truth)', () => {
+  it('uses canonical project/session UUIDs in workspace summaries and missing-row fallbacks', async () => {
+    const projectId = 'AABBCCDD-1111-4222-8333-123456789ABC';
+    const sessionId = 'BBCCDDEE-1111-4222-8333-123456789ABC';
+    const h = buildHarness({ existingActive: { ...CREATED_ROW, projectId, sessionId } });
+    h.repos.Project.findOne.mockResolvedValue({ ...ACTIVE_PROJECT, id: projectId });
+    h.repos.InternshipSession.findOne.mockResolvedValue({ ...ACTIVE_SESSION, id: sessionId });
+    const result = await h.service.workspace('intern-1');
+    expect(result.assignment?.project.id).toBe(projectId.toLowerCase());
+    expect(result.assignment?.session.id).toBe(sessionId.toLowerCase());
+    h.repos.Project.findOne.mockResolvedValue(null);
+    h.repos.InternshipSession.findOne.mockResolvedValue(null);
+    const fallback = await h.service.workspace('intern-1');
+    expect(fallback.assignment?.project.id).toBe(projectId.toLowerCase());
+    expect(fallback.assignment?.session.id).toBe(sessionId.toLowerCase());
+  });
   it('unassigned when no active assignment exists', async () => {
     const h = buildHarness();
     const res = await h.service.workspace('intern-1');
