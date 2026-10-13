@@ -11,6 +11,7 @@ import { RecruitmentProfile } from '../src/recruitment/entities/recruitment-prof
 export async function ensureRecruitedProfile(
   ds: DataSource,
   userId: string,
+  role = 'frontend',
 ): Promise<RecruitmentProfile> {
   const repo = ds.getRepository(RecruitmentProfile);
   const existing = await repo.findOne({ where: { userId } });
@@ -25,7 +26,7 @@ export async function ensureRecruitedProfile(
   return repo.save(
     repo.create({
       userId,
-      selectedRole: 'frontend',
+      selectedRole: role,
       status: 'passed',
       attemptCount: 1,
       recruitedAt: new Date(),

@@ -16,8 +16,9 @@ import {
   UpdateMilestoneDto,
   UpdateSessionDto,
   QueryInstructorOptionsDto,
+  QueryMemberOptionsDto,
 } from './dto/session.dtos';
-import { SessionsService, toSessionResponse } from './sessions.service';
+import { SessionsService } from './sessions.service';
 import { PermissionsService } from '../rbac/permissions.service';
 import { resolveOwnership } from '../rbac/ownership';
 
@@ -56,6 +57,24 @@ export class SessionsController {
     return toPaginated(items, query.page, query.pageSize, total);
   }
 
+  @Get('overview')
+  @RequirePermissions('sessions.view')
+  @ApiOperation({
+    summary:
+      'Session management overview (sessions.view; bounded aggregate queries; scoped; no N+1)',
+  })
+  async overview(@Query() query: QuerySessionsDto, @CurrentUser('userId') userId: string) {
+    const { items, total } = await this.sessionsService.listOverview({
+      page: query.page,
+      pageSize: query.pageSize,
+      q: query.q,
+      status: query.status,
+      projectId: query.projectId,
+      leadInstructorId: query.leadInstructorId,
+    }, await this.ownership(userId));
+    return toPaginated(items, query.page, query.pageSize, total);
+  }
+
   @Post()
   @RequirePermissions('sessions.manage')
   @ApiOperation({ summary: 'Create session (sessions.manage; audited)' })
@@ -75,11 +94,18 @@ export class SessionsController {
     return toPaginated(items, query.page, query.pageSize, total);
   }
 
+  @Get('member-options')
+  @RequirePermissions('sessions.view')
+  async memberOptions(@Query() query: QueryMemberOptionsDto, @CurrentUser('userId') userId: string) {
+    const { items, total } = await this.sessionsService.memberOptions(query, await this.ownership(userId));
+    return toPaginated(items, query.page, query.pageSize, total);
+  }
+
   @Get(':id')
   @RequirePermissions('sessions.view')
   @ApiOperation({ summary: 'Session detail (sessions.view; managed scope only)' })
   async getOne(@Param('id', ParseUUIDPipe) id: string, @CurrentUser('userId') userId: string) {
-    return toSessionResponse(await this.sessionsService.getOne(id, await this.ownership(userId)));
+    return this.sessionsService.detail(id, await this.ownership(userId));
   }
 
   @Patch(':id')

@@ -57,6 +57,8 @@ interface Harness {
     save: jest.Mock;
     create: jest.Mock;
     insert: jest.Mock;
+    delete: jest.Mock;
+    query: jest.Mock;
   };
   repos: Record<string, AnyRepo>;
   expectInsertWith: (entity: unknown, matcher: Record<string, unknown>) => void;
@@ -129,7 +131,7 @@ function buildHarness(opts?: {
       // Phase 4 precondition (spec 49): the harness default is a PASSED
       // profile so the classic 12-step lifecycle tests still exercise
       // assignment logic; dedicated tests override to not_started/failed.
-      findOne: jest.fn(async () => ({ userId: 'intern-1', status: 'passed' })),
+      findOne: jest.fn(async () => ({ userId: 'intern-1', status: 'passed', selectedRole: 'frontend' })),
     },
   };
 
@@ -147,6 +149,8 @@ function buildHarness(opts?: {
     }),
     create: jest.fn((x: unknown) => x),
     insert: jest.fn(async () => ({})),
+    delete: jest.fn(async () => ({ affected: 1 })),
+    query: jest.fn(async () => []),
   };
 
   const transaction = jest.fn(async (cb: (em2: typeof em) => Promise<unknown>) => cb(em));
@@ -193,6 +197,12 @@ const ACTIVE_PROJECT = {
 
 const CTX = { actorId: 'instructor-1', ip: '127.0.0.1', userAgent: 'jest' };
 const INPUT = { internId: 'intern-1', projectId: 'p-1', sessionId: 's-1' };
+
+it('rejects a role that differs from the passed recruitment role before writes', async () => {
+  const h = buildHarness({ intern: ACTIVE_USER, session: ACTIVE_SESSION, project: ACTIVE_PROJECT });
+  await expect(h.service.create({ ...INPUT, role: 'backend' }, CTX)).rejects.toMatchObject({ response: { code: 'INTERVIEW_ROLE_MISMATCH' } });
+  expect(h.em.save).not.toHaveBeenCalled();
+});
 
 const conflictOf = (p: Promise<unknown>, code: string) =>
   expect(p).rejects.toMatchObject({ response: { statusCode: 409, code } });
@@ -348,13 +358,14 @@ describe('AssignmentsService.complete (spec 23)', () => {
   });
 
   it('409 INVALID_ASSIGNMENT_TRANSITION when assignment is not active (history preserved)', async () => {
-    const h = buildHarness();
+    const h = buildHarness({ session: ACTIVE_SESSION });
     h.repos.AssignmentTx.createQueryBuilder.mockImplementation(() => lockQb({ ...CREATED_ROW, status: 'completed' }));
     await conflictOf(h.service.complete('a-1', CTX), 'INVALID_ASSIGNMENT_TRANSITION');
   });
 
   it('404 ASSIGNMENT_NOT_FOUND for unknown id', async () => {
-    const h = buildHarness();
+    const h = buildHarness({ session: ACTIVE_SESSION });
+    h.repos.Assignment.findOne.mockResolvedValue(null);
     h.repos.AssignmentTx.createQueryBuilder.mockImplementation(() => lockQb(null));
     await notFoundOf(h.service.complete('missing', CTX), 'ASSIGNMENT_NOT_FOUND');
   });
@@ -378,3 +389,20 @@ describe('AssignmentsService.workspace (spec 28/29 — DB is the source of truth
     expect(res.assignment).not.toHaveProperty('tasks');
   });
 });
+
+ describe('AssignmentsService.cancel — template lifecycle', () => {
+  it('rejects removing a member from a template session after Start without writes', async () => {
+    const h = buildHarness({ session: ACTIVE_SESSION });
+    h.em.query.mockResolvedValue([{ id: 'template-run' }]);
+    await expect(h.service.cancel('a-1', CTX)).rejects.toMatchObject({ response: { code: 'SESSION_NOT_SETUP' } });
+    expect(h.em.save).not.toHaveBeenCalled();
+    expect(h.em.delete).not.toHaveBeenCalled();
+    expect(h.repos.InternshipSession.findOne).toHaveBeenCalledWith(expect.objectContaining({ lock: { mode: 'pessimistic_write' } }));
+  });
+  it('preserves legacy active-session cancellation when no pinned template exists', async () => {
+    const h = buildHarness({ session: ACTIVE_SESSION });
+    await h.service.cancel('a-1', CTX);
+    expect(h.em.save).toHaveBeenCalledWith(expect.objectContaining({ status: 'cancelled' }));
+    expect(h.em.delete).toHaveBeenCalledWith(SessionMember, { sessionId: 's-1', userId: 'intern-1' });
+  });
+ });

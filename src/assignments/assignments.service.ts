@@ -195,6 +195,25 @@ export class AssignmentsService {
     ctx: ActorContext,
   ): Promise<AssignmentResponse> {
     const created = await this.dataSource.transaction(async (em) => {
+      // (3) Validate target session and its assignability.
+      const session = await em.getRepository(InternshipSession).findOne({ where: { id: input.sessionId }, lock: { mode: 'pessimistic_write' } });
+      if (!session) {
+        throw new NotFoundException({
+          statusCode: 404,
+          code: 'SESSION_NOT_FOUND',
+          message: 'Internship session not found.',
+        });
+      }
+      if (!isSessionAssignable(session.status)) {
+        throw new ConflictException({
+          statusCode: 409,
+          code: 'SESSION_NOT_ASSIGNABLE',
+          message: `Session status '${session.status}' does not accept new assignments.`,
+          details: { status: session.status },
+        });
+      }
+      await this.assertSessionManagedTx(em, input.sessionId, await this.ownership(ctx.actorId));
+
       // (1+2) Lock + validate the intern row — serializes concurrent
       // assignments targeting the same intern.
       const intern = await em
@@ -229,24 +248,10 @@ export class AssignmentsService {
         });
       }
 
-      // (3) Validate target session and its assignability.
-      const session = await em.getRepository(InternshipSession).findOne({ where: { id: input.sessionId } });
-      if (!session) {
-        throw new NotFoundException({
-          statusCode: 404,
-          code: 'SESSION_NOT_FOUND',
-          message: 'Internship session not found.',
-        });
+      const role = input.role?.trim() || undefined;
+      if (role && role !== 'intern' && recruitmentProfile.selectedRole !== role) {
+        throw new ConflictException({ statusCode: 409, code: 'INTERVIEW_ROLE_MISMATCH', message: 'Assigned role must match the passed recruitment role.' });
       }
-      if (!isSessionAssignable(session.status)) {
-        throw new ConflictException({
-          statusCode: 409,
-          code: 'SESSION_NOT_ASSIGNABLE',
-          message: `Session status '${session.status}' does not accept new assignments.`,
-          details: { status: session.status },
-        });
-      }
-      await this.assertSessionManaged(input.sessionId, await this.ownership(ctx.actorId));
 
       // (4+5) Lock + validate the project row and capacity — serializes
       // concurrent assignments targeting the same project.
@@ -270,6 +275,13 @@ export class AssignmentsService {
           message: `Project status '${project.status}' does not accept new assignments (only active).`,
           details: { status: project.status },
         });
+      }
+      const templateRuns: { projectId: string }[] = await em.query('SELECT TOP(1) projectId FROM template_runs WHERE sessionId=@0 ORDER BY createdAt DESC', [session.id]);
+      if (templateRuns.length && templateRuns[0].projectId.toLowerCase() !== project.id.toLowerCase()) {
+        throw new ConflictException({ statusCode: 409, code: 'SESSION_PROJECT_MISMATCH', message: 'Assignment project must match the pinned session project.' });
+      }
+      if (templateRuns.length && (!role || role === 'intern')) {
+        throw new ConflictException({ statusCode: 409, code: 'SESSION_ROLE_REQUIRED', message: 'Select a required project role for this template session.' });
       }
       if (project.capacity !== null) {
         const activeCount = await em.getRepository(Assignment).count({
@@ -297,11 +309,11 @@ export class AssignmentsService {
       // (6b) Role slot cap (redesign §12/§15): only enforced when the caller
       // names a role AND the project defines that slot. Role-less assignment
       // stays open for backward compatibility.
-      const role = input.role?.trim() || undefined;
       if (role) {
         const slot = await em.getRepository(ProjectRoleSlot).findOne({
           where: { projectId: project.id, roleCode: role },
         });
+        if (templateRuns.length && !slot) throw new ConflictException({ statusCode: 409, code: 'SESSION_ROLE_INVALID', message: 'Role is not defined by this session project.' });
         if (slot) {
           const filled = await em.query(
             `SELECT COUNT(*) AS filled FROM project_members pm
@@ -408,7 +420,12 @@ export class AssignmentsService {
    * reach this service method (guard enforced). History is never deleted.
    */
   async complete(id: string, ctx: ActorContext): Promise<AssignmentResponse> {
+    // Session-first lock ordering matches Start and AI Confirm.
+    const target = await this.assignments.findOne({ where: { id } });
+    if (!target) throw new NotFoundException({ statusCode: 404, code: 'ASSIGNMENT_NOT_FOUND', message: 'Assignment not found.' });
     const completed = await this.dataSource.transaction(async (em) => {
+      const session = await em.getRepository(InternshipSession).findOne({ where: { id: target.sessionId }, lock: { mode: 'pessimistic_write' } });
+      if (!session) throw new NotFoundException({ statusCode: 404, code: 'SESSION_NOT_FOUND', message: 'Session not found.' });
       const assignment = await em
         .getRepository(Assignment)
         .createQueryBuilder('a')
@@ -475,7 +492,12 @@ export class AssignmentsService {
    * history. Cancelled assignments free availability (same as never assigned).
    */
   async cancel(id: string, ctx: ActorContext): Promise<AssignmentResponse> {
+    // Session-first lock ordering matches Start and AI Confirm.
+    const target = await this.assignments.findOne({ where: { id } });
+    if (!target) throw new NotFoundException({ statusCode: 404, code: 'ASSIGNMENT_NOT_FOUND', message: 'Assignment not found.' });
     const cancelled = await this.dataSource.transaction(async (em) => {
+      const session = await em.getRepository(InternshipSession).findOne({ where: { id: target.sessionId }, lock: { mode: 'pessimistic_write' } });
+      if (!session) throw new NotFoundException({ statusCode: 404, code: 'SESSION_NOT_FOUND', message: 'Session not found.' });
       const assignment = await em
         .getRepository(Assignment)
         .createQueryBuilder('a')
@@ -497,6 +519,10 @@ export class AssignmentsService {
           message: `Assignment in status '${assignment.status}' cannot be cancelled.`,
           details: { status: assignment.status },
         });
+      }
+      const runs = await em.query('SELECT TOP(1) id FROM template_runs WHERE sessionId=@0', [session.id]);
+      if (runs.length && session.status !== 'upcoming') {
+        throw new ConflictException({ statusCode: 409, code: 'SESSION_NOT_SETUP', message: 'Template session members can only be removed before Start.' });
       }
       assignment.status = 'cancelled';
       await em.save(assignment);

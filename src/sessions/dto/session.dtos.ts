@@ -196,3 +196,8 @@ export class QueryInstructorOptionsDto extends PaginationQueryDto {
   @MaxLength(100)
   q?: string;
 }
+
+export class QueryMemberOptionsDto extends QueryInstructorOptionsDto {
+  @IsOptional() @IsUUID('4') sessionId?: string;
+  @IsOptional() @IsUUID('4') projectId?: string;
+}

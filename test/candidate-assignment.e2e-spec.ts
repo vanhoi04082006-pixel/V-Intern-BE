@@ -104,7 +104,7 @@ beforeAll(async () => {
     const email = `e2e-m4-${tag}-${RUN}@vintern.test`;
     const created = await users.save(
       users.create({
-        email, username: `e2e-m4-${tag}-${RUN}`, displayName,
+        email, username: `e2e-m4-${tag}-${RUN}`, displayName: `${displayName} ${RUN}`,
         passwordHash: await hash(PW, 10), status: 'active',
       }),
     );
@@ -171,7 +171,7 @@ describe('M4 eligible candidates and assignment lifecycle', () => {
   }, 120_000);
 
   it('searches by name/email/role/status with correct totals and stable paging', async () => {
-    const byName = await request(apiBase()).get('/api/v1/recruitment/candidates?search=M4%20Frontend&page=1&pageSize=20').set('Authorization', `Bearer ${instructorA}`);
+    const byName = await request(apiBase()).get(`/api/v1/recruitment/candidates?search=${encodeURIComponent(`M4 Frontend Star ${RUN}`)}&page=1&pageSize=20`).set('Authorization', `Bearer ${instructorA}`);
     expect(byName.status).toBe(200);
     expect(byName.body.total).toBe(1);
     expect(byName.body.items[0].email).toBe(`e2e-m4-i1-${RUN}@vintern.test`);
@@ -183,7 +183,7 @@ describe('M4 eligible candidates and assignment lifecycle', () => {
     const byRole = await request(apiBase()).get('/api/v1/recruitment/candidates?role=frontend&page=1&pageSize=20').set('Authorization', `Bearer ${instructorA}`);
     expect(byRole.body.total).toBeGreaterThanOrEqual(2);
 
-    const failed = await request(apiBase()).get('/api/v1/recruitment/candidates?status=failed&page=1&pageSize=20').set('Authorization', `Bearer ${instructorA}`);
+    const failed = await request(apiBase()).get(`/api/v1/recruitment/candidates?status=failed&search=${RUN}&page=1&pageSize=20`).set('Authorization', `Bearer ${instructorA}`);
     expect(failed.body.items.some((c: { email: string }) => c.email === `e2e-m4-i3-${RUN}@vintern.test`)).toBe(true);
 
     const p1 = await request(apiBase()).get('/api/v1/recruitment/candidates?page=1&pageSize=2').set('Authorization', `Bearer ${instructorA}`);
