@@ -1,5 +1,7 @@
 # Instructor workflow checkpoint integration preparation
 
+> Historical plan only. The owner subsequently approved origin/main for BOTH PRs. The current executable integration record, full 15-migration main delta and all34overlap dispositions are in instructor-workflow-safe-integration.md and the newest progress-handoff section. Do not use the old feature-branch target or three-migration delta below for a main deployment.
+
 Prepared 2026-10-13 Asia/Bangkok. This is a plan only: no merge, push, force push, rebase, deployment or original-worktree edit is authorized/performed here.
 
 ## Sources and planning target
