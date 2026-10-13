@@ -293,4 +293,42 @@ describe('M2 Project Template Library', () => {
     const mine = await request(apiBase()).get('/api/v1/projects?page=1&pageSize=100').set('Authorization', `Bearer ${other}`);
     expect(mine.body.data.some((p: { id: string }) => p.id === started.body.projectId)).toBe(true);
   });
+  it('serializes concurrent keyed creates without orphan sessions or projects', async () => {
+    const requestId = randomUUID();
+    const name = `Concurrent library ${RUN}`;
+    const [{ requesterId }] = await dataSource.query('SELECT TOP(1) requesterId FROM template_runs WHERE templateId=@0 ORDER BY createdAt', [templateId]);
+    const [before] = await dataSource.query('SELECT COUNT(*) n FROM projects WHERE mentorId=@0', [requesterId]);
+    const responses = await Promise.all(Array.from({ length: 3 }, () => request(apiBase()).post(`/api/v1/project-templates/${templateId}/start`).set('Authorization', `Bearer ${token}`).send({ name, startDate: '2026-11-01', endDate: '2026-12-31', requestId })));
+    expect(responses.map(r => r.status)).toEqual([201, 201, 201]);
+    expect(new Set(responses.map(r => r.body.id)).size).toBe(1);
+    const sessions = await dataSource.query('SELECT id FROM internship_sessions WHERE name=@0', [name]);
+    const [after] = await dataSource.query('SELECT COUNT(*) n FROM projects WHERE mentorId=@0', [requesterId]);
+    expect(sessions).toHaveLength(1);
+    expect(after.n - before.n).toBe(1);
+  });
+
+  it('shares the blueprint but protects another instructors runs, context and change requests', async () => {
+    const other = await login(`e2e-m2-b-${RUN}@vintern.test`);
+    const ownDetail = await request(apiBase()).get(`/api/v1/project-templates/${templateId}`).set('Authorization', `Bearer ${other}`);
+    expect(ownDetail.status).toBe(200);
+    expect(ownDetail.body.definition.name).toBeTruthy();
+    expect(ownDetail.body.runs).toHaveLength(1);
+    const projectId = ownDetail.body.runs[0].projectId;
+    const mine = await request(apiBase()).get(`/api/v1/project-templates/${templateId}`).set('Authorization', `Bearer ${token}`);
+    expect(mine.body.runs.every((r: { projectId: string }) => r.projectId !== projectId)).toBe(true);
+    const input = { title: 'Owned change', description: 'Implement the real scoped change', reason: 'Scoped project regression coverage' };
+    const change = await request(apiBase()).post(`/api/v1/projects/${projectId}/changes`).set('Authorization', `Bearer ${other}`).send(input);
+    expect(change.status).toBe(201);
+    for (const path of [`/api/v1/projects/${projectId}/template-context`, `/api/v1/projects/${projectId}/changes`]) {
+      expect((await request(apiBase()).get(path).set('Authorization', `Bearer ${token}`)).status).toBe(403);
+      expect((await request(apiBase()).get(path).set('Authorization', `Bearer ${other}`)).status).toBe(200);
+    }
+    expect((await request(apiBase()).post(`/api/v1/projects/${projectId}/changes`).set('Authorization', `Bearer ${token}`).send(input)).status).toBe(403);
+    expect((await request(apiBase()).post(`/api/v1/project-changes/${change.body.id}/apply`).set('Authorization', `Bearer ${token}`)).status).toBe(403);
+    const [persisted] = await dataSource.query('SELECT status,taskId FROM project_change_requests WHERE id=@0', [change.body.id]);
+    expect(persisted.status).toBe('proposed');
+    expect(persisted.taskId).toBeNull();
+    expect((await request(apiBase()).post(`/api/v1/project-changes/${change.body.id}/apply`).set('Authorization', `Bearer ${other}`)).status).toBe(201);
+  });
+
 });

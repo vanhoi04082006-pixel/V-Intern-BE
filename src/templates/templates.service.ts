@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import { DataSource, EntityManager } from 'typeorm';
 import { Project } from '../projects/entities/project.entity';
@@ -13,11 +13,29 @@ import { ActivityEvent } from '../audit/entities/activity-event.entity';
 import { RequestPrincipal } from '../common/types/request-principal';
 import { toPaginated } from '../common/pagination/paginated';
 import { isUniqueViolation } from '../common/utils/db-errors';
+import { Ownership } from '../rbac/ownership';
+import { PermissionsService } from '../rbac/permissions.service';
 import { ChangeRequestDto, CreateTemplateDto, QueryTemplatesDto, StartTemplateDto, UpdateTemplateDto } from './template.dto';
 interface TemplateRow { id: string; code: string; name: string; category: string | null; difficulty: string; status: string; version: number; definitionJson: string; createdAt: Date; archivedAt: Date | null; }
 @Injectable()
 export class TemplatesService {
-  constructor(private readonly db: DataSource, private readonly tasks: TasksService) {}
+  constructor(private readonly db: DataSource, private readonly tasks: TasksService, private readonly permissions: PermissionsService) {}
+
+  private async assertProjectAccess(db: DataSource | EntityManager, projectId: string, actor: string, manage = false): Promise<void> {
+    const rows: Array<{ mentorId: string | null }> = await db.query(
+      `SELECT mentorId FROM projects ${manage ? 'WITH(UPDLOCK,HOLDLOCK)' : ''} WHERE id=@0`, [projectId]);
+    if (!rows.length) throw new NotFoundException('Project not found.');
+    if (await this.permissions.hasRole(actor, 'admin')) return;
+    const owner = rows[0].mentorId;
+    if ((owner && owner.toLowerCase() !== actor.toLowerCase()) || (manage && !owner)) {
+      throw new ForbiddenException({ code: 'PROJECT_SCOPE_FORBIDDEN', message: 'You do not manage this project.' });
+    }
+    const foreign = await db.query(`SELECT 1 AS denied FROM template_runs r
+      JOIN internship_sessions s ON s.id=r.sessionId WHERE r.projectId=@0
+      AND (s.leadInstructorId IS NULL OR s.leadInstructorId<>@1)
+      AND NOT EXISTS(SELECT 1 FROM session_instructors si WHERE si.sessionId=s.id AND si.instructorId=@1)`, [projectId, actor]);
+    if (foreign.length) throw new ForbiddenException({ code: 'PROJECT_SCOPE_FORBIDDEN', message: 'You do not manage this project session.' });
+  }
 
   private parseDefinition(row: TemplateRow): CreateTemplateDto {
     return JSON.parse(row.definitionJson) as CreateTemplateDto;
@@ -92,12 +110,14 @@ export class TemplatesService {
     return toPaginated(rows.map((r) => this.toSummary(r)), page, pageSize, total);
   }
 
-  async get(id: string) {
+  async get(id: string, ownership: Ownership) {
     const rows: TemplateRow[] = await this.db.query('SELECT * FROM project_templates WHERE id=@0', [id]);
     if (!rows.length) throw new NotFoundException('Template not found.');
     const row = rows[0];
     const runs: { id: string; projectId: string; sessionId: string; templateVersion: number; createdAt: Date }[] =
-      await this.db.query('SELECT TOP(20) id, projectId, sessionId, templateVersion, createdAt FROM template_runs WHERE templateId=@0 ORDER BY createdAt DESC', [id]);
+      await this.db.query(`SELECT TOP(20) r.id, r.projectId, r.sessionId, r.templateVersion, r.createdAt FROM template_runs r
+        WHERE r.templateId=@0 ${ownership.isAdmin ? '' : 'AND EXISTS (SELECT 1 FROM internship_sessions s WHERE s.id=r.sessionId AND (s.leadInstructorId=@1 OR EXISTS (SELECT 1 FROM session_instructors si WHERE si.sessionId=s.id AND si.instructorId=@1)))'}
+        ORDER BY r.createdAt DESC, r.id`, ownership.isAdmin ? [id] : [id, ownership.userId]);
     const norm = (v: string) => v.toLowerCase();
     return {
       ...this.toSummary(row),
@@ -129,7 +149,7 @@ export class TemplatesService {
 
   async update(id: string, dto: UpdateTemplateDto, actor: string) {
     return this.db.transaction(async em => {
-      const rows: TemplateRow[] = await em.query('SELECT * FROM project_templates WITH(HOLDLOCK) WHERE id=@0', [id]);
+      const rows: TemplateRow[] = await em.query('SELECT * FROM project_templates WITH(UPDLOCK,HOLDLOCK) WHERE id=@0', [id]);
       if (!rows.length) throw new NotFoundException('Template not found.');
       const current = rows[0];
       const sets: string[] = [];
@@ -186,6 +206,10 @@ export class TemplatesService {
       });
     }
     return this.db.transaction(async em => {
+      // Serialize request keys across templates for one requester, then runs
+      // of the same template. Never catch a unique failure after creating
+      // project/session rows and commit those losing transaction's rows.
+      await em.query('SELECT id FROM users WITH(UPDLOCK,HOLDLOCK) WHERE id=@0', [actor]);
       if (dto.requestId) {
         const prior: { id: string; projectId: string; sessionId: string; templateVersion: number }[] = await em.query(
           'SELECT id, projectId, sessionId, templateVersion FROM template_runs WHERE requesterId=@0 AND requestId=@1', [actor, dto.requestId]);
@@ -193,7 +217,7 @@ export class TemplatesService {
           return { id: prior[0].id.toLowerCase(), projectId: prior[0].projectId.toLowerCase(), sessionId: prior[0].sessionId.toLowerCase(), templateVersion: prior[0].templateVersion, deduped: true };
         }
       }
-      const rows: TemplateRow[] = await em.query('SELECT * FROM project_templates WITH(HOLDLOCK) WHERE id=@0', [id]);
+      const rows: TemplateRow[] = await em.query('SELECT * FROM project_templates WITH(UPDLOCK,HOLDLOCK) WHERE id=@0', [id]);
       if (!rows.length) throw new NotFoundException('Template not found.');
       const template = rows[0];
       if (template.status === 'archived') {
@@ -225,25 +249,15 @@ export class TemplatesService {
       }));
       for (const technology of definition.techStack) await em.insert(ProjectTechnology, { projectId: project.id, technology });
       // M24: copy template role slots to the project (cap = countMax).
-      for (const role of definition.roleDetails ?? []) {
+      // Historic definitions have roles without roleDetails. Preserve their
+      // existing schema by deriving one required slot per declared role.
+      for (const role of (definition.roleDetails?.length ? definition.roleDetails : definition.roles.map(code => ({ code, countMin: 1, countMax: 1 })))) {
         await em.query('INSERT INTO project_role_slots(projectId, roleCode, requiredCount) VALUES(@0,@1,@2)',
           [project.id, role.code, role.countMax ?? role.countMin ?? 1]);
       }
       const runId = randomUUID();
-      try {
-        await em.query('INSERT INTO template_runs(id,templateId,projectId,sessionId,templateVersion,snapshotJson,requesterId,requestId) VALUES(@0,@1,@2,@3,@4,@5,@6,@7)',
-          [runId, id, project.id, session.id, template.version, template.definitionJson, actor, dto.requestId ?? null]);
-      } catch (err) {
-        // Concurrent replay racing past the pre-check: return the winner.
-        if (dto.requestId && isUniqueViolation(err)) {
-          const winner: { id: string; projectId: string; sessionId: string; templateVersion: number }[] = await em.query(
-            'SELECT id, projectId, sessionId, templateVersion FROM template_runs WHERE requesterId=@0 AND requestId=@1', [actor, dto.requestId]);
-          if (winner.length) {
-            return { id: winner[0].id.toLowerCase(), projectId: winner[0].projectId.toLowerCase(), sessionId: winner[0].sessionId.toLowerCase(), templateVersion: winner[0].templateVersion, deduped: true };
-          }
-        }
-        throw err;
-      }
+      await em.query('INSERT INTO template_runs(id,templateId,projectId,sessionId,templateVersion,snapshotJson,requesterId,requestId) VALUES(@0,@1,@2,@3,@4,@5,@6,@7)',
+        [runId, id, project.id, session.id, template.version, template.definitionJson, actor, dto.requestId ?? null]);
       await this.record(em, actor, 'template.started', runId, { templateId: id, templateVersion: template.version, projectId: project.id, sessionId: session.id });
       return { id: runId, projectId: String(project.id).toLowerCase(), sessionId: String(session.id).toLowerCase(), templateVersion: template.version, deduped: false };
     });
@@ -253,13 +267,20 @@ export class TemplatesService {
     const rows: { specJson: string }[] = await this.db.query('SELECT specJson FROM task_specs WHERE taskId=@0',[id]);
     return rows.length ? JSON.parse(rows[0].specJson) as object : null;
   }
-  async projectContext(projectId: string) {
+  async projectContext(projectId: string, actor?: string) {
+    // Internal AI calls already enforce project/session management. HTTP
+    // callers always supply the actor and must pass the same scope boundary.
+    if (actor) await this.assertProjectAccess(this.db, projectId, actor);
     const rows: { snapshotJson: string; templateVersion: number }[] = await this.db.query('SELECT snapshotJson,templateVersion FROM template_runs WHERE projectId=@0',[projectId]);
     return rows.length ? { definition: JSON.parse(rows[0].snapshotJson) as object, templateVersion: rows[0].templateVersion } : null;
   }
-  async changes(projectId: string) { return this.db.query('SELECT TOP(100) * FROM project_change_requests WHERE projectId=@0 ORDER BY createdAt DESC',[projectId]); }
+  async changes(projectId: string, actor: string) {
+    await this.assertProjectAccess(this.db, projectId, actor);
+    return this.db.query('SELECT TOP(100) * FROM project_change_requests WHERE projectId=@0 ORDER BY createdAt DESC',[projectId]);
+  }
   async propose(projectId: string, dto: ChangeRequestDto, actor: string) {
     return this.db.transaction(async em => {
+      await this.assertProjectAccess(em, projectId, actor, true);
       const project = await em.findOneBy(Project,{ id: projectId });
       if (!project || project.status !== 'active') throw new ConflictException('Project must be active.');
       const id = randomUUID();
@@ -272,7 +293,9 @@ export class TemplatesService {
     return this.db.transaction(async em => {
       const rows: { projectId: string; title: string; description: string; dueDate: Date | null; status: string; taskId: string | null }[] = await em.query('SELECT * FROM project_change_requests WITH(UPDLOCK,HOLDLOCK) WHERE id=@0',[id]);
       if (!rows.length) throw new NotFoundException('Change request not found.');
-      const change = rows[0]; if (change.status === 'applied') return { taskId: change.taskId };
+      const change = rows[0];
+      await this.assertProjectAccess(em, change.projectId, actor, true);
+      if (change.status === 'applied') return { taskId: change.taskId };
       const project = await em.findOne(Project,{ where: { id: change.projectId },lock: { mode: 'pessimistic_write' } });
       if (!project || project.status !== 'active') throw new ConflictException('Project must be active.');
       const task = await this.createTask(em,project,actor,change.title,change.description,{ dueDate: change.dueDate });
