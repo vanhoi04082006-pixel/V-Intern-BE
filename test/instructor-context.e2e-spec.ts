@@ -168,9 +168,9 @@ describe('Instructor context reads', () => {
   });
 
   it('candidates carry availability and latest interview scores', async () => {
-    const res = await request(apiBase()).get('/api/v1/recruitment/candidates?pageSize=50').set('Authorization', `Bearer ${instructorA}`);
+    const res = await request(apiBase()).get(`/api/v1/recruitment/candidates?pageSize=50&search=${encodeURIComponent(`e2e-ctx-i1-${RUN}`)}`).set('Authorization', `Bearer ${instructorA}`);
     expect(res.status).toBe(200);
-    const me = res.body.items.find((c: { userId: string }) => c.userId === internId);
+    const me = res.body.items.find((c: { userId: string }) => c.userId === internId.toLowerCase());
     expect(me).toBeDefined();
     expect(me.hasActiveAssignment).toBe(true);
     expect(me.activeProjectId).toBe(projectA);

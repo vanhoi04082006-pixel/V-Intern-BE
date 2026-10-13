@@ -155,7 +155,7 @@ beforeAll(async () => {
     }
   }
   await ensureRecruitedProfile(dataSource, await userIdByEmail(dataSource, `e2e-gen-fe-${RUN}@vintern.test`));
-  await ensureRecruitedProfile(dataSource, await userIdByEmail(dataSource, `e2e-gen-be-${RUN}@vintern.test`));
+  await ensureRecruitedProfile(dataSource, await userIdByEmail(dataSource, `e2e-gen-be-${RUN}@vintern.test`), 'backend');
 }, 180_000);
 
 afterAll(async () => {

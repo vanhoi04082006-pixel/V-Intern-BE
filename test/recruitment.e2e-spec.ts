@@ -115,15 +115,16 @@ let app: INestApplication;
 let dataSource: DataSource;
 let testProvider: ScriptableTestAiProvider;
 
+const RUN = Date.now().toString(36);
 const EMAILS = {
-  admin: 'e2e-rec-admin@vintern.test',
-  instructor: 'e2e-rec-instructor@vintern.test',
-  i1: 'e2e-rec-i1@vintern.test',
-  i2: 'e2e-rec-i2@vintern.test',
-  i3: 'e2e-rec-i3@vintern.test',
-  i4: 'e2e-rec-i4@vintern.test',
-  i5: 'e2e-rec-i5@vintern.test',
-  i6: 'e2e-rec-i6@vintern.test',
+  admin: `e2e-rec-${RUN}-admin@vintern.test`,
+  instructor: `e2e-rec-${RUN}-instructor@vintern.test`,
+  i1: `e2e-rec-${RUN}-i1@vintern.test`,
+  i2: `e2e-rec-${RUN}-i2@vintern.test`,
+  i3: `e2e-rec-${RUN}-i3@vintern.test`,
+  i4: `e2e-rec-${RUN}-i4@vintern.test`,
+  i5: `e2e-rec-${RUN}-i5@vintern.test`,
+  i6: `e2e-rec-${RUN}-i6@vintern.test`,
 };
 const PASSWORD = 'E2e-Password-1';
 
@@ -193,11 +194,11 @@ beforeAll(async () => {
   const instructorRole = await roles.findOneOrFail({ where: { code: 'instructor' } });
   const internRole = await roles.findOneOrFail({ where: { code: 'intern' } });
   const specs = [
-    { email: EMAILS.admin, username: 'e2e-rec-admin', roleId: adminRole.id },
-    { email: EMAILS.instructor, username: 'e2e-rec-instructor', roleId: instructorRole.id },
+    { email: EMAILS.admin, username: `e2e-rec-${RUN}-admin`, roleId: adminRole.id },
+    { email: EMAILS.instructor, username: `e2e-rec-${RUN}-instructor`, roleId: instructorRole.id },
     ...Object.values(EMAILS)
       .filter((e) => /-i\d@/.test(e))
-      .map((email, i) => ({ email, username: `e2e-rec-i${i + 1}`, roleId: internRole.id })),
+      .map((email, i) => ({ email, username: `e2e-rec-${RUN}-i${i + 1}`, roleId: internRole.id })),
   ];
   for (const spec of specs) {
     const existing = await users.findOne({ where: { email: spec.email } });

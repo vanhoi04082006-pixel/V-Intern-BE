@@ -252,23 +252,44 @@ jobs:
         run: npm run test:e2e
 
       # ── Migration rollback verification (spec 16 + Phase 6 §79) ────────
+      # The full current schema has 21 migrations. Reverting its latest row
+      # does NOT remove Phase6. Preserve historical rollback gates on a
+      # separate, empty six-migration baseline; never truncate product history.
+      - name: Create dedicated historical rollback database
+        env:
+          E2E_DB_NAME: VIntern_Rollback_E2E
+          DB_ADMIN_USERNAME: sa
+          DB_ADMIN_PASSWORD: ${{ env.SA_PASSWORD }}
+          DB_PASSWORD: ${{ env.APP_PASSWORD }}
+        run: npm run db:create:e2e
+
+      - name: Apply six-migration Phase1-6 baseline to the rollback database
+        env:
+          DB_NAME: VIntern_Rollback_E2E
+          DB_PASSWORD: ${{ env.APP_PASSWORD }}
+        run: npx typeorm-ts-node-commonjs migration:run -d src/database/ci-legacy-data-source.ts
+
       - name: Revert Phase 6 (latest migration) on the disposable database
         env:
+          DB_NAME: VIntern_Rollback_E2E
           DB_PASSWORD: ${{ env.APP_PASSWORD }}
-        run: npm run migration:revert
+        run: npx typeorm-ts-node-commonjs migration:revert -d src/database/ci-legacy-data-source.ts
 
       - name: Audit after Phase 6 rollback (Phase 6 objects GONE, Phase 1-5 intact)
         env:
+          DB_NAME: VIntern_Rollback_E2E
           DB_PASSWORD: ${{ env.APP_PASSWORD }}
         run: npm run audit:schema -- --phase6=absent
 
       - name: Reapply Phase 6 (fresh reapply must succeed)
         env:
+          DB_NAME: VIntern_Rollback_E2E
           DB_PASSWORD: ${{ env.APP_PASSWORD }}
-        run: npm run migration:run
+        run: npx typeorm-ts-node-commonjs migration:run -d src/database/ci-legacy-data-source.ts
 
       - name: Audit after Phase 6 reapply (full schema present again)
         env:
+          DB_NAME: VIntern_Rollback_E2E
           DB_PASSWORD: ${{ env.APP_PASSWORD }}
         run: npm run audit:schema
 
@@ -276,26 +297,31 @@ jobs:
       # above, so remove it again before testing the Phase 5 rollback.
       - name: Revert Phase 6 again before Phase 5 rollback
         env:
+          DB_NAME: VIntern_Rollback_E2E
           DB_PASSWORD: ${{ env.APP_PASSWORD }}
-        run: npm run migration:revert
+        run: npx typeorm-ts-node-commonjs migration:revert -d src/database/ci-legacy-data-source.ts
 
       - name: Revert Phase 5 (proves Phase 5 rollback still clean under Phase 6 schema history)
         env:
+          DB_NAME: VIntern_Rollback_E2E
           DB_PASSWORD: ${{ env.APP_PASSWORD }}
-        run: npm run migration:revert
+        run: npx typeorm-ts-node-commonjs migration:revert -d src/database/ci-legacy-data-source.ts
 
       - name: Audit after Phase 5 rollback (Phase 5+6 objects GONE, Phase 1-4 intact)
         env:
+          DB_NAME: VIntern_Rollback_E2E
           DB_PASSWORD: ${{ env.APP_PASSWORD }}
         run: npm run audit:schema -- --phase5=absent --phase6=absent
 
       - name: Reapply Phases 5 and 6 (fresh reapply must succeed)
         env:
+          DB_NAME: VIntern_Rollback_E2E
           DB_PASSWORD: ${{ env.APP_PASSWORD }}
-        run: npm run migration:run
+        run: npx typeorm-ts-node-commonjs migration:run -d src/database/ci-legacy-data-source.ts
 
       - name: Audit after reapply (full schema present again)
         env:
+          DB_NAME: VIntern_Rollback_E2E
           DB_PASSWORD: ${{ env.APP_PASSWORD }}
         run: npm run audit:schema
 

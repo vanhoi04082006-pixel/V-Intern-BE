@@ -141,8 +141,8 @@ beforeAll(async () => {
   const specs: Array<{ email: string; username: string; roleId: string }> = [
     { email: 'e2e-admin@vintern.test', username: 'e2e-admin', roleId: adminRole.id },
     { email: 'e2e-instructor@vintern.test', username: 'e2e-instructor', roleId: instructorRole.id },
-    { email: 'e2e-st-intern@vintern.test', username: 'e2e-st-intern', roleId: internRole.id },
-    { email: 'e2e-st-intern-2@vintern.test', username: 'e2e-st-intern-2', roleId: internRole.id },
+    { email: `e2e-st-${RUN}-intern@vintern.test`, username: `e2e-st-${RUN}-intern`, roleId: internRole.id },
+    { email: `e2e-st-${RUN}-intern-2@vintern.test`, username: `e2e-st-${RUN}-intern-2`, roleId: internRole.id },
   ];
   for (const spec of specs) {
     const existing = await users.findOne({ where: { email: spec.email } });
@@ -162,7 +162,7 @@ beforeAll(async () => {
 
   // Phase 4 (spec 47): seed PASSED recruitment profiles — Phase 3 semantics
   // (workspace + sprints + tasks) are tested on recruitable interns.
-  for (const email of ['e2e-st-intern@vintern.test', 'e2e-st-intern-2@vintern.test']) {
+  for (const email of [`e2e-st-${RUN}-intern@vintern.test`, `e2e-st-${RUN}-intern-2@vintern.test`]) {
     await ensureRecruitedProfile(dataSource, await userIdByEmail(dataSource, email));
   }
 }, 120_000);
@@ -199,8 +199,8 @@ describe('Phase 3 sprint/task e2e — plan → activate → task → review → 
   it('setup: logins + workspace starts unassigned', async () => {
     admin = await login('e2e-admin@vintern.test');
     instructor = await login('e2e-instructor@vintern.test');
-    intern = await login('e2e-st-intern@vintern.test');
-    await login('e2e-st-intern-2@vintern.test'); // second intern account must be loginable
+    intern = await login(`e2e-st-${RUN}-intern@vintern.test`);
+    await login(`e2e-st-${RUN}-intern-2@vintern.test`); // second intern account must be loginable
 
     const res = await request(apiBase())
       .get('/api/v1/intern/me/workspace')
@@ -243,7 +243,7 @@ describe('Phase 3 sprint/task e2e — plan → activate → task → review → 
     const assigned = await request(apiBase())
       .post('/api/v1/assignments')
       .set('Authorization', `Bearer ${instructor}`)
-      .send({ internId: (await dataSource.getRepository(User).findOneByOrFail({ email: 'e2e-st-intern@vintern.test' })).id, projectId, sessionId });
+      .send({ internId: (await dataSource.getRepository(User).findOneByOrFail({ email: `e2e-st-${RUN}-intern@vintern.test` })).id, projectId, sessionId });
     expect([200, 201]).toContain(assigned.status);
   });
 
@@ -293,7 +293,7 @@ describe('Phase 3 sprint/task e2e — plan → activate → task → review → 
   });
 
   it('teacher creates a task assigned to the intern', async () => {
-    const internId = (await dataSource.getRepository(User).findOneByOrFail({ email: 'e2e-st-intern@vintern.test' })).id;
+    const internId = (await dataSource.getRepository(User).findOneByOrFail({ email: `e2e-st-${RUN}-intern@vintern.test` })).id;
     const res = await request(apiBase())
       .post('/api/v1/tasks')
       .set('Authorization', `Bearer ${instructor}`)
@@ -414,7 +414,7 @@ describe('Phase 3 sprint/task e2e — plan → activate → task → review → 
   });
 
   it('intern cannot mutate ANOTHER intern task (403 TASK_NOT_OWNED)', async () => {
-    const intern2Id = (await dataSource.getRepository(User).findOneByOrFail({ email: 'e2e-st-intern-2@vintern.test' })).id;
+    const intern2Id = (await dataSource.getRepository(User).findOneByOrFail({ email: `e2e-st-${RUN}-intern-2@vintern.test` })).id;
     // The assignee boundary requires an ACTIVE assignment on THIS project —
     // give intern-2 one, then create their task (spec 27).
     const assigned = await request(apiBase())
@@ -436,7 +436,7 @@ describe('Phase 3 sprint/task e2e — plan → activate → task → review → 
   });
 
   it('duplicate/illegal transition → 409 (todo→done by manage is still illegal)', async () => {
-    const internId = (await dataSource.getRepository(User).findOneByOrFail({ email: 'e2e-st-intern@vintern.test' })).id;
+    const internId = (await dataSource.getRepository(User).findOneByOrFail({ email: `e2e-st-${RUN}-intern@vintern.test` })).id;
     const fresh = await request(apiBase())
       .post('/api/v1/tasks')
       .set('Authorization', `Bearer ${instructor}`)
@@ -451,7 +451,7 @@ describe('Phase 3 sprint/task e2e — plan → activate → task → review → 
   });
 
   it('intern project/board reads are assignment scoped without broad view permissions', async () => {
-    const internId = (await dataSource.getRepository(User).findOneByOrFail({ email: 'e2e-st-intern@vintern.test' })).id;
+    const internId = (await dataSource.getRepository(User).findOneByOrFail({ email: `e2e-st-${RUN}-intern@vintern.test` })).id;
     const project = await request(apiBase()).get('/api/v1/intern/me/project').set('Authorization', `Bearer ${intern}`);
     expect(project.status).toBe(200);
     expect(project.body.id).toBe(projectId);
