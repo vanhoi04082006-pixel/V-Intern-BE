@@ -145,6 +145,21 @@ describe('GeminiProvider (spec 61 — mocked transport)', () => {
     expect((err as AiProviderError).retryable).toBe(true);
   });
 
+  it('bounds response body reading after headers and classifies its abort as timeout', async () => {
+    const fetchImpl: AiFetchLike = async (_url, init) => ({
+      status: 200, ok: true,
+      text: () => new Promise<string>((_resolve, reject) => {
+        init.signal.addEventListener('abort', () => {
+          const err = new Error('body aborted'); err.name = 'AbortError'; reject(err);
+        });
+      }),
+    });
+    const result = makeProvider({ fetchImpl, timeoutMs: 20 }).generateStructured(request);
+    // An independent watchdog lets the regression fail instead of hanging Jest.
+    await expect(Promise.race([result, new Promise((_, reject) => setTimeout(() => reject(new Error('body remained unbounded')), 100))]))
+      .rejects.toBeInstanceOf(AiProviderTimeoutError);
+  });
+
   it('HTTP 429 → retryable rate_limited', async () => {
     const fetchImpl: AiFetchLike = async () => ({
       status: 429,
