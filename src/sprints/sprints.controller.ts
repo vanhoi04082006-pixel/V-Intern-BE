@@ -43,6 +43,10 @@ export class SprintsController {
       projectId: query.projectId,
       sessionId: query.sessionId,
       status: query.status,
+      assigneeId: query.assigneeId,
+      dueFrom: query.dueFrom,
+      dueTo: query.dueTo,
+      search: query.search,
     }, await this.ownership(userId));
     return toPaginated(items, query.page, query.pageSize, total);
   }

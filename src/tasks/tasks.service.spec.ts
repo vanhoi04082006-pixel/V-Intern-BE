@@ -356,6 +356,11 @@ describe('tasks.service — create (spec 10/11/12/14/27)', () => {
     });
   });
 
+  it('accepts the same project identity returned in SQL Server uppercase form', async () => {
+    const h = buildHarness({ sprint: { ...SPRINT_ROW, projectId: input.projectId.toUpperCase() } as unknown as Sprint });
+    await expect(h.service.create(input, CTX)).resolves.toMatchObject({ id: expect.any(String) });
+  });
+
   it('409 INVALID_ASSIGNEE when the assignee has no active assignment on THIS project', async () => {
     const h = buildHarness({ activeAssignment: null });
     await expect(h.service.create(input, CTX)).rejects.toMatchObject({

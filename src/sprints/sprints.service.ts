@@ -98,17 +98,18 @@ function toSprintResponse(
   extras?: { project?: SprintResponse['project']; session?: SprintResponse['session'] },
 ): SprintResponse {
   return {
-    id: s.id,
+    // Canonical lowercase UUIDs (mssql UNIQUEIDENTIFIER reads back uppercase).
+    id: s.id.toLowerCase(),
     code: s.code,
     name: s.name,
     description: s.description ?? null,
-    projectId: s.projectId,
-    sessionId: s.sessionId ?? null,
+    projectId: s.projectId.toLowerCase(),
+    sessionId: s.sessionId ? s.sessionId.toLowerCase() : null,
     status: s.status,
     goal: s.goal ?? null,
     startDate: s.startDate,
     endDate: s.endDate,
-    createdById: s.createdById ?? null,
+    createdById: s.createdById ? s.createdById.toLowerCase() : null,
     createdAt: s.createdAt,
     updatedAt: s.updatedAt,
     ...(extras ?? {}),
@@ -202,7 +203,7 @@ export class SprintsService {
     }
   }
 
-  async list(q: { page: number; pageSize: number; projectId?: string; sessionId?: string; status?: string }, o?: Ownership) {
+  async list(q: { page: number; pageSize: number; projectId?: string; sessionId?: string; status?: string; assigneeId?: string; dueFrom?: string; dueTo?: string; search?: string }, o?: Ownership) {
     const qb = this.sprints.createQueryBuilder('s');
     if (o && !o.isAdmin) {
       qb.andWhere(scopedProjectSessionClause('s.projectId', 's.sessionId'), { [OWNER_PARAM]: o.userId });
@@ -210,7 +211,12 @@ export class SprintsService {
     if (q.projectId) qb.andWhere('s.projectId = :projectId', { projectId: q.projectId });
     if (q.sessionId) qb.andWhere('s.sessionId = :sessionId', { sessionId: q.sessionId });
     if (q.status) qb.andWhere('s.status = :status', { status: q.status });
+    if (q.assigneeId) qb.andWhere('EXISTS (SELECT 1 FROM tasks t WHERE t.sprintId=s.id AND t.deletedAt IS NULL AND t.assigneeId=:assigneeId)', { assigneeId: q.assigneeId });
+    if (q.dueFrom) qb.andWhere('s.endDate >= :dueFrom', { dueFrom: new Date(q.dueFrom) });
+    if (q.dueTo) qb.andWhere('s.endDate <= :dueTo', { dueTo: new Date(q.dueTo) });
+    if (q.search?.trim()) qb.andWhere('(s.code LIKE :search OR s.name LIKE :search OR s.goal LIKE :search)', { search: `%${q.search.trim()}%` });
     qb.orderBy('s.createdAt', 'DESC')
+      .addOrderBy('s.id', 'ASC')
       .skip((q.page - 1) * q.pageSize)
       .take(q.pageSize);
     const [items, total] = await qb.getManyAndCount();

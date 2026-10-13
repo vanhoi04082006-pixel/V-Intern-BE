@@ -383,7 +383,7 @@ export class TasksService {
             message: 'Sprint not found.',
           });
         }
-        if (sprint.projectId !== input.projectId) {
+        if (sprint.projectId.toLowerCase() !== input.projectId.toLowerCase()) {
           throw new ConflictException({
             statusCode: 409,
             code: 'SPRINT_PROJECT_MISMATCH',
@@ -538,7 +538,7 @@ export class TasksService {
             message: 'Sprint not found.',
           });
         }
-        if (sprint.projectId !== task.projectId) {
+        if (sprint.projectId.toLowerCase() !== task.projectId.toLowerCase()) {
           throw new ConflictException({
             statusCode: 409,
             code: 'SPRINT_PROJECT_MISMATCH',
