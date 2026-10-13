@@ -18,16 +18,33 @@ import {
 } from './performance-calculator';
 
 export interface PerformanceQuery {
+  q?: string;
   sessionId?: string;
   projectId?: string;
   from?: string;
   to?: string;
 }
 
+interface PerformanceFacts {
+  assignments: Assignment[];
+  tasks: Task[];
+  histories: TaskStatusHistory[];
+  evaluations: Evaluation[];
+  sprints: Sprint[];
+}
+
+// SQL Server limits parameters per statement. Chunk by facts, never by intern.
+async function collectChunks<T>(ids: string[], load: (chunk: string[]) => Promise<T[]>): Promise<T[]> {
+  const rows: T[] = [];
+  for (let i = 0; i < ids.length; i += 500) rows.push(...await load(ids.slice(i, i + 500)));
+  return rows;
+}
+
 const forbidden = (code: string, message: string) =>
   new ForbiddenException({ statusCode: 403, code, message });
 const notFound = (code: string, message: string) =>
   new NotFoundException({ statusCode: 404, code, message });
+const sameId = (a: string | null | undefined, b: string | null | undefined) => a != null && b != null && a.toLowerCase() === b.toLowerCase();
 
 /**
  * PerformanceService (Phase 5, spec 16-21) — a READ MODEL over DB facts.
@@ -69,24 +86,33 @@ export class PerformanceService {
     }
     const internIds = [...new Set(rows.map((a) => a.internId))];
     if (internIds.length === 0) return { items: [], total: 0 };
-    const users = await this.users.find({ where: internIds.map((id) => ({ id })) });
+    const users = await collectChunks(internIds, ids => this.users.find({ where: { id: In(ids) } }));
     const nameById = new Map(users.map((u) => [u.id, u.displayName]));
     const projectIds = [...new Set(rows.map((a) => a.projectId))];
     const sessionIds = [...new Set(rows.map((a) => a.sessionId))];
     const [projects, sessions] = await Promise.all([
-      projectIds.length ? this.projects.find({ where: projectIds.map((id) => ({ id })) }) : Promise.resolve([]),
-      sessionIds.length ? this.sessions.find({ where: sessionIds.map((id) => ({ id })) }) : Promise.resolve([]),
+      collectChunks(projectIds, ids => this.projects.find({ where: { id: In(ids) } })),
+      collectChunks(sessionIds, ids => this.sessions.find({ where: { id: In(ids) } })),
     ]);
     const projectById = new Map(projects.map((p) => [p.id, p]));
     const sessionById = new Map(sessions.map((s) => [s.id, s]));
+    const [taskRows, evaluationRows, sprintRows] = await Promise.all([
+      collectChunks(internIds, ids => this.tasks.find({ where: { assigneeId: In(ids) } })),
+      collectChunks(internIds, ids => this.evaluations.find({ where: { internId: In(ids), status: 'finalized' } })),
+      collectChunks(projectIds, ids => this.sprints.find({ where: { projectId: In(ids) } })),
+    ]);
+    const historyRows = await collectChunks(taskRows.map(t => t.id), taskIds => this.histories.createQueryBuilder('h')
+      .where('h.taskId IN (:...taskIds)', { taskIds }).andWhere('h.toStatus = :done', { done: 'done' }).orderBy('h.createdAt', 'ASC').getMany());
+    const facts: PerformanceFacts = { assignments: rows, tasks: taskRows, evaluations: evaluationRows, sprints: sprintRows, histories: historyRows };
     const items = [];
     for (const internId of internIds) {
+      if (q.q?.trim() && !users.some(u => u.id === internId && `${u.displayName} ${u.email}`.toLowerCase().includes(q.q!.trim().toLowerCase()))) continue;
       const ownRows = rows.filter((a) => a.internId === internId);
       const primary = ownRows.find((a) => a.status === 'active') ?? ownRows.sort((a, b) => b.assignedAt.getTime() - a.assignedAt.getTime())[0];
       const primaryProject = primary ? projectById.get(primary.projectId) : undefined;
       const primarySession = primary ? sessionById.get(primary.sessionId) : undefined;
       const allowedProjectIds = principal.isAdmin ? undefined : new Set(rows.filter(a => a.internId === internId).map(a => a.projectId));
-      const metrics = await this.computeForIntern(internId, { ...scope, allowedProjectIds });
+      const metrics = await this.computeForIntern(internId, { ...scope, allowedProjectIds }, facts);
       items.push({
         userId: internId,
         displayName: nameById.get(internId) ?? null,
@@ -110,6 +136,7 @@ export class PerformanceService {
   async getInternMetrics(principal: { userId: string; isAdmin: boolean }, targetUserId: string, q: PerformanceQuery) {
     const scope = this.parseScope(q);
     let allowedProjectIds: Set<string> | undefined;
+    let allowedSessionIds: Set<string> | undefined;
     if (!principal.isAdmin) {
       const assignments = await this.assignments.find({
         where: { internId: targetUserId, status: In(['active', 'completed']) },
@@ -122,9 +149,11 @@ export class PerformanceService {
         throw forbidden('PERFORMANCE_SCOPE_FORBIDDEN', 'You do not manage this intern.');
       }
       allowedProjectIds = new Set(owned.map(a => a.projectId));
-      if (scope.projectId && !allowedProjectIds.has(scope.projectId)) throw forbidden('PERFORMANCE_SCOPE_FORBIDDEN', 'You do not manage this project.');
+      allowedSessionIds = new Set(owned.map(a => a.sessionId));
+      if (scope.projectId && ![...allowedProjectIds].some(id => sameId(id, scope.projectId))) throw forbidden('PERFORMANCE_SCOPE_FORBIDDEN', 'You do not manage this project.');
+      if (scope.sessionId && ![...allowedSessionIds].some(id => sameId(id, scope.sessionId))) throw forbidden('PERFORMANCE_SCOPE_FORBIDDEN', 'You do not manage this session.');
     }
-    const metrics = await this.computeForIntern(targetUserId, { ...scope, allowedProjectIds });
+    const metrics = await this.computeForIntern(targetUserId, { ...scope, allowedProjectIds, allowedSessionIds });
     return {
       userId: targetUserId,
       period: {
@@ -177,36 +206,45 @@ export class PerformanceService {
     if (assignments.length === 0) return [];
     const sessionIds = [...new Set(assignments.map((a) => a.sessionId))];
     const projectIds = [...new Set(assignments.map((a) => a.projectId))];
-    const instructed = await this.sessionInstructors.find({
-      where: sessionIds.map((sessionId) => ({ sessionId, instructorId: actorId })),
-    });
+    const instructed = await collectChunks(sessionIds, ids => this.sessionInstructors.find({
+      where: { sessionId: In(ids), instructorId: actorId },
+    }));
     const instructedSessions = new Set(instructed.map((i) => i.sessionId));
-    const projects = await this.projects.find({ where: projectIds.map((id) => ({ id })) });
-    const mentoredProjects = new Set(projects.filter((p) => p.mentorId === actorId).map((p) => p.id));
+    const led = await collectChunks(sessionIds, ids => this.sessions.find({ where: { id: In(ids), leadInstructorId: actorId } }));
+    for (const session of led) instructedSessions.add(session.id);
+    const projects = await collectChunks(projectIds, ids => this.projects.find({ where: { id: In(ids) } }));
+    const mentoredProjects = new Set(projects.filter((p) => sameId(p.mentorId, actorId)).map((p) => p.id));
     return assignments.filter((a) => instructedSessions.has(a.sessionId) || mentoredProjects.has(a.projectId));
   }
 
   /** Fetch raw facts and run the PURE deterministic calculator. */
-  private async computeForIntern(internId: string, scope: { from: Date | null; to: Date | null; now: Date; sessionId?: string; projectId?: string; allowedProjectIds?: Set<string> }): Promise<PerformanceMetrics> {
+  private async computeForIntern(internId: string, scope: { from: Date | null; to: Date | null; now: Date; sessionId?: string; projectId?: string; allowedProjectIds?: Set<string>; allowedSessionIds?: Set<string> }, facts?: PerformanceFacts): Promise<PerformanceMetrics> {
     // Projects of this intern's assignments (scope-filtered): the
     // assignment row carries BOTH sessionId and projectId, so scoping is
     // applied directly on the assignment rows (no project.sessionId join
     // ambiguity — projects may pre-date sessions).
-    let assignmentRows = await this.assignments.find({
+    let assignmentRows = facts ? facts.assignments.filter(a => a.internId === internId) : await this.assignments.find({
       where: { internId, status: In(['active', 'completed']) },
     });
-    if (scope.projectId) assignmentRows = assignmentRows.filter((a) => a.projectId === scope.projectId);
+    if (scope.projectId) assignmentRows = assignmentRows.filter((a) => sameId(a.projectId, scope.projectId));
     if (scope.allowedProjectIds) assignmentRows = assignmentRows.filter(a => scope.allowedProjectIds!.has(a.projectId));
-    if (scope.sessionId) assignmentRows = assignmentRows.filter((a) => a.sessionId === scope.sessionId);
+    if (scope.allowedSessionIds) assignmentRows = assignmentRows.filter(a => scope.allowedSessionIds!.has(a.sessionId));
+    if (scope.sessionId) assignmentRows = assignmentRows.filter((a) => sameId(a.sessionId, scope.sessionId));
     const scopedProjectIds = new Set(assignmentRows.map((a) => a.projectId));
     const scopedSessionIds = new Set(assignmentRows.map((a) => a.sessionId));
+    const sprintRows = (facts ? facts.sprints.filter(s => scopedProjectIds.has(s.projectId)) : scopedProjectIds.size
+      ? await collectChunks([...scopedProjectIds], ids => this.sprints.find({ where: { projectId: In(ids) } }))
+      : []).filter(s => scope.sessionId ? sameId(s.sessionId, scope.sessionId) : !s.sessionId || scopedSessionIds.has(s.sessionId));
+    const scopedSprintIds = new Set(sprintRows.map(s => s.id));
 
     // Tasks: assignee = intern, not soft-deleted, project in scope,
     // createdAt ∈ [from, to) (period membership — documented).
-    const taskRows = await this.tasks.find({ where: { assigneeId: internId } });
+    const taskRows = facts ? facts.tasks.filter(t => t.assigneeId === internId) : await this.tasks.find({ where: { assigneeId: internId } });
     const filteredTasks = taskRows.filter((t) => {
       if (t.deletedAt !== null) return false;
       if (!scopedProjectIds.has(t.projectId)) return false;
+      if (scope.sessionId && (!t.sprintId || !scopedSprintIds.has(t.sprintId))) return false;
+      if (t.sprintId && (facts || scope.allowedSessionIds) && !scopedSprintIds.has(t.sprintId)) return false;
       if (scope.from && t.createdAt.getTime() < scope.from.getTime()) return false;
       if (scope.to && t.createdAt.getTime() >= scope.to.getTime()) return false;
       return true;
@@ -216,12 +254,12 @@ export class PerformanceService {
     const taskIds = filteredTasks.map((t) => t.id);
     const doneAtByTask = new Map<string, Date>();
     if (taskIds.length > 0) {
-      const historyRows = await this.histories
+      const historyRows = facts ? facts.histories.filter(h => taskIds.includes(h.taskId)) : await collectChunks(taskIds, ids => this.histories
         .createQueryBuilder('h')
-        .where('h.taskId IN (:...taskIds)', { taskIds })
+        .where('h.taskId IN (:...taskIds)', { taskIds: ids })
         .andWhere('h.toStatus = :done', { done: 'done' })
         .orderBy('h.createdAt', 'ASC')
-        .getMany();
+        .getMany());
       for (const h of historyRows) {
         if (!doneAtByTask.has(h.taskId)) doneAtByTask.set(h.taskId, h.createdAt);
       }
@@ -238,23 +276,21 @@ export class PerformanceService {
 
     // Finalized evaluations for the intern; when the scope is session/
     // project-bound, only cycles with the same context count.
-    const evaluationRows = await this.evaluations.find({
+    const evaluationRows = facts ? facts.evaluations.filter(e => e.internId === internId) : await this.evaluations.find({
       where: { internId, status: 'finalized' },
     });
     const evaluationFacts: PerfEvaluationFact[] = evaluationRows
       .filter((e) => {
         if (scope.allowedProjectIds && e.projectId && !scope.allowedProjectIds.has(e.projectId)) return false;
         if (scope.allowedProjectIds && !e.projectId && e.sessionId && !scopedSessionIds.has(e.sessionId)) return false;
-        if (scope.sessionId && e.sessionId !== scope.sessionId) return false;
-        if (scope.projectId && e.projectId !== scope.projectId) return false;
+        if (e.sessionId && (facts || scope.allowedSessionIds) && !scopedSessionIds.has(e.sessionId)) return false;
+        if (scope.sessionId && !sameId(e.sessionId, scope.sessionId)) return false;
+        if (scope.projectId && !sameId(e.projectId, scope.projectId)) return false;
         return true;
       })
       .map((e) => ({ overallScore: Number(e.overallScore ?? 0), finalizedAt: e.finalizedAt ?? e.updatedAt }));
 
     // Active sprints in the scoped projects (for activeSprintProgress).
-    const sprintRows = scopedProjectIds.size
-      ? await this.sprints.find({ where: [...scopedProjectIds].map((projectId) => ({ projectId })) })
-      : [];
     const sprintFacts = sprintRows.map((s) => ({
       id: s.id,
       status: s.status,

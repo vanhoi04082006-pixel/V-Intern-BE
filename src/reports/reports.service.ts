@@ -21,9 +21,11 @@ export class ReportsService {
   constructor(private readonly db: DataSource, private readonly performance: PerformanceService, private readonly permissions: PermissionsService, private readonly audit: AuditService) {}
   private async principal(userId: string) { return { userId, isAdmin: await this.permissions.hasRole(userId,'admin') }; }
   async list(userId: string, query: ReportQueryDto) {
+    const scope = `createdById=@0 AND (@3 IS NULL OR projectId=@3) AND (@4 IS NULL OR JSON_VALUE(snapshotJson,'$.scope.sessionId')=@4)`;
+    const params = [userId,query.kind??null,(query.page-1)*8,query.projectId??null,query.sessionId??null];
     const [items,counts] = await Promise.all([
-      this.db.query(`SELECT r.id,r.title,r.kind,r.projectId,r.createdAt,p.name projectName FROM report_snapshots r LEFT JOIN projects p ON p.id=r.projectId WHERE r.createdById=@0 AND (@1 IS NULL OR r.kind=@1) ORDER BY r.createdAt DESC,r.id OFFSET @2 ROWS FETCH NEXT 8 ROWS ONLY`,[userId,query.kind??null,(query.page-1)*8]),
-      this.db.query(`SELECT kind,COUNT(*) count,SUM(CASE WHEN createdAt>=DATEADD(day,-7,SYSUTCDATETIME()) THEN 1 ELSE 0 END) recentCount FROM report_snapshots WHERE createdById=@0 GROUP BY kind`,[userId]),
+      this.db.query(`SELECT r.id,r.title,r.kind,r.projectId,r.createdAt,p.name projectName FROM report_snapshots r LEFT JOIN projects p ON p.id=r.projectId WHERE r.${scope.replaceAll('projectId=@3', 'r.projectId=@3')} AND (@1 IS NULL OR r.kind=@1) ORDER BY r.createdAt DESC,r.id OFFSET @2 ROWS FETCH NEXT 8 ROWS ONLY`,params),
+      this.db.query(`SELECT kind,COUNT(*) count,SUM(CASE WHEN createdAt>=DATEADD(day,-7,SYSUTCDATETIME()) THEN 1 ELSE 0 END) recentCount FROM report_snapshots WHERE ${scope} GROUP BY kind`,params),
     ]);
     return {items,total:counts.filter((c: {kind:string})=>!query.kind||c.kind===query.kind).reduce((n:number,c:{count:number})=>n+c.count,0),counts};
   }
@@ -53,9 +55,8 @@ export class ReportsService {
       AND (@2 IS NULL OR s.submittedAt>=@2) AND (@3 IS NULL OR s.submittedAt<@3) GROUP BY s.internId`,[input.projectId,input.sessionId??null,input.from?new Date(input.from):null,input.to?new Date(input.to):null]);
     const members: ReportMember[]=[];
     for (const row of list.items) {
-      const detail=await this.performance.getInternMetrics(principal,row.userId,scope);
       const pr=submissions.find((s:{internId:string})=>s.internId.toLowerCase()===row.userId.toLowerCase());
-      members.push({...row,overdueOpenTaskCount:detail.metrics.overdueOpenTaskCount,submissionCount:pr?.submissionCount??0,approvedCount:pr?.approvedCount??0,reworkCount:pr?.reworkCount??0});
+      members.push({...row,submissionCount:pr?.submissionCount??0,approvedCount:pr?.approvedCount??0,reworkCount:pr?.reworkCount??0});
     }
     const snapshot: ReportSnapshot={schemaVersion:1,scope,projectName:project.name,members};
     let id: string;

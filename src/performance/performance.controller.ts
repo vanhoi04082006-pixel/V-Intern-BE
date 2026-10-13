@@ -3,7 +3,7 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { RequirePermissions } from '../common/decorators/permissions.decorator';
 import { PermissionsService } from '../rbac/permissions.service';
-import { PerformanceQuery } from './performance.service';
+import { PerformanceQueryDto } from './performance-query.dto';
 import { PerformanceService } from './performance.service';
 
 @ApiTags('performance')
@@ -21,7 +21,7 @@ export class PerformanceController {
     summary:
       'Deterministic intern performance list (performance.view): real task/story-point/evaluation metrics; instructors see only interns they own (session instructor / project mentor) — spec 61',
   })
-  async list(@CurrentUser('userId') userId: string, @Query() query: PerformanceQuery) {
+  async list(@CurrentUser('userId') userId: string, @Query() query: PerformanceQueryDto) {
     const isAdmin = await this.permissionsService.hasRole(userId, 'admin');
     return this.performanceService.listInterns({ userId, isAdmin }, query);
   }
@@ -32,7 +32,7 @@ export class PerformanceController {
     summary:
       'Full deterministic metrics for ONE intern (performance.view): taskCompletionRate, storyPointCompletionRate, onTimeCompletionRate (null when no due-dated completions), overdueOpenTaskCount, averageEvaluationScore (null when none) — 403 for interns you do not own',
   })
-  async getOne(@CurrentUser('userId') userId: string, @Param('userId', ParseUUIDPipe) targetUserId: string, @Query() query: PerformanceQuery) {
+  async getOne(@CurrentUser('userId') userId: string, @Param('userId', ParseUUIDPipe) targetUserId: string, @Query() query: PerformanceQueryDto) {
     const isAdmin = await this.permissionsService.hasRole(userId, 'admin');
     return this.performanceService.getInternMetrics({ userId, isAdmin }, targetUserId, query);
   }
@@ -50,7 +50,7 @@ export class PerformanceInternController {
     summary:
       'My deterministic performance metrics (identity = principal): real derived values only — never fake charts; null = not measured (not 0)',
   })
-  async me(@CurrentUser('userId') userId: string, @Query() query: PerformanceQuery) {
+  async me(@CurrentUser('userId') userId: string, @Query() query: PerformanceQueryDto) {
     return this.performanceService.ownMetrics(userId, query);
   }
 }

@@ -12,6 +12,8 @@ export class CreateReportDto {
   @IsOptional() @IsDateString() to?: string;
 }
 export class ReportQueryDto {
+  @IsOptional() @IsUUID() projectId?: string;
+  @IsOptional() @IsUUID() sessionId?: string;
   @IsOptional() @Type(()=>Number) @IsInt() @Min(1) @Max(100000) page=1;
   @IsOptional() @IsIn(REPORT_KINDS) kind?: ReportKind;
 }
