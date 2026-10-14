@@ -1,18 +1,9 @@
-/**
- * Server-side question selection (Phase 4, spec 14/15).
- *
- * APPROVED DISTRIBUTION (preserved from the raw product — spec 14):
- *   exactly 8 questions per session = 5 technical + 3 soft skill.
- * This supports the 70/30 scoring model and matches the approved UI.
- *
- * Selection happens SERVER-SIDE only (interns never choose questions).
- * Each category pool is shuffled independently; the session presents all
- * technical questions first, then soft-skill questions (documented
- * composition — never random accidental structure).
+/** Version 2: two introductions, six role questions, two English questions.
+ * Scoring categories stay technical/soft for compatibility with old snapshots.
  */
-export const INTERVIEW_QUESTION_COUNT = 8;
-export const TECHNICAL_QUESTION_COUNT = 5;
-export const SOFT_QUESTION_COUNT = 3;
+export const INTERVIEW_QUESTION_COUNT = 10;
+export const TECHNICAL_QUESTION_COUNT = 6;
+export const SOFT_QUESTION_COUNT = 4;
 
 export type InterviewCategory = 'technical' | 'soft';
 
@@ -67,28 +58,14 @@ export function selectSessionQuestions(
   pool: readonly SelectableQuestion[],
 ): SelectedQuestion[] {
   const technical = pool.filter((q) => q.category === 'technical');
-  const soft = pool.filter((q) => q.category === 'soft');
-
+  const introduction = pool.filter((q) => q.category === 'soft' && questionPhase(q) === 'introduction');
+  const english = pool.filter((q) => q.category === 'soft' && questionPhase(q) === 'english');
   const missing: Array<{ category: InterviewCategory; needed: number; available: number }> = [];
-  if (technical.length < TECHNICAL_QUESTION_COUNT) {
-    missing.push({
-      category: 'technical',
-      needed: TECHNICAL_QUESTION_COUNT,
-      available: technical.length,
-    });
-  }
-  if (soft.length < SOFT_QUESTION_COUNT) {
-    missing.push({ category: 'soft', needed: SOFT_QUESTION_COUNT, available: soft.length });
-  }
-  if (missing.length > 0) {
-    throw new QuestionPoolInsufficientError(roleCode, missing);
-  }
-
-  const pickedTechnical = sampleWithoutReplacement(technical, TECHNICAL_QUESTION_COUNT);
-  const pickedSoft = sampleWithoutReplacement(soft, SOFT_QUESTION_COUNT);
-
-  // Documented composition: technical first, then soft skill.
-  const ordered = [...pickedTechnical, ...pickedSoft];
+  if (technical.length < TECHNICAL_QUESTION_COUNT) missing.push({ category: 'technical', needed: TECHNICAL_QUESTION_COUNT, available: technical.length });
+  if (introduction.length < 2) missing.push({ category: 'soft', needed: 2, available: introduction.length });
+  if (english.length < 2) missing.push({ category: 'soft', needed: 2, available: english.length });
+  if (missing.length) throw new QuestionPoolInsufficientError(roleCode, missing);
+  const ordered = [...sampleWithoutReplacement(introduction, 2), ...sampleWithoutReplacement(technical, TECHNICAL_QUESTION_COUNT), ...sampleWithoutReplacement(english, 2)];
 
   return ordered.map((q, index) => ({
     questionId: q.id,
@@ -98,4 +75,10 @@ export function selectSessionQuestions(
     difficulty: q.difficulty,
     rubricJson: q.rubricJson,
   }));
+}
+
+export function questionPhase(q: { category: string; rubricJson: string }): 'introduction' | 'technical' | 'english' | 'soft' {
+  if (q.category === 'technical') return 'technical';
+  try { const rubric = JSON.parse(q.rubricJson) as { phase?: string }; if (rubric.phase === 'introduction' || rubric.phase === 'english') return rubric.phase; } catch { /* Historical rubrics without stage remain soft-skill questions. */ }
+  return 'soft';
 }

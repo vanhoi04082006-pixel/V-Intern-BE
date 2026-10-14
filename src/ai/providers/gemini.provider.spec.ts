@@ -55,6 +55,15 @@ const request = {
 };
 
 describe('GeminiProvider (spec 61 — mocked transport)', () => {
+  it('ignores thought parts and validates only the final structured completion', async () => {
+    const fetchImpl: AiFetchLike = async () => ({ status: 200, ok: true, text: async () => JSON.stringify({ candidates: [{ finishReason: 'STOP', content: { parts: [{ thought: true, text: 'Private thought must never enter domain evidence' }, { text: JSON.stringify(VALID_PAYLOAD) }] } }] }) });
+    const result = await makeProvider({ fetchImpl }).generateStructured(request);
+    expect(result.data).toEqual(VALID_PAYLOAD);
+  });
+  it('rejects a truncated response even if its remaining JSON happens to parse', async () => {
+    const fetchImpl: AiFetchLike = async () => ({ status: 200, ok: true, text: async () => JSON.stringify({ candidates: [{ finishReason: 'MAX_TOKENS', content: { parts: [{ text: JSON.stringify(VALID_PAYLOAD) }] } }] }) });
+    await expect(makeProvider({ fetchImpl }).generateStructured(request)).rejects.toBeInstanceOf(AiInvalidResponseError);
+  });
   it('returns validated structured data + provenance on success', async () => {
     const fetchImpl = jest.fn(async () => ({
       status: 200,
@@ -76,6 +85,13 @@ describe('GeminiProvider (spec 61 — mocked transport)', () => {
     expect(body.systemInstruction.parts[0].text).toBe('SYSTEM');
     expect(JSON.parse(body.contents[0].parts[0].text)).toEqual({ role: 'frontend' });
     expect(body.generationConfig.responseMimeType).toBe('application/json');
+  });
+  it('forwards a domain output schema to provider enforcement', async () => {
+    const fetchImpl = jest.fn(async () => ({ status: 200, ok: true, text: async () => geminiEnvelope(JSON.stringify(VALID_PAYLOAD)) }));
+    const outputSchema = { type: 'object', properties: { technicalScore: { type: 'number' } } };
+    await makeProvider({ fetchImpl }).generateStructured({ ...request, outputSchema });
+    const call = fetchImpl.mock.calls[0] as unknown as [string, { body: string }];
+    expect(JSON.parse(call[1].body).generationConfig.responseJsonSchema).toEqual(outputSchema);
   });
 
   it('malformed JSON completion → AI_INVALID_RESPONSE (non-retryable)', async () => {

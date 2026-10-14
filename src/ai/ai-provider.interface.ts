@@ -39,6 +39,8 @@ export interface AiStructuredRequest<T> {
   input: Record<string, unknown>;
   /** Short schema name used in error messages/logs (never the prompt). */
   schemaName: string;
+  /** Optional provider-enforced JSON shape; domain validation remains authoritative. */
+  outputSchema?: Record<string, unknown>;
   /**
    * Domain validator: receives the RAW provider JSON and either returns a
    * strongly-typed value or throws AiInvalidResponseError. Provider-supplied

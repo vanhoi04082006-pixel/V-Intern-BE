@@ -38,7 +38,7 @@ export interface GeminiProviderOptions {
 
 interface GeminiEnvelope {
   candidates?: Array<{
-    content?: { parts?: Array<{ text?: string }> };
+    content?: { parts?: Array<{ text?: string; thought?: boolean }> };
     finishReason?: string;
   }>;
   usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number };
@@ -100,6 +100,7 @@ export class GeminiProvider implements AiProvider {
             contents: [{ role: 'user', parts: [{ text: JSON.stringify(request.input) }] }],
             generationConfig: {
               responseMimeType: 'application/json',
+              ...(request.outputSchema ? { responseJsonSchema: request.outputSchema } : {}),
               temperature: request.modelOptions?.temperature ?? 0.2,
               maxOutputTokens: request.modelOptions?.maxOutputTokens ?? 4096,
             },
@@ -154,7 +155,9 @@ export class GeminiProvider implements AiProvider {
       });
     }
 
-    const text = envelope.candidates?.[0]?.content?.parts?.map((p) => p.text ?? '').join('') ?? '';
+    const candidate = envelope.candidates?.[0];
+    if (candidate?.finishReason && candidate.finishReason !== 'STOP') throw new AiInvalidResponseError(`completion did not finish (${candidate.finishReason})`);
+    const text = candidate?.content?.parts?.filter(p => p.thought !== true).map((p) => p.text ?? '').join('') ?? '';
     if (!text.trim()) {
       throw new AiInvalidResponseError('empty completion');
     }

@@ -1,3 +1,4 @@
+import { InterviewConversationService } from './interview-conversation.service';
 import { Body, Controller, Get, HttpCode, Param, ParseUUIDPipe, Patch, Post, Put, Query, Req, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
@@ -34,6 +35,7 @@ export class RecruitmentController {
     private readonly recruitmentService: RecruitmentService,
     private readonly interviewService: InterviewService,
     private readonly evaluationService: RecruitmentEvaluationService,
+    private readonly conversation: InterviewConversationService,
   ) {}
 
   private ctx(req: Request, actorId: string) {
@@ -63,7 +65,7 @@ export class RecruitmentController {
   @RequirePermissions('recruitment.start.own')
   @ApiOperation({
     summary:
-      'Start an interview session: 8 sanitized questions (5 technical + 3 soft), backend timer, attempt+cooldown enforced',
+      'Start an interview session: 10 sequential questions (2 introduction + 6 technical + 2 English), backend timer, attempt+cooldown enforced',
   })
   async startInterview(@CurrentUser('userId') userId: string, @Req() req: Request) {
     return this.interviewService.start(userId, this.ctx(req, userId));
@@ -85,6 +87,20 @@ export class RecruitmentController {
   async getQuestions(@CurrentUser('userId') userId: string, @Param('id', ParseUUIDPipe) id: string) {
     return this.interviewService.getQuestions(userId, id);
   }
+
+  @Get('me/interviews/:id/conversation')
+  @RequirePermissions('recruitment.view.own')
+  conversationView(@CurrentUser('userId') userId: string, @Param('id', ParseUUIDPipe) id: string) { return this.conversation.view(userId, id); }
+
+  @Post('me/interviews/:id/conversation/clarify')
+  @RecruitmentRateLimit('interview-chat')
+  @RequirePermissions('recruitment.answer.own')
+  clarifyConversation(@CurrentUser('userId') userId: string, @Param('id', ParseUUIDPipe) id: string) { return this.conversation.clarify(userId, id); }
+
+  @Post('me/interviews/:id/conversation/next')
+  @RecruitmentRateLimit('interview-chat')
+  @RequirePermissions('recruitment.answer.own')
+  nextConversation(@CurrentUser('userId') userId: string, @Param('id', ParseUUIDPipe) id: string) { return this.conversation.next(userId, id); }
 
   @Put('me/interviews/:id/answers/:questionId')
   @RequirePermissions('recruitment.answer.own')

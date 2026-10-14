@@ -14,7 +14,7 @@ import { RequestPrincipal } from '../common/types/request-principal';
  */
 export const RECRUITMENT_RATE_LIMIT_KEY = 'recruitment:rateLimitKey';
 
-export type RecruitmentRateLimitBucket = 'interview-start' | 'interview-submit' | 'evaluation-retry';
+export type RecruitmentRateLimitBucket = 'interview-start' | 'interview-submit' | 'evaluation-retry' | 'interview-chat';
 
 export const RecruitmentRateLimit = (bucket: RecruitmentRateLimitBucket) =>
   SetMetadata(RECRUITMENT_RATE_LIMIT_KEY, bucket);
@@ -64,6 +64,8 @@ export class RecruitmentRateLimitGuard implements CanActivate {
 
   private limitFor(bucket: string): number {
     switch (bucket) {
+      case 'interview-chat':
+        return Number(this.config.get<number>('throttle.interviewChatPerMin', 15));
       case 'interview-start':
         return Number(this.config.get<number>('throttle.interviewStartPerMin', 5));
       case 'interview-submit':

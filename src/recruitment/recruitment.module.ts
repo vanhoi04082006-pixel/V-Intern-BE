@@ -1,3 +1,4 @@
+import { InterviewConversationService } from './interview-conversation.service';
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AiModule } from '../ai/ai.module';
@@ -41,7 +42,7 @@ import { RecruitmentService } from './recruitment.service';
     ]),
   ],
   controllers: [RecruitmentController],
-  providers: [RecruitmentService, InterviewService, RecruitmentEvaluationService, RecruitmentRateLimitGuard],
+  providers: [InterviewConversationService, RecruitmentService, InterviewService, RecruitmentEvaluationService, RecruitmentRateLimitGuard],
   exports: [RecruitmentService, InterviewService],
 })
 export class RecruitmentModule {}

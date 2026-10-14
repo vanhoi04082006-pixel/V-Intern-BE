@@ -118,10 +118,15 @@ export class RecruitmentEvaluationService {
       .getRepository(InterviewAnswer)
       .find({ where: { sessionId: session.id } });
     const answerByQuestion = new Map(answers.map((a) => [a.sessionQuestionId, a]));
+    const turns: Array<{ questionId: string; prompt: string; clarificationPrompt: string | null }> = session.questionCount === 10
+      ? await this.dataSource.query("SELECT questionId,prompt,clarificationPrompt FROM interview_conversation_turns WHERE sessionId=@0 AND status='ready'", [session.id]) : [];
+    const turnByQuestion = new Map(turns.map(t => [t.questionId.toLowerCase(), t]));
     const payloadQuestions = questions.map((q) => ({
       position: q.position,
       category: q.category,
-      prompt: q.promptSnapshot,
+      prompt: turnByQuestion.get(q.id.toLowerCase())?.prompt ?? q.promptSnapshot,
+      clarification: turnByQuestion.get(q.id.toLowerCase())?.clarificationPrompt,
+      rubric: JSON.parse(q.rubricSnapshot) as { expected: string; keywords: string[]; scoringGuide: string; phase?: string },
     }));
     const payloadAnswers = questions.map((q) => ({
       position: q.position,
@@ -140,6 +145,7 @@ export class RecruitmentEvaluationService {
     let runId: string | null = null;
     let model: string;
     try {
+      if (session.questionCount === 10 && questions.some(q => !turnByQuestion.get(q.id.toLowerCase())?.prompt)) throw new AiInvalidResponseError('Missing delivered interview evidence.');
       const aiResult = await this.aiService.generateStructuredWithRun<RecruitmentEvaluationData>({
         feature: RECRUITMENT_EVALUATION_TASK,
         userId: session.userId,

@@ -1,3 +1,4 @@
+import { assertCurrentQuestion } from './conversation-policy';
 import {
   ConflictException,
   Injectable,
@@ -236,7 +237,7 @@ export class InterviewService {
       });
 
       const questions = await this.loadSanitizedQuestions(em, session, userId);
-      return { session: this.toSessionView(session), questions };
+      return { session: this.toSessionView(session), questions: this.publicQuestions(questions, session) };
     });
   }
 
@@ -253,12 +254,13 @@ export class InterviewService {
   async getQuestions(
     userId: string,
     sessionId: string,
+    internalSnapshots = false,
   ): Promise<{ session: SanitizedSessionView; questions: SanitizedSessionQuestion[] }> {
     await this.expireIfOverdue(sessionId);
     const session = await this.ownSession(userId, sessionId);
     return this.dataSource.transaction(async (em) => ({
       session: this.toSessionView(session),
-      questions: await this.loadSanitizedQuestions(em, session, userId),
+      questions: this.publicQuestions(await this.loadSanitizedQuestions(em, session, userId), session, internalSnapshots),
     }));
   }
 
@@ -306,6 +308,14 @@ export class InterviewService {
       const existing = await em.getRepository(InterviewAnswer).findOne({
         where: { sessionQuestionId: question.id },
       });
+      if (session.questionCount === 10) {
+        if (existing?.answerText === trimmed) return { id: existing.id, sessionQuestionId: question.id, answeredAt: existing.answeredAt };
+        const questions = await em.getRepository(InterviewSessionQuestion).find({ where: { sessionId: session.id } });
+        const answered = await em.getRepository(InterviewAnswer).find({ where: { sessionId: session.id, userId } });
+        assertCurrentQuestion(questions, new Set(answered.map(a => a.sessionQuestionId.toLowerCase())), question.id);
+        const delivered = await em.query("SELECT questionId FROM interview_conversation_turns WHERE questionId=@0 AND status='ready'", [question.id]);
+        if (!delivered.length) throw conflict('INTERVIEW_QUESTION_NOT_DELIVERED', 'Chờ AI gửi câu hỏi trước khi trả lời.');
+      }
       if (existing) {
         existing.answerText = trimmed;
         existing.answeredAt = new Date();
@@ -555,6 +565,11 @@ export class InterviewService {
         answerText: answer?.answerText ?? null,
       };
     });
+  }
+
+  private publicQuestions(questions: SanitizedSessionQuestion[], session: InterviewSession, internal = false): SanitizedSessionQuestion[] {
+    if (internal || session.questionCount !== 10) return questions;
+    return questions.filter(q => q.answered);
   }
 
   private toSessionView(session: InterviewSession): SanitizedSessionView {
