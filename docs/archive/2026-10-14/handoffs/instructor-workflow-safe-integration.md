@@ -1,3 +1,5 @@
+> Tài liệu lịch sử, lưu để truy vết. Không dùng làm hướng dẫn hoặc bằng chứng cho bản hiện hành. Xem README của repository và docs hiện tại.
+
 # Safe integration — instructor project-first workflow
 
 Updated: 2026-10-13, Asia/Bangkok. This document supersedes the old planning target in instructor-workflow-merge-preparation.md. No push, Pull Request, deployment or merge into main has been performed.

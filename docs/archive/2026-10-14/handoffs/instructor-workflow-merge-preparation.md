@@ -1,3 +1,5 @@
+> Tài liệu lịch sử, lưu để truy vết. Không dùng làm hướng dẫn hoặc bằng chứng cho bản hiện hành. Xem README của repository và docs hiện tại.
+
 # Instructor workflow checkpoint integration preparation
 
 > Historical plan only. The owner subsequently approved origin/main for BOTH PRs. The current executable integration record, full 15-migration main delta and all34overlap dispositions are in instructor-workflow-safe-integration.md and the newest progress-handoff section. Do not use the old feature-branch target or three-migration delta below for a main deployment.

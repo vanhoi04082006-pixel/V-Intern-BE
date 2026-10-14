@@ -1,3 +1,5 @@
+> Tài liệu lịch sử, lưu để truy vết. Không dùng làm hướng dẫn hoặc bằng chứng cho bản hiện hành. Xem README của repository và docs hiện tại.
+
 # Instructor project-first workflow — local continuation handoff
 
 Updated: 2026-10-13, durable integration. Local filesystem is authoritative. This new section supersedes older target/runtime/next-action statements. Earlier checkpoints below remain historical evidence.

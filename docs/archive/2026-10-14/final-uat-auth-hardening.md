@@ -1,3 +1,5 @@
+> Tài liệu lịch sử, lưu để truy vết. Không dùng làm hướng dẫn hoặc bằng chứng cho bản hiện hành. Xem README của repository và docs hiện tại.
+
 # Final UAT: refresh rotation and logout concurrency
 
 Baseline: `31381044d9d3b1b9eeab6baae435fc6a06e6bb3e`.
