@@ -147,7 +147,9 @@ export class CodeReviewService {
         baseSha: submission.baseSha,
         templateCode: specRows[0]?.templateCode ?? "",
         taskId: task.id,
-        taskSpecHash: createHash("sha256").update(JSON.stringify(spec)).digest("hex"),
+        taskSpecHash: createHash("sha256")
+          .update(JSON.stringify(spec))
+          .digest("hex"),
       });
       const input = {
         task: {

@@ -53,7 +53,8 @@ export class GradingRunnerService {
       const suites = JSON.parse(
         this.config.get<string>("GRADING_SUITES_JSON", "{}"),
       ) as Record<string, Suite>;
-      const suite = suites[`${input.templateCode}:${input.taskId}`];
+      const taskId = input.taskId.toLowerCase();
+      const suite = suites[`${input.templateCode}:${taskId}`];
       if (
         !suite ||
         typeof suite.id !== "string" ||
@@ -62,6 +63,7 @@ export class GradingRunnerService {
         return unavailable;
       const requestData = {
         ...input,
+        taskId,
         suiteId: suite.id,
         suiteDigest: suite.digest,
         nonce: randomUUID(),

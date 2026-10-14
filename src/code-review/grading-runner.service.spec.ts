@@ -15,7 +15,7 @@ describe("Trusted grading result request binding", () => {
   };
   let fetchMock: jest.SpyInstance;
 
-  function runner() {
+  function runner(overrides: Record<string, string> = {}) {
     const values: Record<string, string> = {
       GRADING_RUNNER_URL: "https://runner.example.test/grade",
       GRADING_RUNNER_TOKEN: "synthetic-runner-token",
@@ -24,6 +24,7 @@ describe("Trusted grading result request binding", () => {
         "web-app:task-one": { id: "trusted-suite", digest: suiteDigest },
       }),
       NODE_ENV: "test",
+      ...overrides,
     };
     return new GradingRunnerService({
       get: (key: string) => values[key],
@@ -58,6 +59,16 @@ describe("Trusted grading result request binding", () => {
   beforeEach(() => {
     fetchMock = jest.spyOn(globalThis, "fetch");
   });
+
+  it("does not apply a template-wide suite to an arbitrary task", async () => {
+    const service = runner({
+      GRADING_SUITES_JSON: JSON.stringify({
+        "web-app": { id: "whole-project", digest: suiteDigest },
+      }),
+    });
+    expect((await service.grade(input)).status).toBe("not_configured");
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
   afterEach(() => {
     fetchMock.mockRestore();
   });
@@ -81,6 +92,17 @@ describe("Trusted grading result request binding", () => {
       passed: 5,
       failed: 0,
     });
+  });
+
+  it("normalizes SQL UUID casing consistently before suite lookup and signing", async () => {
+    fetchMock.mockImplementation(async (_url: unknown, init: RequestInit) => {
+      const body = JSON.parse(String(init.body)) as Record<string, unknown>;
+      expect(body.taskId).toBe("task-one");
+      return signedResponse(body, requestHash(body));
+    });
+    expect(
+      (await runner().grade({ ...input, taskId: "TASK-ONE" })).status,
+    ).toBe("completed");
   });
 
   it.each([
