@@ -581,6 +581,7 @@ export class TasksService {
         fields.push('dueDate');
       }
 
+      await this.assertCodeWorkflowTransition(em, task, patch.status);
       const statusResult = this.validateAndApplyStatus(task, patch.status, { internSelf: false });
 
       await this.saveOrConflict(em, task);
@@ -664,6 +665,7 @@ export class TasksService {
       }
 
       this.assertExpectedVersion(task, patch.expectedVersion);
+      await this.assertCodeWorkflowTransition(em, task, patch.status);
       const statusResult = this.validateAndApplyStatus(task, patch.status, { internSelf: true });
       const doneOverride = statusResult.changed && statusResult.to === 'done';
       if (patch.progress !== undefined && !doneOverride) {
@@ -940,6 +942,12 @@ export class TasksService {
       }
       throw err;
     }
+  }
+
+  private async assertCodeWorkflowTransition(em: EntityManager, task: Task, target?: TaskStatus): Promise<void> {
+    if (!target || target === task.status || !['review', 'done'].includes(target) || !task.sprintId) return;
+    const workflow = await em.query('SELECT TOP(1) tr.id FROM template_runs tr JOIN sprints sp ON sp.sessionId=tr.sessionId AND sp.projectId=tr.projectId WHERE sp.id=@0', [task.sprintId]);
+    if (workflow.length) throw new ConflictException({ code: 'CODE_SUBMISSION_REQUIRED', message: 'Task của phiên dự án phải được nộp code và giảng viên xác nhận qua mục Bài nộp; không chuyển sang review/done trực tiếp.' });
   }
 
   private async assertNoPendingSubmission(em: EntityManager, taskId: string): Promise<void> {

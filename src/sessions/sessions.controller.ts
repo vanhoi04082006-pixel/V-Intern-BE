@@ -1,3 +1,4 @@
+import { GithubRepositoriesService } from '../github/github-repositories.service';
 import { Body, Controller, Delete, Get, Logger, Param, ParseUUIDPipe, Patch, Post, Query, Req } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
@@ -30,6 +31,7 @@ export class SessionsController {
     private readonly sessionsService: SessionsService,
     private readonly permissionsService: PermissionsService,
     private readonly generations: AiGenerationService,
+    private readonly repositories: GithubRepositoriesService,
   ) {}
 
   private readonly logger = new Logger(SessionsController.name);
@@ -125,6 +127,9 @@ export class SessionsController {
     // generatePlan skips when a usable plan already exists for the session).
     if (dto.status === 'active' && updated.status === 'active') {
       this.triggerPlanning(updated.id, actorId, req);
+      void this.repositories.provision(updated.id, actorId).catch(() => {
+        this.logger.warn(`GitHub repository for session ${updated.id} requires connection/configuration or retry.`);
+      });
     }
     return updated;
   }

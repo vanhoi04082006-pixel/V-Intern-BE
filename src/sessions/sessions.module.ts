@@ -1,3 +1,4 @@
+import { GithubModule } from '../github/github.module';
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuditModule } from '../audit/audit.module';
@@ -17,6 +18,7 @@ import { SessionsService } from './sessions.service';
     AuditModule,
     RbacModule,
     AiGenerationModule,
+    GithubModule,
   ],
   controllers: [SessionsController],
   providers: [SessionsService],

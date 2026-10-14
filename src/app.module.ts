@@ -1,3 +1,5 @@
+import { GithubModule } from './github/github.module';
+import { SharingModule } from './sharing/sharing.module';
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { SubmissionsModule } from './submissions/submissions.module';
 import { TemplatesModule } from './templates/templates.module';
@@ -103,6 +105,8 @@ import { ReportsModule } from './reports/reports.module';
     EvaluationModule,
     PerformanceModule,
     ReportsModule,
+    SharingModule,
+    GithubModule,
     KpiModule,
     VirtualSalaryModule,
     CertificatesModule,
