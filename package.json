@@ -1,7 +1,7 @@
 {
   "name": "v-intern-be",
   "version": "0.1.0",
-  "description": "V-Intern NestJS backend — SQL Server 2019 platform core (Phase 1)",
+  "description": "V-INTERN learning platform API: NestJS, SQL Server, recruitment, sessions, GitHub and AI review",
   "private": true,
   "scripts": {
     "build": "nest build",
@@ -20,7 +20,8 @@
     "seed:dev": "ts-node src/scripts/seed-dev.ts",
     "db:create:e2e": "ts-node src/scripts/create-e2e-database.ts",
     "audit:schema": "ts-node src/scripts/audit-schema.ts",
-    "seed:recruitment": "ts-node src/scripts/seed-recruitment-questions.ts"
+    "seed:recruitment": "ts-node src/scripts/seed-recruitment-questions.ts",
+    "seed:library": "ts-node src/scripts/seed-learning-library.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.1.3",

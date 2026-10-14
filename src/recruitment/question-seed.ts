@@ -6,9 +6,9 @@ import { RECRUITMENT_ROLE_CODES } from './recruitment-roles';
  * Phase 4 question-bank seed (spec 50/51) — PRODUCT CONFIGURATION, not
  * demo data: real role-specific prompts (never "Question 1"/lorem ipsum).
  *
- * POOL SIZING (spec 51): each role ships 8 technical + 5 soft = 13 active
- * questions while a session draws 5 technical + 3 soft — retakes sample
- * different 8-of-13 compositions, never identical by design.
+ * Each role has 8 technical, 5 legacy soft, 2 introduction and 2 English
+ * questions. New sessions select 2 introduction + 6 technical + 2 English;
+ * legacy sessions keep their immutable eight-question snapshots.
  *
  * IDEMPOTENCE (spec 50): rows are keyed by (roleCode, sortOrder) — reruns
  * insert ONLY missing rows and never rewrite existing ones. Admin question
@@ -24,7 +24,7 @@ interface SeedQuestion {
   category: 'technical' | 'soft';
   difficulty: 'easy' | 'medium' | 'hard';
   prompt: string;
-  rubric: { expected: string; keywords: string[]; scoringGuide: string };
+  rubric: { expected: string; keywords: string[]; scoringGuide: string; phase?: string };
 }
 
 const technical = (
@@ -451,6 +451,17 @@ const BANK: Record<string, SeedQuestion[]> = {
   qa: QA,
   business_analyst: BUSINESS_ANALYST,
 };
+
+// New rows have stable sort orders; existing bank edits remain untouched.
+for (const [role, questions] of Object.entries(BANK)) {
+  const communication: Array<[string, string, string]> = [
+    ['introduction', 'Chào bạn! Bạn có thể giới thiệu ngắn về việc học và một sản phẩm hoặc bài tập mà bạn đã làm không?', 'Nêu trải nghiệm có thật, vai trò của bản thân, kết quả và điều đã học; không chấm dựa vào tên trường hoặc thông tin cá nhân nhạy cảm.'],
+    ['introduction', `Vì sao bạn chọn vai trò ${role}, và bạn muốn học điều gì trong kỳ thực tập này?`, 'Mục tiêu thực tế, hiểu trách nhiệm vai trò, biết điểm cần cải thiện và có kế hoạch học tập.'],
+    ['english', `Please describe, in English, how you would ask a teammate for help with a difficult ${role} task.`, 'Clear description of the problem, attempted solutions and a specific respectful request. Assess understandable English, not accent or personal background.'],
+    ['english', 'Please give a short progress update in English: what you finished, what you will do next and what is blocking you.', 'Understandable concise English covering completed work, next action and an explicit blocker or no blocker.'],
+  ];
+  communication.forEach(([phase, prompt, expected], i) => questions.push({ sortOrder: 14 + i, category: 'soft', difficulty: 'easy', prompt, rubric: { phase, expected, keywords: [], scoringGuide: '0-40: absent or off-topic; 41-70: partly clear; 71-85: relevant and concrete; 86-100: clear, specific and reflective. Do not infer protected or personal attributes.' } }));
+}
 
 export const QUESTION_BANK_TOTAL = Object.values(BANK).reduce((n, rows) => n + rows.length, 0);
 

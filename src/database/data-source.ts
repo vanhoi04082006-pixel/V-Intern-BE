@@ -1,3 +1,6 @@
+import { CreateGithubDelivery1761859200000 } from './migrations/1761859200000-CreateGithubDelivery';
+import { CreateInterviewConversation1761772800000 } from './migrations/1761772800000-CreateInterviewConversation';
+import { CreateSessionSharing1761686400000 } from './migrations/1761686400000-CreateSessionSharing';
 import 'reflect-metadata';
 import 'dotenv/config';
 import { CreateClassLessons1761081600000 } from './migrations/1761081600000-CreateClassLessons';
@@ -67,5 +70,8 @@ export default new DataSource({
     AddTemplateLibraryColumns1761427200000,
     AddTemplateRunRequest1761513600000,
     AddAiPlanLifecycle1761600000000,
+    CreateSessionSharing1761686400000,
+    CreateInterviewConversation1761772800000,
+    CreateGithubDelivery1761859200000,
   ],
 });
