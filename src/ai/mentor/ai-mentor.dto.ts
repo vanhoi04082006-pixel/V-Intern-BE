@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsIn, IsInt, IsOptional, IsString, Length, Max, Min } from 'class-validator';
+import { IsUUID, IsIn, IsInt, IsOptional, IsString, Length, Max, Min } from 'class-validator';
 
 /**
  * AI Mentor DTOs (Phase 6, spec 11/13). Bounds mirror the service contract:
@@ -40,6 +40,7 @@ export class CreateAiMentorConversationDto {
 }
 
 export class SendAiMentorMessageDto {
+  @IsOptional() @IsUUID() taskId?: string;
   @ApiProperty({ minLength: 1, maxLength: 8000, description: 'The intern question (plain text)' })
   @IsString()
   @Length(1, 8000)

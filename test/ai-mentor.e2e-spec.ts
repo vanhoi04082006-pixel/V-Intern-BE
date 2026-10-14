@@ -455,7 +455,7 @@ describe('AI mentor', () => {
       `SELECT feature, promptVersion, status FROM ai_runs WHERE id = ?`,
       [sent.body.assistantMessage.aiRunId],
     );
-    expect(runs[0]).toMatchObject({ feature: 'ai-mentor', promptVersion: 'ai-mentor-v1', status: 'succeeded' });
+    expect(runs[0]).toMatchObject({ feature: 'ai-mentor', promptVersion: 'ai-mentor-v2', status: 'succeeded' });
 
     // Reload: exactly two messages, user first, ordered.
     const reloaded = await request(apiBase())
@@ -672,7 +672,7 @@ describe('AI mentor', () => {
       provider: 'test',
       model: 'test-model-1',
       status: 'succeeded',
-      promptVersion: 'ai-mentor-v1',
+      promptVersion: 'ai-mentor-v2',
       userId: ids.a,
       resourceType: 'ai_mentor_conversation',
       resourceId: created.body.id,

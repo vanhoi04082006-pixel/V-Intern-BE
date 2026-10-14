@@ -1,3 +1,4 @@
+import { NotFoundException } from '@nestjs/common';
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull, In } from 'typeorm';
@@ -36,6 +37,7 @@ import { CertificatesService } from '../../certificates/certificates.service';
  */
 export interface MentorWorkspaceFacts {
   generatedAt: string;
+  selectedTask?: { code: string; title: string; description: string | null; specification: unknown; latestCodeFeedback: unknown } | null;
   intern: {
     displayName: string;
     username: string;
@@ -137,7 +139,7 @@ export class AiMentorContextService {
    * scoped by `userId` = the authenticated principal. Absent facts stay
    * null — never zero, never invented (spec 43).
    */
-  async buildContext(userId: string): Promise<MentorWorkspaceFacts> {
+  async buildContext(userId: string, selectedTaskId?: string): Promise<MentorWorkspaceFacts> {
     const [user, profile, assignment] = await Promise.all([
       this.users.findOne({ where: { id: userId } }),
       this.recruitmentProfiles.findOne({ where: { userId } }),
@@ -149,6 +151,7 @@ export class AiMentorContextService {
 
     const facts: MentorWorkspaceFacts = {
       generatedAt: new Date().toISOString(),
+      selectedTask: null,
       intern: {
         displayName: user?.displayName ?? '',
         username: user?.username ?? '',
@@ -325,6 +328,19 @@ export class AiMentorContextService {
       facts.virtualSalary = { unit: balance.unit, balance: Number(balance.balance) };
     } catch {
       facts.virtualSalary = null;
+    }
+
+    if (selectedTaskId) {
+      const task = await this.tasks.findOne({ where: { id: selectedTaskId, assigneeId: userId, deletedAt: IsNull() } });
+      if (!task || !assignment || task.projectId.toLowerCase() !== assignment.projectId.toLowerCase()) throw new NotFoundException('Task không thuộc phân công hiện tại của bạn.');
+      if (task.sprintId && assignment.sessionId) {
+        const sprint = await this.sprints.findOne({ where: { id: task.sprintId, sessionId: assignment.sessionId } });
+        if (!sprint) throw new NotFoundException('Task không thuộc phiên của bạn.');
+      }
+      const specs: Array<{ specJson: string }> = await this.tasks.query('SELECT specJson FROM task_specs WHERE taskId=@0', [task.id]);
+      const feedback: Array<{ resultJson: string | null; status: string }> = await this.tasks.query(`SELECT TOP(1) r.resultJson,r.status FROM submission_code_reviews r
+        JOIN task_submissions s ON s.id=r.submissionId WHERE s.taskId=@0 AND s.internId=@1 AND r.status<>'running' ORDER BY r.createdAt DESC,r.id DESC`, [task.id, userId]);
+      facts.selectedTask = { code: task.code, title: task.title, description: task.description, specification: specs[0] ? JSON.parse(specs[0].specJson) as unknown : null, latestCodeFeedback: feedback[0]?.resultJson ? { status: feedback[0].status, review: JSON.parse(feedback[0].resultJson) as unknown } : null };
     }
 
     return facts;

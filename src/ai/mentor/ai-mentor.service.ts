@@ -152,6 +152,7 @@ export class AiMentorService {
     // Phase 6 (spec 65/66): message sends are deliberately NOT audited and
     // produce NO activity/notification — the param stays for API symmetry.
     _ctx: ActorContext,
+    taskId?: string,
   ) {
     const maxChars = Math.max(
       1,
@@ -201,7 +202,7 @@ export class AiMentorService {
     });
 
     // ── Step 2: authorized context + bounded history (spec 7/8/57/58) ────
-    const facts = await this.contextService.buildContext(userId);
+    const facts = taskId ? await this.contextService.buildContext(userId, taskId) : await this.contextService.buildContext(userId);
     const history = await this.recentHistory(conversation.id);
 
     // ── Step 3: AI run + provider call (run row persisted inside) ────────
