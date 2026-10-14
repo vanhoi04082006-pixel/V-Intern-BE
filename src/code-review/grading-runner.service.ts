@@ -23,6 +23,8 @@ export class GradingRunnerService {
     headSha: string;
     baseSha: string;
     templateCode: string;
+    taskId: string;
+    taskSpecHash: string;
   }): Promise<RunnerResult> {
     const unavailable: RunnerResult = {
       status: "not_configured",
@@ -51,7 +53,7 @@ export class GradingRunnerService {
       const suites = JSON.parse(
         this.config.get<string>("GRADING_SUITES_JSON", "{}"),
       ) as Record<string, Suite>;
-      const suite = suites[input.templateCode];
+      const suite = suites[`${input.templateCode}:${input.taskId}`];
       if (
         !suite ||
         typeof suite.id !== "string" ||

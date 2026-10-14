@@ -10,6 +10,8 @@ describe("Trusted grading result request binding", () => {
     headSha: "a".repeat(40),
     baseSha: "b".repeat(40),
     templateCode: "web-app",
+    taskId: "task-one",
+    taskSpecHash: "f".repeat(64),
   };
   let fetchMock: jest.SpyInstance;
 
@@ -19,7 +21,7 @@ describe("Trusted grading result request binding", () => {
       GRADING_RUNNER_TOKEN: "synthetic-runner-token",
       GRADING_RUNNER_SIGNING_KEY: signingKey,
       GRADING_SUITES_JSON: JSON.stringify({
-        "web-app": { id: "trusted-suite", digest: suiteDigest },
+        "web-app:task-one": { id: "trusted-suite", digest: suiteDigest },
       }),
       NODE_ENV: "test",
     };
@@ -86,6 +88,8 @@ describe("Trusted grading result request binding", () => {
     ["baseSha", "c".repeat(40)],
     ["templateCode", "another-template"],
     ["nonce", "nonce-from-another-request"],
+    ["taskId", "task-two"],
+    ["taskSpecHash", "0".repeat(64)],
   ])(
     "rejects a correctly signed result for another %s",
     async (field, value) => {
