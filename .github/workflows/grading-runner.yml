@@ -1,0 +1,44 @@
+name: isolated-grading-runner
+on:
+  pull_request:
+    paths:
+      [
+        "grading-runner/**",
+        "src/code-review/**",
+        ".github/workflows/grading-runner.yml",
+      ]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  acceptance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Runner policy, HTTP and cleanup tests
+        working-directory: grading-runner
+        run: npm test
+      - name: Resolve fixture build bases to immutable digests
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker pull node:22-bookworm-slim
+          docker pull mcr.microsoft.com/playwright:v1.58.2-noble
+          echo "NODE_IMAGE=$(docker image inspect node:22-bookworm-slim --format '{{index .RepoDigests 0}}')" >> "$GITHUB_ENV"
+          echo "PLAYWRIGHT_IMAGE=$(docker image inspect mcr.microsoft.com/playwright:v1.58.2-noble --format '{{index .RepoDigests 0}}')" >> "$GITHUB_ENV"
+      - name: Build locked runtime and separate trusted tester
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker build --build-arg NODE_IMAGE="$NODE_IMAGE" -t vintern-runtime-smoke grading-runner/images/runtime
+          docker build --build-arg PLAYWRIGHT_IMAGE="$PLAYWRIGHT_IMAGE" -t vintern-tester-smoke grading-runner/images/tester
+          echo "RUNTIME_IMAGE=$(docker image inspect vintern-runtime-smoke --format '{{.Id}}')" >> "$GITHUB_ENV"
+          echo "TESTER_IMAGE=$(docker image inspect vintern-tester-smoke --format '{{.Id}}')" >> "$GITHUB_ENV"
+      - name: Valid and broken submissions in disposable restricted containers
+        run: node grading-runner/test/docker-smoke.mjs

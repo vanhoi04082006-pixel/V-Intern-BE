@@ -1,0 +1,54 @@
+[
+  {
+    "name": "Reject empty title",
+    "kind": "browser",
+    "steps": [
+      { "action": "click", "testId": "note-new" },
+      { "action": "fill", "testId": "note-title", "value": "" },
+      {
+        "action": "fill",
+        "testId": "note-content",
+        "value": "Cannot save without title"
+      },
+      { "action": "click", "testId": "note-save" },
+      { "action": "text", "testId": "note-error", "value": "title" },
+      { "action": "count", "testId": "note-card", "value": 0 }
+    ]
+  },
+  {
+    "name": "Create and edit selected note using keyboard",
+    "kind": "browser",
+    "steps": [
+      { "action": "click", "testId": "note-new" },
+      {
+        "action": "fill",
+        "testId": "note-title",
+        "value": "Acceptance note {{nonce}}"
+      },
+      {
+        "action": "fill",
+        "testId": "note-content",
+        "value": "Learning immutable commits"
+      },
+      { "action": "press", "testId": "note-save", "value": "Enter" },
+      {
+        "action": "text",
+        "testId": "note-card",
+        "value": "Acceptance note {{nonce}}"
+      },
+      { "action": "click", "testId": "note-edit" },
+      {
+        "action": "fill",
+        "testId": "note-title",
+        "value": "Edited acceptance note {{nonce}}"
+      },
+      { "action": "click", "testId": "note-save" },
+      {
+        "action": "text",
+        "testId": "note-card",
+        "value": "Edited acceptance note {{nonce}}"
+      },
+      { "action": "count", "testId": "note-card", "value": 1 }
+    ]
+  }
+]
