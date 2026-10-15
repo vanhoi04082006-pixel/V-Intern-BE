@@ -22,6 +22,16 @@ AI nhận task spec/DoD/source/diff và trusted runner result; strict rubric/fin
 
 Giảng viên xác nhận: kiểm tra quyền manage, pending submission/taskVersion và SHA freshness. Task Done chỉ sau approve theo rubric; review đang chạy không được override. Manual override phải lý do>=30ký tự và audit; không auto merge PR. Branch/PR base hoặc head đổi thì nộp lại; fixedcommit vẫn phải tồn tại/đọc được.
 
+## Webhook và thay đổi sau khi nộp
+
+Migration 27 thêm receipt theo delivery UUID, nhật ký sự kiện theo phiên và trạng thái cấu hình webhook. Đặt `GITHUB_WEBHOOK_URL` thành URL HTTPS công khai kết thúc bằng `/api/v1/github/webhook`, cùng `GITHUB_WEBHOOK_SECRET` ngẫu nhiên ít nhất 32 ký tự ở server. Không dùng encryption key làm webhook secret. URL localhost chưa thể nhận delivery từ GitHub. Khi repository sẵn sàng, server tạo/cập nhật đúng hook của URL ứng dụng; nút cấu hình lại trong phiên chỉ dành cho lead owner. Scope `public_repo` hiện có bao gồm quyền hook repository public.
+
+`POST /api/v1/github/webhook` dùng HMAC SHA256 trên raw bytes, so sánh constant time, giới hạn JSON 1 MiB và không dùng JWT. Payload quá lớn trả 413; JSON sai trả 400 an toàn trước khi Nest chuyển đổi lỗi parser. Không lưu raw payload hoặc chữ ký. Repo numeric ID, owner numeric ID, tài khoản liên kết còn hoạt động và lead owner của phiên phải khớp. Delivery trùng nội dung xử lý một lần; cùng ID với nội dung khác trả 409. Repository lạ hoặc owner đã disconnect bị bỏ qua.
+
+Sự kiện `pull_request`/`push` ghi `observedHeadSha` và gửi thông báo khi source hiện tại khác bài đang nộp; `headSha` đã nộp, điểm và trạng thái task không đổi. Sinh viên/giảng viên thấy cảnh báo cần kiểm tra và nộp/chấm lại. `check_suite`/`workflow_run` chỉ là nhật ký, không thay trusted runner hoặc quyết định giảng viên. `GET /sessions/:id/github/activity` có phân trang và dùng cùng quyền đọc phiên; `POST /sessions/:id/github/webhook` chỉ owner có quyền quản lý.
+
+Kiểm chứng local: 6 test HTTP với SQL Server kiểm tra chữ ký, dung lượng, JSON sai không lộ nội dung, delivery idempotent, SHA bất biến, cách ly phiên, quyền đọc và disconnect. GitHub transport bị chặn trong suite này; đây không phải bằng chứng delivery từ GitHub thật. Unit kiểm tra thêm đăng ký hook, identity và reuse hook. Nguồn: [GitHub signature](https://docs.github.com/en/webhooks/using-webhooks/validating-webhook-deliveries), [hook API](https://docs.github.com/en/rest/repos/webhooks), [OAuth scopes](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/scopes-for-oauth-apps).
+
 ## Giới hạn nghiệm thu ngoài
 
 Chưa có OAuth App/linked accounts hoặc runner thì không được khẳng định repo/AI execution đã hoạt động thật. Cấu hình thử với repository public dành nghiệm thu, hai danh tính độc lập, một bài đạt/một bài lỗi và kiểm tra teacher final approval. Không dùng dữ liệu/secret thật của lớp cho smoke test.

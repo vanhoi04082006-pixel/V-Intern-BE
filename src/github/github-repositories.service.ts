@@ -10,6 +10,7 @@ import { DataSource } from "typeorm";
 import { PermissionsService } from "../rbac/permissions.service";
 import { GithubAuthService } from "./github-auth.service";
 import { GithubApiError, GithubClient } from "./github-client";
+import { GithubWebhookService } from './github-webhook.service';
 
 export interface SessionRepository {
   sessionId: string;
@@ -24,6 +25,9 @@ export interface SessionRepository {
   leaseId: string;
   updatedAt: Date;
   errorCode: string | null;
+  webhookStatus?: string;
+  webhookUpdatedAt?: Date | null;
+  webhookErrorCode?: string | null;
 }
 interface RemoteRepo {
   id: number;
@@ -41,6 +45,7 @@ export class GithubRepositoriesService {
     private readonly auth: GithubAuthService,
     private readonly client: GithubClient,
     private readonly permissions: PermissionsService,
+    private readonly webhooks: GithubWebhookService,
   ) {}
   async read(sessionId: string): Promise<SessionRepository | null> {
     return (
@@ -96,6 +101,9 @@ export class GithubRepositoriesService {
             status: row.status,
             errorCode: row.errorCode,
             updatedAt: row.updatedAt,
+            webhookStatus: row.webhookStatus ?? 'not_configured',
+            webhookUpdatedAt: row.webhookUpdatedAt ?? null,
+            webhookErrorCode: row.webhookErrorCode ?? null,
           }
         : null,
       members,
@@ -227,8 +235,15 @@ export class GithubRepositoriesService {
         );
       }
     }
-    if ((await this.read(sessionId))?.status === "ready")
+    if ((await this.read(sessionId))?.status === "ready") {
       await this.invite(sessionId, actorId);
+      await this.webhooks.register(sessionId, actorId);
+    }
+    return this.status(sessionId, actorId);
+  }
+  async configureWebhook(sessionId: string, actorId: string) {
+    await this.access(sessionId, actorId, true);
+    await this.webhooks.register(sessionId, actorId, true);
     return this.status(sessionId, actorId);
   }
   async invite(sessionId: string, actorId: string, force = false) {

@@ -42,6 +42,7 @@ API: http://localhost:8080/api/v1; Swagger: http://localhost:8080/api/docs; heal
 - CORS_ORIGINS: allowlist chính xác FE; không dùng wildcard với credentials. Rate limits hiện lưu trong memory của từng process.
 - AI_PROVIDER=gemini, AI_API_KEY, AI_MODEL, AI_TIMEOUT_MS, AI_MAX_RETRIES: provider thật. Model cần quyền generateContent và output JSON. Kiểm tra model qua API/provider trước khi đổi; alias có thể thay đổi. Khóa không rời server.
 - GITHUB_CLIENT_ID/SECRET/CALLBACK_URL, GITHUB_TOKEN_ENCRYPTION_KEY, FRONTEND_ORIGIN: [hướng dẫn GitHub](docs/architecture/github-code-review.md).
+- `GITHUB_WEBHOOK_URL` (HTTPS công khai) và `GITHUB_WEBHOOK_SECRET` (ít nhất 32 ký tự): nhận PR/push/CI, phát hiện code đổi sau khi nộp; không tự chấm hoặc duyệt task.
 - GRADING_RUNNER_URL/TOKEN/SIGNING_KEY và GRADING_SUITES_JSON: [hợp đồng runner](docs/architecture/grading-runner.md).
 
 Thiết lập GitHub trên Windows: chạy `./scripts/configure-github.ps1`, nhập OAuth Client ID/Secret trực tiếp trong terminal (secret được ẩn). Script chỉ ghi `.env` đã bị Git ignore và sinh encryption key nếu chưa có; không đổi key liên kết cũ. Không gửi secret trong chat. Đăng ký callback đúng URL rồi restart API và liên kết từng tài khoản trong ứng dụng.

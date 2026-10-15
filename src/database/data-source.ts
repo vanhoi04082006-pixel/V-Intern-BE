@@ -1,5 +1,6 @@
 import { AddInterviewFollowUps1761945600000 } from './migrations/1761945600000-AddInterviewFollowUps';
 import { BackfillQuestionMetadata1762032000000 } from './migrations/1762032000000-BackfillQuestionMetadata';
+import { AddGithubWebhooks1762118400000 } from './migrations/1762118400000-AddGithubWebhooks';
 import { CreateGithubDelivery1761859200000 } from './migrations/1761859200000-CreateGithubDelivery';
 import { CreateInterviewConversation1761772800000 } from './migrations/1761772800000-CreateInterviewConversation';
 import { CreateSessionSharing1761686400000 } from './migrations/1761686400000-CreateSessionSharing';
@@ -77,5 +78,6 @@ export default new DataSource({
     CreateGithubDelivery1761859200000,
     AddInterviewFollowUps1761945600000,
     BackfillQuestionMetadata1762032000000,
+    AddGithubWebhooks1762118400000,
   ],
 });

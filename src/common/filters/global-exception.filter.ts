@@ -1,6 +1,6 @@
 import { ArgumentsHost, Catch, ExceptionFilter, HttpException, HttpStatus, Logger } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
-import { Request, Response } from 'express';
+import { NextFunction, Request, Response } from 'express';
 
 const DEFAULT_CODES: Record<number, string> = {
   [HttpStatus.BAD_REQUEST]: 'BAD_REQUEST',
@@ -11,7 +11,25 @@ const DEFAULT_CODES: Record<number, string> = {
   [HttpStatus.UNPROCESSABLE_ENTITY]: 'VALIDATION_ERROR',
   [HttpStatus.TOO_MANY_REQUESTS]: 'RATE_LIMITED',
   [HttpStatus.SERVICE_UNAVAILABLE]: 'SERVICE_UNAVAILABLE',
+  [HttpStatus.PAYLOAD_TOO_LARGE]: 'PAYLOAD_TOO_LARGE',
+  [HttpStatus.UNSUPPORTED_MEDIA_TYPE]: 'UNSUPPORTED_MEDIA_TYPE',
 };
+
+/** Express body-parser errors are not Nest HttpExceptions. Never return their body/message. */
+function parserFailure(error: unknown): { status: number; code: string; message: string } | null {
+  if (!(error instanceof Error)) return null;
+  const value = error as Error & { type?: unknown; status?: unknown };
+  if (value.type === 'entity.too.large' && value.status === 413) return { status: 413, code: 'PAYLOAD_TOO_LARGE', message: 'Request body exceeds the allowed size.' };
+  if (value.type === 'entity.parse.failed' && value.status === 400) return { status: 400, code: 'INVALID_JSON', message: 'Request body must contain valid JSON.' };
+  if (value.type === 'encoding.unsupported' && value.status === 415) return { status: 415, code: 'UNSUPPORTED_MEDIA_TYPE', message: 'Request body encoding is not supported.' };
+  return null;
+}
+
+/** Run after the JSON parser, before Nest maps SyntaxError to an unsafe message. */
+export function normalizeBodyParserError(error: unknown, _request: Request, _response: Response, next: NextFunction): void {
+  const parsed = parserFailure(error);
+  next(parsed ? new HttpException({ code: parsed.code, message: parsed.message }, parsed.status) : error);
+}
 
 /**
  * Unified error contract — every response has the shape:
@@ -33,6 +51,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     let code = 'INTERNAL_ERROR';
     let message = 'Internal server error.';
     let details: unknown;
+    const parsed = parserFailure(exception);
 
     if (exception instanceof HttpException) {
       statusCode = exception.getStatus();
@@ -56,6 +75,8 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       if (statusCode >= 500) {
         this.logger.error(`${request.method} ${request.url} -> ${statusCode} [${traceId}]`, exception.stack);
       }
+    } else if (parsed) {
+      statusCode = parsed.status; code = parsed.code; message = parsed.message;
     } else {
       this.logger.error(
         `${request.method} ${request.url} -> 500 [${traceId}]`,

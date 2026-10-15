@@ -3,6 +3,7 @@ import { PermissionsService } from "../rbac/permissions.service";
 import { GithubAuthService } from "./github-auth.service";
 import { GithubApiError, GithubClient } from "./github-client";
 import { GithubRepositoriesService } from "./github-repositories.service";
+import { GithubWebhookService } from './github-webhook.service';
 
 const SESSION = "11111111-1111-4111-8111-111111111111";
 const OWNER = "22222222-2222-4222-8222-222222222222";
@@ -158,6 +159,7 @@ function fixture(
     auth as unknown as GithubAuthService,
     client as unknown as GithubClient,
     {} as PermissionsService,
+    { register: jest.fn() } as unknown as GithubWebhookService,
   );
   return { service, writes, reads, savedMembers, repository };
 }

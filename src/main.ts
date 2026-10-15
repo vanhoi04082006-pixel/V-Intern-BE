@@ -1,18 +1,23 @@
 import 'reflect-metadata';
 import { Logger, ValidationPipe, VersioningType } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
 import { appConfig } from './config/configuration';
+import { normalizeBodyParserError } from './common/filters/global-exception.filter';
 
 async function bootstrap(): Promise<void> {
   // Fail-fast secret/config validation — BEFORE any Nest wiring.
   const config = appConfig(process.env);
 
-  const app = await NestFactory.create(AppModule, {
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    rawBody: true,
     logger: ['error', 'warn', 'log'],
   });
+  app.useBodyParser('json', { limit: '1mb' });
+  app.use(normalizeBodyParserError);
 
   app.use(helmet()); // cookie-parser + the global exception filter now live in AppModule (e2e parity)
 

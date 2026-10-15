@@ -79,6 +79,7 @@ Pagination chuẩn: {data,meta:{page,pageSize,total,totalPages}}. Một số agg
 | POST | /api/v1/github/connect | github |
 | DELETE | /api/v1/github/me | github |
 | GET | /api/v1/github/me | github |
+| POST | /api/v1/github/webhook | Public transport; raw-body HMAC SHA256, UUID delivery deduplication, 1 MiB limit; PR/push source observation only |
 | GET | /api/v1/groups | Paginated groups (groups.read) |
 | POST | /api/v1/groups | Create group (groups.manage; audited) |
 | PATCH | /api/v1/groups/{id} | Update group (groups.manage; audited) |
@@ -182,6 +183,8 @@ Pagination chuẩn: {data,meta:{page,pageSize,total,totalPages}}. Một số agg
 | GET | /api/v1/sessions/{id}/github | github |
 | POST | /api/v1/sessions/{id}/github/invite | github |
 | POST | /api/v1/sessions/{id}/github/provision | github |
+| POST | /api/v1/sessions/{id}/github/webhook | Lead repository owner reconfigures its application webhook; sessions.manage |
+| GET | /api/v1/sessions/{id}/github/activity | Scoped repository activity, page/pageSize; CI events are advisory |
 | GET | /api/v1/sessions/{id}/instructors | Session instructors (sessions.view; managed scope only) |
 | POST | /api/v1/sessions/{id}/instructors | Add instructors (sessions.manage; DB-resolved permission check on each target — 403 INSTRUCTOR_PERMISSION_MISSING) |
 | DELETE | /api/v1/sessions/{id}/instructors/{userId} | Remove instructor (audited) |

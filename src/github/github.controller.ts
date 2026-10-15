@@ -19,6 +19,8 @@ import { Public } from "../common/decorators/public.decorator";
 import { RequirePermissions } from "../common/decorators/permissions.decorator";
 import { GithubAuthService } from "./github-auth.service";
 import { GithubRepositoriesService } from "./github-repositories.service";
+import { GithubWebhookService } from './github-webhook.service';
+import { PaginationQueryDto } from '../common/pagination/pagination-query.dto';
 
 const COOKIE = "vintern_github_state";
 @ApiTags("github")
@@ -29,6 +31,7 @@ export class GithubController {
     private readonly auth: GithubAuthService,
     private readonly repos: GithubRepositoriesService,
     private readonly config: ConfigService,
+    private readonly webhooks: GithubWebhookService,
   ) {}
   private cookieOptions() {
     return {
@@ -112,5 +115,16 @@ export class GithubController {
     @CurrentUser("userId") userId: string,
   ) {
     return this.repos.invite(id, userId, true);
+  }
+  @Post('sessions/:id/github/webhook')
+  @RequirePermissions('sessions.manage')
+  @Throttle({ default: { limit: 3, ttl: 60000 } })
+  configureWebhook(@Param('id', ParseUUIDPipe) id: string, @CurrentUser('userId') userId: string) {
+    return this.repos.configureWebhook(id, userId);
+  }
+  @Get('sessions/:id/github/activity')
+  async githubActivity(@Param('id', ParseUUIDPipe) id: string, @CurrentUser('userId') userId: string, @Query() query: PaginationQueryDto) {
+    await this.repos.status(id, userId);
+    return this.webhooks.activity(id, query.page, query.pageSize);
   }
 }
