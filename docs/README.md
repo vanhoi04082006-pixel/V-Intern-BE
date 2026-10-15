@@ -4,6 +4,7 @@
 
 - [SQL Server](database/SQLSERVER2019_SETUP.md), [migration policy](database/MIGRATION_POLICY.md).
 - [Domain model](architecture/domain-model.md), [academic/session](architecture/academic-core.md), [sprint/task](architecture/sprint-task-core.md).
+- [Blueprint dự án](architecture/project-blueprints.md), [kế hoạch và Mentor](architecture/learning-plans.md).
 - [Recruitment chat](architecture/recruitment-chat.md), [AI mentor](architecture/ai-mentor.md), [AI evaluation assistance](architecture/ai-evaluation-assistance.md), [AI recommendations](architecture/ai-recommendations.md).
 - [GitHub/code review](architecture/github-code-review.md), [runner contract](architecture/grading-runner.md), [session sharing](architecture/session-sharing.md).
 - [Evaluation/performance/KPI](architecture/evaluation-performance-kpi.md), [virtual salary](architecture/virtual-salary.md), [certificates](architecture/certificates.md).

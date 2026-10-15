@@ -1,4 +1,5 @@
 import type { CreateTemplateDto, TemplateTaskDto } from "./template.dto";
+import { enrichLearningBlueprint, EXTRA_BLUEPRINTS } from './learning-blueprints';
 
 const task = (
   role: string,
@@ -113,7 +114,7 @@ function blueprint(input: BlueprintInput): CreateTemplateDto {
   };
 }
 
-export const LEARNING_LIBRARY: CreateTemplateDto[] = [
+export const LEGACY_LEARNING_LIBRARY: CreateTemplateDto[] = [
   blueprint({
     code: "LEARN-TASKS-V1",
     name: "Quản lý công việc nhóm nhỏ",
@@ -308,3 +309,5 @@ export const LEARNING_LIBRARY: CreateTemplateDto[] = [
     ],
   }),
 ];
+
+export const LEARNING_LIBRARY: CreateTemplateDto[] = [...LEGACY_LEARNING_LIBRARY, ...EXTRA_BLUEPRINTS].map(enrichLearningBlueprint);

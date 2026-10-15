@@ -1,9 +1,8 @@
 import "reflect-metadata";
 import "dotenv/config";
-import { randomUUID } from "crypto";
 import dataSource from "../database/data-source";
 import { ensureRecruitmentQuestions } from "../recruitment/question-seed";
-import { LEARNING_LIBRARY } from "../templates/learning-library";
+import { ensureLearningLibrary } from "../templates/learning-library-seed";
 
 async function main(): Promise<void> {
   if (
@@ -23,32 +22,10 @@ async function main(): Promise<void> {
     );
     if (!admins.length)
       throw new Error("Run bootstrap:admin before seed:library.");
-    let inserted = 0;
-    for (const template of LEARNING_LIBRARY) {
-      inserted += await db.transaction(async (em) => {
-        const existing = await em.query(
-          "SELECT id FROM project_templates WITH(UPDLOCK,HOLDLOCK) WHERE code=@0",
-          [template.code],
-        );
-        if (existing.length) return 0;
-        await em.query(
-          "INSERT INTO project_templates(id,code,name,category,difficulty,definitionJson,createdById) VALUES(@0,@1,@2,@3,@4,@5,@6)",
-          [
-            randomUUID(),
-            template.code,
-            template.name,
-            template.category,
-            template.difficulty,
-            JSON.stringify(template),
-            admins[0].id,
-          ],
-        );
-        return 1;
-      });
-    }
+    const library = await ensureLearningLibrary(db, admins[0].id);
     process.stdout.write(
       JSON.stringify({
-        templatesInserted: inserted,
+        templates: library,
         questions: await ensureRecruitmentQuestions(db),
       }) + "\n",
     );

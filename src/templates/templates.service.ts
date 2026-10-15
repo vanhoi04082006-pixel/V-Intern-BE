@@ -16,6 +16,7 @@ import { isUniqueViolation } from '../common/utils/db-errors';
 import { Ownership } from '../rbac/ownership';
 import { PermissionsService } from '../rbac/permissions.service';
 import { ChangeRequestDto, CreateTemplateDto, QueryTemplatesDto, StartTemplateDto, UpdateTemplateDto } from './template.dto';
+import { validateBlueprint } from './blueprint-validation';
 interface TemplateRow { id: string; code: string; name: string; category: string | null; difficulty: string; status: string; version: number; definitionJson: string; createdAt: Date; archivedAt: Date | null; }
 @Injectable()
 export class TemplatesService {
@@ -65,6 +66,7 @@ export class TemplatesService {
   }
 
   private validateDefinition(definition: CreateTemplateDto): void {
+    validateBlueprint(definition);
     if (definition.roleDetails) {
       const codes = new Set(definition.roles ?? []);
       const bad = definition.roleDetails.filter((r) => !codes.has(r.code));
