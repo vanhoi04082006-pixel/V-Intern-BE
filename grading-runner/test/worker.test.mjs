@@ -1,5 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { stat } from "node:fs/promises";
 import { runGrade, downloadArchive } from "../docker-worker.mjs";
 
 const suite = {
@@ -8,6 +9,21 @@ const suite = {
   command: ["node", "/runner/launch.mjs"],
   checks: [{ kind: "http" }, { kind: "browser" }],
 };
+test('archive remains readable by the sandbox UID under service umask 0077', async () => {
+  const prior = process.umask(0o077);
+  try {
+    await runGrade({}, suite, async args => {
+      if (args.includes('--detach')) {
+        const mount = args[args.indexOf('--mount') + 1];
+        const archive = mount.match(/src=(.*),dst=/)[1];
+        const mode = (await stat(archive)).mode;
+        assert.equal(mode & 0o444, 0o444, 'The sandbox UID needs read access to the public source archive.');
+        assert.equal(mode & 0o222, 0, 'The archive must stay read-only.');
+      }
+      return args.includes('--interactive') ? JSON.stringify({ results: [{ passed: true }, { passed: true }] }) : '';
+    }, async () => Buffer.from('public archive fixture'));
+  } finally { process.umask(prior); }
+});
 test("student and tests use separate restricted containers; no credentials or tests reach student", async () => {
   const calls = [];
   const report = await runGrade(

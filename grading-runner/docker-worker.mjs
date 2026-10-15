@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { mkdtemp, writeFile, rm, realpath } from "node:fs/promises";
+import { chmod, mkdtemp, writeFile, rm, realpath } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
@@ -78,6 +78,9 @@ export async function runGrade(
   try {
     const source = path.join(directory, "source.tar.gz");
     await writeFile(source, await archive(request), { mode: 0o444 });
+    // systemd UMask=0077 masks create-mode bits; the different sandbox UID
+    // must still read this public archive through its read-only bind mount.
+    await chmod(source, 0o444);
     // A loopback-only namespace has no bridge, host gateway or outbound route.
     executionStarted = true;
     await execute(
