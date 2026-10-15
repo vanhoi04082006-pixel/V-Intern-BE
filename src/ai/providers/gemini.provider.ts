@@ -77,6 +77,10 @@ export class GeminiProvider implements AiProvider {
     this.endpoint = options.endpoint ?? DEFAULT_ENDPOINT;
   }
 
+  withRuntimeOptions(options: { model: string; timeoutMs: number }): GeminiProvider {
+    return new GeminiProvider({ apiKey: this.apiKey, model: options.model, timeoutMs: options.timeoutMs, fetchImpl: this.fetchImpl, endpoint: this.endpoint });
+  }
+
   async generateStructured<T>(request: AiStructuredRequest<T>): Promise<AiStructuredResult<T>> {
     const startedAt = Date.now();
 

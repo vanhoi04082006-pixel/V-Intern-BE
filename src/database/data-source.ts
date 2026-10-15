@@ -10,6 +10,7 @@ import { CreateClassLessons1761081600000 } from './migrations/1761081600000-Crea
 import { CreateImportedReviews1760995200000 } from './migrations/1760995200000-CreateImportedReviews';
 import { AddRoleManagement1760908800000 } from './migrations/1760908800000-AddRoleManagement';
 import { DataSource } from 'typeorm';
+import { AddQuestionVersions1762204800000 } from './migrations/1762204800000-AddQuestionVersions';
 import { CreateReportSnapshots1761168000000 } from './migrations/1761168000000-CreateReportSnapshots';
 import { CreateProjectRoleSlots1761254400000 } from './migrations/1761254400000-CreateProjectRoleSlots';
 import { CreateAiGenerationBatches1761340800000 } from './migrations/1761340800000-CreateAiGenerationBatches';
@@ -79,5 +80,6 @@ export default new DataSource({
     AddInterviewFollowUps1761945600000,
     BackfillQuestionMetadata1762032000000,
     AddGithubWebhooks1762118400000,
+    AddQuestionVersions1762204800000,
   ],
 });

@@ -79,6 +79,11 @@ Pagination chuẩn: {data,meta:{page,pageSize,total,totalPages}}. Một số agg
 | POST | /api/v1/github/connect | github |
 | DELETE | /api/v1/github/me | github |
 | GET | /api/v1/github/me | github |
+| GET/POST | /api/v1/admin/question-bank | Private administrator bank; bounded search/filter/pagination or create |
+| GET/PUT/DELETE | /api/v1/admin/question-bank/{id} | Administrator detail/versioned edit/soft retire (DELETE requires version query) |
+| GET/PUT | /api/v1/admin/ai-configuration | Admin-only validated model, timeout, retry and version; no secrets |
+| GET | /api/v1/admin/system/status | Admin-only actual DB/AI metrics and integration configuration presence |
+| GET | /api/v1/admin/system/repositories | Admin-only paginated repository/webhook state; no tokens |
 | GET | /api/v1/performance/interns/{userId}/detail | Student profile/interview, scoped task/submission pages and six UTC monthly history buckets; performance.view + ownership |
 | POST | /api/v1/github/webhook | Public transport; raw-body HMAC SHA256, UUID delivery deduplication, 1 MiB limit; PR/push source observation only |
 | GET | /api/v1/groups | Paginated groups (groups.read) |

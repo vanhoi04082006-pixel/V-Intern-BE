@@ -19,6 +19,9 @@ import { RecruitmentController } from './recruitment.controller';
 import { RecruitmentEvaluationService } from './recruitment-evaluation.service';
 import { RecruitmentRateLimitGuard } from './recruitment-rate-limit.guard';
 import { RecruitmentService } from './recruitment.service';
+import { QuestionBankController } from './question-bank.controller';
+import { QuestionBankService } from './question-bank.service';
+import { RbacModule } from '../rbac/rbac.module';
 
 /**
  * Phase 4 — Recruitment + AI interview module (spec 3).
@@ -28,6 +31,7 @@ import { RecruitmentService } from './recruitment.service';
 @Module({
   imports: [
     AiModule,
+    RbacModule,
     TypeOrmModule.forFeature([
       RecruitmentProfile,
       InterviewQuestion,
@@ -42,8 +46,8 @@ import { RecruitmentService } from './recruitment.service';
       NotificationPreference,
     ]),
   ],
-  controllers: [RecruitmentController],
-  providers: [InterviewFollowUpService, InterviewConversationService, RecruitmentService, InterviewService, RecruitmentEvaluationService, RecruitmentRateLimitGuard],
+  controllers: [RecruitmentController, QuestionBankController],
+  providers: [QuestionBankService, InterviewFollowUpService, InterviewConversationService, RecruitmentService, InterviewService, RecruitmentEvaluationService, RecruitmentRateLimitGuard],
   exports: [RecruitmentService, InterviewService],
 })
 export class RecruitmentModule {}

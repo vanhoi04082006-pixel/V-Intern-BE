@@ -16,7 +16,7 @@ import { ADDITIONAL_TECHNICAL } from './question-enrichment';
  * management preserves edited questions and existing session snapshots.
  *
  * SECURITY: rubric JSON below is INTERNAL ONLY — it is snapshotted into
- * interview_session_questions and NEVER returned by any API (spec 10/42).
+ * interview_session_questions and NEVER returned by student/instructor APIs.
  */
 
 interface SeedQuestion {

@@ -76,6 +76,7 @@ Giữ nghiệp vụ trong module của nó; dùng helper quyền chuẩn, DTO va
 - Task template cần repo đúng phiên và danh tính GitHub liên kết khi nộp. Kết quả AI gắn base/head SHA, không tự xác nhận Done.
 - Source, diff, câu trả lời và nội dung chat là dữ liệu không tin cậy. Không chạy code sinh viên trên host BE. GitHub checks do sinh viên tạo không phải bằng chứng test tin cậy.
 - Thiếu provider/runner/repo không sinh kết quả đạt giả. Giảng viên chấm thủ công cần lý do rõ, ghi audit và kiểm tra SHA.
+- Admin quản trị câu hỏi riêng tư có version, cấu hình model/timeout/retry Gemini cho lời gọi mới và xem thống kê AI/tích hợp. Credential luôn ở server; [hợp đồng quản trị](docs/architecture/admin.md).
 
 ## Tài liệu
 

@@ -11,6 +11,8 @@ import {
 } from './ai-provider.interface';
 import { AiProviderUnavailableError, aiErrorCode } from './ai-errors';
 import { withBoundedRetries } from './ai-retry';
+import { AiRuntimeService } from './ai-runtime.service';
+import { GeminiProvider } from './providers/gemini.provider';
 
 /**
  * AI CORE facade (Phase 4, spec 21/33/39) — the ONLY entry point domain
@@ -35,6 +37,7 @@ export class AiService {
     private readonly config: ConfigService,
     // Provider may legitimately be NULL (AI unconfigured) — optional token.
     @Inject(AI_PROVIDER_TOKEN) private readonly provider: AiProvider | null,
+    private readonly runtime: AiRuntimeService,
   ) {}
 
   get isConfigured(): boolean {
@@ -65,6 +68,8 @@ export class AiService {
     if (!this.provider) {
       throw new AiProviderUnavailableError();
     }
+    const configured = this.provider instanceof GeminiProvider ? await this.runtime.effective() : null;
+    const provider = configured && this.provider instanceof GeminiProvider ? this.provider.withRuntimeOptions(configured.policy) : this.provider;
 
     const startedAt = new Date();
     // Provenance row is written through a dedicated short transaction so a
@@ -72,8 +77,8 @@ export class AiService {
     const run = await this.dataSource.transaction(async (em) => {
       const row = em.create(AiRun, {
         feature: params.feature,
-        provider: this.provider!.name,
-        model: this.provider!.model,
+        provider: provider.name,
+        model: provider.model,
         status: 'running',
         userId: params.userId,
         resourceType: params.resourceType,
@@ -86,8 +91,8 @@ export class AiService {
 
     try {
       const result = await withBoundedRetries(
-        () => this.provider!.generateStructured(params.request),
-        { maxRetries: this.config.get<number>('ai.maxRetries', 2) },
+        () => provider.generateStructured(params.request),
+        { maxRetries: configured?.policy.maxRetries ?? this.config.get<number>('ai.maxRetries', 2) },
       );
       await this.runs.update(run.id, {
         status: 'succeeded',

@@ -10,5 +10,6 @@
 - [Evaluation/performance/KPI](architecture/evaluation-performance-kpi.md), [virtual salary](architecture/virtual-salary.md), [certificates](architecture/certificates.md).
 - [Hiệu suất và chi tiết sinh viên](architecture/student-performance.md), [báo cáo và xuất file](architecture/reports.md).
 - [API routes](api/ROUTES.md), [security](SECURITY.md), [testing](TESTING.md), [ADRs](decisions/0001-ai-github-authority.md).
+- [Quản trị câu hỏi, AI và giám sát](architecture/admin.md).
 
 Source DTO/controller/service là authority nếu tài liệu và code khác nhau; sửa tài liệu cùng thay đổi hành vi, không tự sửa lịch sử migration đã áp dụng.

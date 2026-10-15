@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { AuditService } from '../audit/audit.service';
@@ -36,6 +36,7 @@ export class SettingsService {
 
   /** Idempotent upsert; every change is audited. */
   async upsert(input: { key: string; value: string; description?: string }, ctx: ActorContext): Promise<void> {
+    if (input.key === 'ai.runtime') throw new BadRequestException('Use the validated administrator AI configuration endpoint.');
     const existing = await this.repo.findOne({ where: { settingKey: input.key } });
     if (existing) {
       await this.repo.update(
