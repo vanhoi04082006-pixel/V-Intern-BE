@@ -1,5 +1,6 @@
 import { AddInterviewFollowUps1761945600000 } from './migrations/1761945600000-AddInterviewFollowUps';
 import { SnapshotCertificateCompletion1762377600000 } from './migrations/1762377600000-SnapshotCertificateCompletion';
+import { AddGithubTokenRotation1762464000000 } from './migrations/1762464000000-AddGithubTokenRotation';
 import { BackfillQuestionMetadata1762032000000 } from './migrations/1762032000000-BackfillQuestionMetadata';
 import { AddGithubWebhooks1762118400000 } from './migrations/1762118400000-AddGithubWebhooks';
 import { CreateGithubDelivery1761859200000 } from './migrations/1761859200000-CreateGithubDelivery';
@@ -85,5 +86,6 @@ export default new DataSource({
     AddQuestionVersions1762204800000,
     CreateLearningAlertDispatches1762291200000,
     SnapshotCertificateCompletion1762377600000,
+    AddGithubTokenRotation1762464000000,
   ],
 });

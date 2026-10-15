@@ -6,6 +6,16 @@ Tạo GitHub OAuth App với callback của BE, ví dụ http://localhost:8080/a
 
 Giảng viên mở /instructor/github; scope read:user public_repo để tạo public repo dưới GitHub của họ. Sinh viên mở /intern/github, scope read:user để chứng minh danh tính khi nộp/invite. Gmail chỉ là email; người dùng cần GitHub account riêng. OAuth state dùng một lần10phút, cookie HttpOnly và PKCE S256; callback revalidate user active + GitHub numericID. Token AES256GCM có AAD userId, không trả/log raw token. Một GitHub numericID chỉ gắn một user ứng dụng.
 
+### Token có thời hạn
+
+Giữ tính năng hết hạn token của OAuth App. Theo [hợp đồng GitHub](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/authorizing-oauth-apps#refreshing-an-access-token-with-a-refresh-token), token refresh đổi lấy cặp access/refresh mới; cặp cũ mất hiệu lực. Không gửi scope mới trong refresh. Response JSON được kiểm tra kiểu, thời hạn hữu hạn và độ dài trước khi lưu.
+
+Migration31 thêm refresh ciphertext/expiry, tokenVersion và lease. Refresh token dùng AES-GCM với AAD riêng `github-refresh:userId`; không trả cho frontend, model, log hoặc runner. Lấy token cho thao tác thật sẽ gia hạn khi hết hạn/gần hết hạn. Token legacy không có expiry vẫn dùng được; legacy expired không có refresh hoặc refresh hết hạn/bị GitHub từ chối yêu cầu liên kết lại. Status không gọi provider, chỉ mô tả bằng chứng lưu hiện tại.
+
+Trong một process dùng promise chung; nhiều worker dùng claim lease60giây ở SQL và compare version. Không giữ transaction qua HTTP GitHub. Chỉ ghi cặp mới sau khi `/user` xác nhận cùng numeric ID và scope không đổi; ghi có guard version/lease/user active. Reconnect mới, disconnect, user bị khóa hoặc callback cũ không bị reply muộn ghi đè. Callback pin connectionVersion ở bước begin và kiểm tra state còn tồn tại trước commit; disconnect xóa state trước connection để không hồi sinh liên kết đã hủy. Pending OAuth cũ trước migration có thể cần bắt đầu lại; các kết nối có token còn hạn được giữ.
+
+SQL regression dùng transport GitHub giả lập để kiểm tra rotation cạnh tranh, legacy, callback lưu cặp mã hóa, bad refresh, identity/scope/schema/provider error, disconnect/reconnect/user lock trong lúc HTTP đang chờ và callback version conflict. Đây là bằng chứng SQL/authorization, không thay thế OAuth thật.
+
 ## Repository mỗi phiên
 
 Lead instructor tạo/manage. Tên deterministic vintern-{sessioncode}-{sessionid8}, description có marker sessionUUID, public:true, auto-init. Lease/idempotency và marker + repoID + numericOwnerID tránh trùng/chiếm repo. Start trigger tự động; mất cấu hình hoặc token không làm fake repo và có retry rõ ở SessionRepositoryCard.

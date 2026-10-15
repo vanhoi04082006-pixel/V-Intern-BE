@@ -12,6 +12,8 @@ import { PermissionsService } from "../rbac/permissions.service";
 import { isUniqueViolation } from "../common/utils/db-errors";
 import { GithubClient } from "./github-client";
 import { boundedJson, openToken, sealToken } from "./github-security";
+import { canRefresh, CONNECTION_COLUMNS, GithubTokenRefresh } from './github-token-refresh';
+import { parseOAuthTokens } from './github-oauth-tokens';
 
 export interface GithubConnection {
   userId: string;
@@ -20,17 +22,15 @@ export interface GithubConnection {
   tokenCiphertext: string;
   scopes: string;
   expiresAt: Date | null;
+  refreshTokenCiphertext?: string | null;
+  refreshExpiresAt?: Date | null;
+  tokenVersion?: number;
 }
 interface OAuthState {
   userId: string;
   verifierCiphertext: string;
   returnRole: string;
-}
-interface OAuthResponse {
-  access_token?: string;
-  scope?: string;
-  expires_in?: number;
-  error?: string;
+  connectionVersion: number;
 }
 export interface GithubIdentity {
   id: number;
@@ -39,12 +39,13 @@ export interface GithubIdentity {
 
 @Injectable()
 export class GithubAuthService {
+  private readonly refresher: GithubTokenRefresh;
   constructor(
     private readonly db: DataSource,
     private readonly config: ConfigService,
     private readonly client: GithubClient,
     private readonly permissions: PermissionsService,
-  ) {}
+  ) { this.refresher = new GithubTokenRefresh(db, config, client); }
   private secret(): string {
     return this.config.get<string>("GITHUB_TOKEN_ENCRYPTION_KEY", "");
   }
@@ -80,7 +81,7 @@ export class GithubAuthService {
   }
   async connection(userId: string): Promise<GithubConnection | null> {
     const rows: GithubConnection[] = await this.db.query(
-      "SELECT userId,githubUserId,login,tokenCiphertext,scopes,expiresAt FROM github_connections WHERE userId=@0",
+      `SELECT ${CONNECTION_COLUMNS} FROM github_connections WHERE userId=@0`,
       [userId],
     );
     return rows[0] ?? null;
@@ -93,25 +94,26 @@ export class GithubAuthService {
       login: c?.login ?? null,
       githubUserId: c ? String(c.githubUserId) : null,
       canCreatePublicRepo: Boolean(
-        c &&
+        c && (!c.expiresAt || c.expiresAt.getTime() > Date.now() || canRefresh(c)) &&
           c.scopes
             .split(/[ ,]+/)
             .some((s) => s === "repo" || s === "public_repo"),
       ),
       reconnectRequired: Boolean(
-        c?.expiresAt && c.expiresAt.getTime() <= Date.now(),
+        c?.expiresAt && c.expiresAt.getTime() <= Date.now() && !canRefresh(c),
       ),
     };
   }
   async token(
     userId: string,
   ): Promise<{ token: string; connection: GithubConnection }> {
-    const c = await this.connection(userId);
-    if (!c || (c.expiresAt && c.expiresAt.getTime() <= Date.now()))
+    const existing = await this.connection(userId);
+    if (!existing)
       throw new ServiceUnavailableException({
         code: "GITHUB_RECONNECT_REQUIRED",
         message: "Cần kết nối lại tài khoản GitHub.",
       });
+    const c = await this.refresher.ensure(existing);
     return {
       token: openToken(c.tokenCiphertext, this.secret(), userId.toLowerCase()),
       connection: c,
@@ -127,14 +129,16 @@ export class GithubAuthService {
     const state = randomBytes(32).toString("base64url"),
       verifier = randomBytes(32).toString("base64url");
     const hash = createHash("sha256").update(state).digest("hex");
+    const connection = await this.connection(userId);
     await this.db.query(
-      "INSERT INTO github_oauth_states(stateHash,userId,verifierCiphertext,returnRole,expiresAt) VALUES(@0,@1,@2,@3,@4)",
+      "INSERT INTO github_oauth_states(stateHash,userId,verifierCiphertext,returnRole,expiresAt,connectionVersion) VALUES(@0,@1,@2,@3,@4,@5)",
       [
         hash,
         userId,
         sealToken(verifier, this.secret(), `oauth:${hash}`),
         instructor ? "instructor" : "intern",
         new Date(Date.now() + 600000),
+        connection ? connection.tokenVersion ?? 1 : 0,
       ],
     );
     const params = new URLSearchParams({
@@ -166,7 +170,7 @@ export class GithubAuthService {
       throw new UnauthorizedException("GitHub OAuth state không hợp lệ.");
     const hash = createHash("sha256").update(state).digest("hex");
     const rows: OAuthState[] = await this.db.query(
-      "UPDATE github_oauth_states SET usedAt=SYSUTCDATETIME() OUTPUT inserted.userId,inserted.verifierCiphertext,inserted.returnRole WHERE stateHash=@0 AND usedAt IS NULL AND expiresAt>SYSUTCDATETIME()",
+      "UPDATE github_oauth_states SET usedAt=SYSUTCDATETIME() OUTPUT inserted.userId,inserted.verifierCiphertext,inserted.returnRole,inserted.connectionVersion WHERE stateHash=@0 AND usedAt IS NULL AND expiresAt>SYSUTCDATETIME()",
       [hash],
     );
     if (!rows.length)
@@ -209,13 +213,7 @@ export class GithubAuthService {
         "GitHub chưa cấp được quyền kết nối.",
       );
     }
-    const data = (await boundedJson(response, 64000)) as OAuthResponse;
-    if (
-      typeof data.access_token !== "string" ||
-      !data.access_token ||
-      data.error
-    )
-      throw new UnauthorizedException("GitHub đã từ chối cấp quyền.");
+    const data = parseOAuthTokens(await boundedJson(response, 64000));
     const identity = await this.client.call<GithubIdentity>(
       "/user",
       data.access_token,
@@ -228,10 +226,15 @@ export class GithubAuthService {
       throw new UnauthorizedException("Danh tính GitHub không hợp lệ.");
     try {
       await this.db.transaction(async (em) => {
+        const stateStillPresent = await em.query('SELECT stateHash FROM github_oauth_states WITH(UPDLOCK,HOLDLOCK) WHERE stateHash=@0 AND userId=@1 AND usedAt IS NOT NULL', [hash, userId]);
+        if (!stateStillPresent.length) throw new UnauthorizedException('Yêu cầu kết nối đã bị hủy.');
+        const stillActive = await em.query("SELECT id FROM users WHERE id=@0 AND status='active'", [userId]);
+        if (!stillActive.length) throw new UnauthorizedException('Tài khoản không còn hoạt động.');
         const existing = await em.query(
-          "SELECT userId FROM github_connections WITH(UPDLOCK,HOLDLOCK) WHERE userId=@0",
+          "SELECT userId,tokenVersion FROM github_connections WITH(UPDLOCK,HOLDLOCK) WHERE userId=@0",
           [userId],
         );
+        if ((existing[0]?.tokenVersion ?? 0) !== rows[0].connectionVersion) throw new ConflictException({ code: 'GITHUB_CONNECTION_CHANGED', message: 'Kết nối đã thay đổi. Hãy bắt đầu lại.' });
         const params = [
           userId,
           identity.id,
@@ -241,15 +244,17 @@ export class GithubAuthService {
           data.expires_in
             ? new Date(Date.now() + data.expires_in * 1000)
             : null,
+          data.refresh_token ? sealToken(data.refresh_token, this.secret(), `github-refresh:${userId}`) : null,
+          data.refresh_token_expires_in ? new Date(Date.now() + data.refresh_token_expires_in * 1000) : null,
         ];
         if (existing.length)
           await em.query(
-            "UPDATE github_connections SET githubUserId=@1,login=@2,tokenCiphertext=@3,scopes=@4,expiresAt=@5,connectedAt=SYSUTCDATETIME() WHERE userId=@0",
+            "UPDATE github_connections SET githubUserId=@1,login=@2,tokenCiphertext=@3,scopes=@4,expiresAt=@5,refreshTokenCiphertext=@6,refreshExpiresAt=@7,tokenVersion=tokenVersion+1,refreshLeaseId=NULL,refreshLeaseExpiresAt=NULL,connectedAt=SYSUTCDATETIME() WHERE userId=@0",
             params,
           );
         else
           await em.query(
-            "INSERT INTO github_connections(userId,githubUserId,login,tokenCiphertext,scopes,expiresAt) VALUES(@0,@1,@2,@3,@4,@5)",
+            "INSERT INTO github_connections(userId,githubUserId,login,tokenCiphertext,scopes,expiresAt,refreshTokenCiphertext,refreshExpiresAt) VALUES(@0,@1,@2,@3,@4,@5,@6,@7)",
             params,
           );
       });
@@ -264,10 +269,10 @@ export class GithubAuthService {
   }
   async disconnect(userId: string): Promise<{ disconnected: true }> {
     await this.db.transaction(async (em) => {
-      await em.query("DELETE FROM github_connections WHERE userId=@0", [
+      await em.query("DELETE FROM github_oauth_states WHERE userId=@0", [
         userId,
       ]);
-      await em.query("DELETE FROM github_oauth_states WHERE userId=@0", [
+      await em.query("DELETE FROM github_connections WHERE userId=@0", [
         userId,
       ]);
     });
