@@ -279,10 +279,16 @@ describe('AI sprint/task generation', () => {
     expect(milestoneRows).toEqual([{ title: 'Integration demo', status: 'pending' }]);
     const storedSpecs = await dataSource.query('SELECT specJson FROM task_specs WHERE taskId=@0', [first.body.taskIds[1]]);
     expect(JSON.parse(storedSpecs[0].specJson)).toMatchObject({ expectedOutput: 'Working form', estimatedHours: 6, skillTags: ['React'], dependencies: [{ key: 'api', taskId: first.body.taskIds[0] }], milestones: [{ key: 'demo' }] });
+    const sourcePath = `/api/v1/tasks/${first.body.taskIds[1]}/spec/source`;
+    const sourceSpec = await request(apiBase()).get(sourcePath).set('Authorization', `Bearer ${instructorA}`).expect(200);
+    expect(JSON.stringify(sourceSpec.body)).toBe(JSON.stringify(JSON.parse(storedSpecs[0].specJson)));
+    await request(apiBase()).get(sourcePath).set('Authorization', `Bearer ${instructorB}`).expect(403);
     const blocked = await request(apiBase()).patch(`/api/v1/tasks/${first.body.taskIds[1]}`).set('Authorization', `Bearer ${instructorA}`).send({ status: 'doing' });
     expect(blocked.status).toBe(409);
     expect(blocked.body.code).toBe('TASK_DEPENDENCIES_PENDING');
     for (const status of ['doing', 'review', 'done']) await request(apiBase()).patch(`/api/v1/tasks/${first.body.taskIds[0]}`).set('Authorization', `Bearer ${instructorA}`).send({ status }).expect(200);
+    const unchangedSource = await request(apiBase()).get(sourcePath).set('Authorization', `Bearer ${instructorA}`).expect(200);
+    expect(JSON.stringify(unchangedSource.body)).toBe(JSON.stringify(sourceSpec.body));
     await request(apiBase()).patch(`/api/v1/tasks/${first.body.taskIds[1]}`).set('Authorization', `Bearer ${instructorA}`).send({ status: 'doing' }).expect(200);
     const replay = await request(apiBase()).post('/api/v1/ai-generations/sprint-plan/confirm').set('Authorization', `Bearer ${instructorA}`).send({
       projectId: projectA, sessionId: sessionA, draft, requestId,

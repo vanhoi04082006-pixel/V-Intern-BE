@@ -228,6 +228,7 @@ Pagination chuẩn: {data,meta:{page,pageSize,total,totalPages}}. Một số agg
 | GET | /api/v1/tasks/{id}/history | Task status history (append-only, oldest first; assignee OR tasks.view/tasks.manage) |
 | PATCH | /api/v1/tasks/{id}/my | Intern updates OWN task (tasks.update.own; identity = authenticated principal; ONLY status todo→doing / doing→review + progress; 403 TASK_NOT_OWNED / ASSIGNMENT_NOT_ACTIVE; 409 INVALID_TASK_TRANSITION) |
 | GET | /api/v1/tasks/{id}/spec | project templates |
+| GET | /api/v1/tasks/{id}/spec/source | Authorized persisted specification snapshot, unchanged by dependency status; export this object for runner catalog hashing |
 | GET | /api/v1/tasks/{id}/submissions | task submissions |
 | POST | /api/v1/tasks/{id}/submissions | task submissions |
 | GET | /api/v1/users | Paginated user list (users.read) |

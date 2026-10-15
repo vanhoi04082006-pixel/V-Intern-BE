@@ -267,11 +267,13 @@ export class TemplatesService {
       return { id: runId, projectId: String(project.id).toLowerCase(), sessionId: String(session.id).toLowerCase(), templateVersion: template.version, deduped: false };
     });
   }
-  async taskSpec(id: string, principal: RequestPrincipal) {
+  async taskSpec(id: string, principal: RequestPrincipal, view: 'display' | 'source' = 'display') {
     const task = await this.tasks.getOneDetailed(id,principal);
     const rows: { specJson: string }[] = await this.db.query('SELECT specJson FROM task_specs WHERE taskId=@0',[id]);
     if (!rows.length) return null;
     const spec = JSON.parse(rows[0].specJson) as Record<string, unknown>;
+    // Grading binds the persisted snapshot, never display-only dependency status.
+    if (view === 'source') return spec;
     const dependencies = Array.isArray(spec.dependencies) ? spec.dependencies as Array<{ taskId?: unknown; key?: unknown }> : [];
     const ids = dependencies.map(d => d.taskId).filter((value): value is string => typeof value === 'string' && /^[0-9a-f-]{36}$/i.test(value)).slice(0, 20);
     const tasks: Array<{ id: string; code: string; title: string; status: string }> = ids.length ? await this.db.query(`SELECT id,code,title,status FROM tasks WHERE projectId=@0 AND deletedAt IS NULL AND id IN (${ids.map((_, i) => `@${i + 1}`).join(',')})`, [task.projectId, ...ids]) : [];
