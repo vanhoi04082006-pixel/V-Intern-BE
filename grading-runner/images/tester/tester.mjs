@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { pathToFileURL } from "node:url";
 import { randomUUID } from "node:crypto";
+import { runApiFlow } from './api-flow.mjs';
 
 // No student files, imports, test scripts, tokens or signing keys enter this container.
 export async function runChecks(
@@ -49,6 +50,8 @@ export async function runChecks(
               assert.deepEqual(json[key], expected);
           }
           await response.body?.cancel().catch(() => {});
+        } else if (check.kind === 'api') {
+          await runApiFlow(check, target);
         } else if (check.kind === "browser") {
           browserType ??= (await import("playwright")).chromium;
           browser ??= await browserType.launch({

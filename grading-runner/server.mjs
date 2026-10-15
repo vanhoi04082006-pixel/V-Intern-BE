@@ -63,7 +63,7 @@ export function createRunner({
         nonces.set(body.nonce, Date.now());
         busy = true;
         try {
-          const startedAt = Date.now();
+          const startedAt = performance.now();
           const counts = await worker(body, suite);
           if (
             !Number.isSafeInteger(counts.passed) ||
@@ -84,7 +84,7 @@ export function createRunner({
             suiteDigest: body.suiteDigest,
             passed: counts.passed,
             failed: counts.failed,
-            executionTimeMs: Date.now() - startedAt,
+            executionTimeMs: Math.round(performance.now() - startedAt),
             score: Math.round(counts.passed / suite.checks.length * 10000) / 100,
             checks: counts.checks.map((check, i) => ({ name: String(suite.checks[i].name ?? `Check ${i + 1}`).slice(0, 120), passed: check.passed,
               log: check.passed ? 'Acceptance behavior verified.' : 'Expected acceptance behavior was not satisfied.' })),

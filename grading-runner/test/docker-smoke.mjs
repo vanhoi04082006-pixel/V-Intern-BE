@@ -58,6 +58,20 @@ try {
       JSON.stringify({ fixture: broken ? "broken" : "valid", ...result }),
     );
   }
+  const apiOriginal = await readFile(path.join(directory, 'fixtures/tasks-api/server.mjs'), 'utf8');
+  const apiSuite = { ...suite, command: ['node', '/runner/launch.mjs', 'node-http', 'server.mjs'],
+    checks: JSON.parse(await readFile(path.join(directory, '../suites/tasks-api.json'), 'utf8')) };
+  for (const variant of ['valid', 'broken-validation', 'broken-ownership']) {
+    const source = variant === 'broken-validation' ? apiOriginal.replace('const enforceValidation = true', 'const enforceValidation = false')
+      : variant === 'broken-ownership' ? apiOriginal.replace('const enforceOwnership = true', 'const enforceOwnership = false') : apiOriginal;
+    await writeFile(path.join(temporary, 'server.mjs'), source);
+    const archivePath = path.join(temporary, 'api-fixture.tar.gz');
+    assert.equal(spawnSync('tar', ['-czf', archivePath, '-C', temporary, './server.mjs']).status, 0);
+    const result = await runGrade({}, apiSuite, docker, async () => readFile(archivePath));
+    assert.equal(result.passed, variant === 'valid' ? 4 : 3, JSON.stringify(result));
+    assert.equal(result.failed, variant === 'valid' ? 0 : 1, JSON.stringify(result));
+    console.log(JSON.stringify({ fixture: `tasks-api-${variant}`, ...result }));
+  }
 } finally {
   const resolved = await realpath(temporary);
   if (
