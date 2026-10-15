@@ -23,6 +23,23 @@ export class ReportPdfService {
       text(`Điểm đã chốt: ${member.averageEvaluationScore??'Chưa chấm'} · Bài nộp: ${member.submissionCount} · Duyệt: ${member.approvedCount} · Làm lại: ${member.reworkCount}`);
       doc.moveDown(0.7);
     }
+    if(report.snapshot.details){
+      const details=report.snapshot.details;
+      doc.addPage();header();text('TIẾN ĐỘ VÀ PHÂN CÔNG',true,14);doc.moveDown();
+      text(`Task ${details.summary.completed}/${details.summary.total} · Trễ ${details.summary.overdue} · Chờ phụ thuộc ${details.summary.blocked} · Chưa phân công ${details.summary.unassigned}`);
+      text(`Cảnh báo: ${details.summary.risk}. ${details.summary.reasons.join(' ')}`);doc.moveDown();
+      text('Căn cứ là task/sprint tại thời điểm chụp, không phải dự báo ngày hoàn thành.',false,8);doc.moveDown();
+      for(const sprint of details.sprints){if(doc.y>680){doc.addPage();header();}text(`${sprint.name}: ${sprint.completed}/${sprint.total} · Trễ ${sprint.overdue} · Chờ ${sprint.blocked}`,true);}
+      doc.moveDown();
+      for(const task of details.tasks){
+        if(doc.y>640){doc.addPage();header();}
+        text(`${task.code} · ${task.title}`,true);
+        text(`${task.assigneeName??'Chưa phân công'} · ${task.sprintName??'Chưa có sprint'} · ${task.status}${task.blocked?' · Chờ phụ thuộc':''}`);
+        text(`Hạn: ${task.dueDate?new Date(task.dueDate).toISOString():'Không đặt'} · Bài nộp: ${task.submissionStatus??'Chưa nộp'}`);
+        text(`AI: ${task.aiStatus??'Chưa chấm'} / ${task.aiScore??'—'} · Giảng viên: ${task.instructorScore??'Chưa chấm'}`);doc.moveDown(0.6);
+      }
+      if(details.timeline.length){doc.addPage();header();text('LỊCH SỬ TRẠNG THÁI (tối đa 100)',true,13);doc.moveDown();for(const event of details.timeline){if(doc.y>690){doc.addPage();header();}text(`${new Date(event.createdAt).toISOString()} · ${event.taskCode} → ${event.toStatus}`,false,9);}}
+    }
     text('Số liệu được lưu tại thời điểm tạo báo cáo. Điểm đã chốt là kết quả chính thức; không phải điểm AI tự tạo.',false,8);
     doc.end();return result;
   }

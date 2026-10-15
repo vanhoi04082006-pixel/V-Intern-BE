@@ -21,6 +21,7 @@ export interface PerformanceQuery {
   q?: string;
   sessionId?: string;
   projectId?: string;
+  sprintId?: string;
   from?: string;
   to?: string;
 }
@@ -68,13 +69,15 @@ export class PerformanceService {
   ) {}
 
   /** Interns visible to the caller in the requested scope + quick metrics. */
-  async listInterns(principal: { userId: string; isAdmin: boolean }, q: PerformanceQuery) {
+  async listInterns(principal: { userId: string; isAdmin: boolean }, q: PerformanceQuery, memberIds?: string[]) {
     const scope = this.parseScope(q);
+    if (memberIds?.length === 0) return { items: [], total: 0 };
     let rows = await this.assignments.find({
       where: {
         ...(q.sessionId ? { sessionId: q.sessionId } : {}),
         ...(q.projectId ? { projectId: q.projectId } : {}),
         status: In(['active', 'completed']),
+        ...(memberIds ? { internId: In(memberIds) } : {}),
       },
     });
     if (scope.from || scope.to) {
@@ -182,7 +185,7 @@ export class PerformanceService {
 
   // ─────────────────────────── internals ───────────────────────────────
 
-  private parseScope(q: PerformanceQuery): { from: Date | null; to: Date | null; now: Date; sessionId?: string; projectId?: string } {
+  private parseScope(q: PerformanceQuery): { from: Date | null; to: Date | null; now: Date; sessionId?: string; projectId?: string; sprintId?: string } {
     const from = q.from ? new Date(q.from) : null;
     const to = q.to ? new Date(q.to) : null;
     if (from && Number.isNaN(from.getTime())) throw notFound('PERFORMANCE_SCOPE_INVALID', 'from is not a valid date.');
@@ -190,7 +193,7 @@ export class PerformanceService {
     if (from && to && from.getTime() >= to.getTime()) {
       throw notFound('PERFORMANCE_SCOPE_INVALID', 'from must be before to.');
     }
-    return { from, to, now: new Date(), sessionId: q.sessionId, projectId: q.projectId };
+    return { from, to, now: new Date(), sessionId: q.sessionId, projectId: q.projectId, sprintId: q.sprintId };
   }
 
   private assignmentOverlaps(a: Assignment, scope: { from: Date | null; to: Date | null }): boolean {
@@ -218,7 +221,7 @@ export class PerformanceService {
   }
 
   /** Fetch raw facts and run the PURE deterministic calculator. */
-  private async computeForIntern(internId: string, scope: { from: Date | null; to: Date | null; now: Date; sessionId?: string; projectId?: string; allowedProjectIds?: Set<string>; allowedSessionIds?: Set<string> }, facts?: PerformanceFacts): Promise<PerformanceMetrics> {
+  private async computeForIntern(internId: string, scope: { from: Date | null; to: Date | null; now: Date; sessionId?: string; projectId?: string; sprintId?: string; allowedProjectIds?: Set<string>; allowedSessionIds?: Set<string> }, facts?: PerformanceFacts): Promise<PerformanceMetrics> {
     // Projects of this intern's assignments (scope-filtered): the
     // assignment row carries BOTH sessionId and projectId, so scoping is
     // applied directly on the assignment rows (no project.sessionId join
@@ -243,6 +246,7 @@ export class PerformanceService {
     const filteredTasks = taskRows.filter((t) => {
       if (t.deletedAt !== null) return false;
       if (!scopedProjectIds.has(t.projectId)) return false;
+      if (scope.sprintId && !sameId(t.sprintId, scope.sprintId)) return false;
       if (scope.sessionId && (!t.sprintId || !scopedSprintIds.has(t.sprintId))) return false;
       if (t.sprintId && (facts || scope.allowedSessionIds) && !scopedSprintIds.has(t.sprintId)) return false;
       if (scope.from && t.createdAt.getTime() < scope.from.getTime()) return false;

@@ -1,5 +1,6 @@
 import { createConnection } from 'node:net';
 import { hash } from 'bcryptjs';
+import { randomUUID } from 'crypto';
 import { INestApplication, ValidationPipe, VersioningType } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
@@ -501,5 +502,50 @@ describe('Phase 5 evaluation + performance e2e (spec 80/81)', () => {
       .set('Authorization', `Bearer ${si}`);
     expect(past.body.metrics.totalTaskCount).toBe(0);
     expect(past.body.metrics.taskCompletionRate).toBeNull();
+  });
+  it('performance directory ranks and paginates in SQL, searches outside the first page and isolates instructors', async () => {
+    const endpoint = `/api/v1/performance/interns?projectId=${projectId}&sessionId=${sessionId}&pageSize=1`;
+    const first = await request(apiBase()).get(endpoint).set('Authorization', `Bearer ${si}`).expect(200);
+    expect(first.body).toMatchObject({ total: 2, page: 1, pageSize: 1 });
+    expect(first.body.items).toHaveLength(1);
+    expect(first.body.items[0]).toMatchObject({ userId: i1UserId, rank: 1, totalTaskCount: 5, completedTaskCount: 3 });
+    const second = await request(apiBase()).get(endpoint + '&page=2').set('Authorization', `Bearer ${si}`).expect(200);
+    expect(second.body.items[0]).toMatchObject({ userId: i2UserId, rank: 2, totalTaskCount: 0 });
+    const found = await request(apiBase()).get(endpoint + '&q=' + encodeURIComponent(EMAILS.i2)).set('Authorization', `Bearer ${si}`).expect(200);
+    expect(found.body.total).toBe(1); expect(found.body.items[0].userId).toBe(i2UserId);
+    const denied = await request(apiBase()).get(endpoint).set('Authorization', `Bearer ${ix}`).expect(200);
+    expect(denied.body).toMatchObject({ total: 0, items: [] });
+    await request(apiBase()).get(endpoint + '&pageSize=101').set('Authorization', `Bearer ${si}`).expect(400);
+  });
+  it('student detail returns scoped tasks, interview evidence and real history with bounded pages', async () => {
+    const endpoint = `/api/v1/performance/interns/${i1UserId}/detail?projectId=${projectId}&sessionId=${sessionId}&pageSize=2`;
+    const response = await request(apiBase()).get(endpoint).set('Authorization', `Bearer ${si}`).expect(200);
+    expect(response.body.profile).toMatchObject({ email: EMAILS.i1 });
+    expect(Object.keys(response.body.profile).sort()).toEqual(['displayName', 'email', 'id', 'selectedRole']);
+    expect(response.body.metrics).toMatchObject({ totalTaskCount: 5, completedTaskCount: 3 });
+    expect(response.body.tasks.total).toBe(5); expect(response.body.tasks.items).toHaveLength(2);
+    expect(response.body.tasks.items.every((t: { projectId: string }) => t.projectId.toLowerCase() === projectId.toLowerCase())).toBe(true);
+    expect(response.body.assignments).toHaveLength(1);
+    expect(response.body.trend).toHaveLength(6);
+    expect(response.body.trend.reduce((sum: number, point: { created: number }) => sum + point.created, 0)).toBe(5);
+    await request(apiBase()).get(endpoint).set('Authorization', `Bearer ${ix}`).expect(403);
+    await request(apiBase()).get(endpoint).set('Authorization', `Bearer ${i1}`).expect(403);
+    const second = await request(apiBase()).get(endpoint + '&page=2').set('Authorization', `Bearer ${si}`).expect(200);
+    expect(second.body.tasks.items[0].id).not.toBe(response.body.tasks.items[0].id);
+  });
+  it('revokes a saved report when a task session is lost even if the same student remains visible elsewhere', async () => {
+    const teacherId = await userIdByEmail(EMAILS.si);
+    const other = await request(apiBase()).post('/api/v1/sessions').set('Authorization', `Bearer ${admin}`).send({ code: `REPORT-OTHER-${RUN}`, name: 'Still visible student session', leadInstructorId: teacherId, startDate: '2026-01-01', endDate: '2026-12-31' }).expect(201);
+    // Test-owned historical assignment keeps this student visible in a second session of the project.
+    await dataSource.query("INSERT INTO assignments(id,internId,projectId,sessionId,status,assignedAt,completedAt) VALUES(@0,@1,@2,@3,'completed',DATEADD(day,-1,SYSUTCDATETIME()),SYSUTCDATETIME())", [randomUUID(), i1UserId, projectId, other.body.id]);
+    const report = await request(apiBase()).post('/api/v1/reports').set('Authorization', `Bearer ${si}`).send({ requestId: randomUUID(), projectId, studentId: i1UserId, kind: 'progress', title: 'Revocable multi-session snapshot' }).expect(201);
+    expect(report.body.snapshot.details.tasks).toHaveLength(5);
+    await dataSource.query('DELETE FROM session_instructors WHERE sessionId=@0 AND instructorId=@1', [sessionId, teacherId]);
+    try {
+      const directory = await request(apiBase()).get(`/api/v1/performance/interns?projectId=${projectId}`).set('Authorization', `Bearer ${si}`).expect(200);
+      expect(directory.body.items.some((m: { userId: string }) => m.userId === i1UserId)).toBe(true);
+      await request(apiBase()).get(`/api/v1/reports/${report.body.id}`).set('Authorization', `Bearer ${si}`).expect(403);
+      await request(apiBase()).get(`/api/v1/reports/${report.body.id}/pdf`).set('Authorization', `Bearer ${si}`).expect(403);
+    } finally { await dataSource.query('INSERT INTO session_instructors(sessionId,instructorId,assignedAt) VALUES(@0,@1,SYSUTCDATETIME())', [sessionId, teacherId]); }
   });
 });

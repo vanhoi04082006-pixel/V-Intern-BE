@@ -431,11 +431,33 @@ describe('M5 Start Session and automatic AI planning', () => {
     expect(report.status).toBe(201);
     expect(report.body.snapshot.scope.sessionId).toBe(run.sessionId);
     expect(report.body.snapshot.members).toHaveLength(2);
+    expect(report.body.snapshot.schemaVersion).toBe(2);
+    expect(report.body.snapshot.details.summary).toMatchObject({ total: 2, completed: 0, unassigned: 0 });
+    expect(report.body.snapshot.details.tasks).toHaveLength(2);
+    expect(report.body.snapshot.details.sprints).toHaveLength(1);
+    expect(report.body.snapshot.details.timeline.length).toBeGreaterThan(0);
     const replayReport = await request(apiBase()).post('/api/v1/reports').set('Authorization', `Bearer ${token}`).send(reportInput);
     expect(replayReport.body.id).toBe(report.body.id);
     const scopedReports = await request(apiBase()).get(`/api/v1/reports?projectId=${run.projectId}&sessionId=${run.sessionId}`).set('Authorization', `Bearer ${token}`);
     expect(scopedReports.status).toBe(200);
     expect(scopedReports.body.total).toBe(1);
+    const focused = await request(apiBase()).post('/api/v1/reports').set('Authorization', `Bearer ${token}`).send({ ...reportInput, requestId: randomUUID(), title: 'Focused student sprint report', studentId: fe, sprintId: reviewed.sprintId });
+    expect(focused.status).toBe(201);
+    expect(focused.body.snapshot.scope).toMatchObject({ studentId: fe, sprintId: reviewed.sprintId });
+    expect(focused.body.snapshot.members).toHaveLength(1);
+    expect(focused.body.snapshot.details.tasks.every((task: { assigneeId: string }) => task.assigneeId.toLowerCase() === fe.toLowerCase())).toBe(true);
+    const invalidScope = await request(apiBase()).post('/api/v1/reports').set('Authorization', `Bearer ${token}`).send({ ...reportInput, requestId: randomUUID(), sprintId: randomUUID() });
+    expect(invalidScope.status).toBe(400);
+    const [priorDeadline] = await dataSource.query('SELECT dueDate FROM tasks WHERE id=@0', [reviewed.id]);
+    try {
+      await dataSource.query('UPDATE tasks SET dueDate=DATEADD(day,-1,SYSUTCDATETIME()) WHERE id=@0', [reviewed.id]);
+      const risk = await request(apiBase()).post('/api/v1/reports').set('Authorization', `Bearer ${token}`).send({ ...reportInput, requestId: randomUUID(), kind: 'risk', title: 'Measured overdue risk' });
+      expect(risk.status).toBe(201);
+      expect(risk.body.snapshot.details.summary.risk).toBe('high');
+      expect(risk.body.snapshot.details.summary.overdue).toBeGreaterThan(0);
+      const pinned = await request(apiBase()).get(`/api/v1/reports/${report.body.id}`).set('Authorization', `Bearer ${token}`);
+      expect(pinned.body.snapshot.details.summary).toEqual(report.body.snapshot.details.summary);
+    } finally { await dataSource.query('UPDATE tasks SET dueDate=@1 WHERE id=@0', [reviewed.id, priorDeadline.dueDate]); }
     const otherScope = await request(apiBase()).get(`/api/v1/reports?sessionId=${randomUUID()}`).set('Authorization', `Bearer ${token}`);
     expect(otherScope.body.total).toBe(0);
     for (const [format, contentType] of [['pdf', 'application/pdf'], ['xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet']]) {

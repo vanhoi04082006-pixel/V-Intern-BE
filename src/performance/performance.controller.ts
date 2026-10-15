@@ -3,8 +3,10 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { RequirePermissions } from '../common/decorators/permissions.decorator';
 import { PermissionsService } from '../rbac/permissions.service';
-import { PerformanceQueryDto } from './performance-query.dto';
+import { PerformanceDirectoryQueryDto, PerformanceQueryDto } from './performance-query.dto';
 import { PerformanceService } from './performance.service';
+import { PerformanceDirectoryService } from './performance-directory.service';
+import { StudentDetailService } from './student-detail.service';
 
 @ApiTags('performance')
 @ApiBearerAuth()
@@ -13,6 +15,8 @@ export class PerformanceController {
   constructor(
     private readonly performanceService: PerformanceService,
     private readonly permissionsService: PermissionsService,
+    private readonly directory: PerformanceDirectoryService,
+    private readonly detail: StudentDetailService,
   ) {}
 
   @Get('interns')
@@ -21,9 +25,9 @@ export class PerformanceController {
     summary:
       'Deterministic intern performance list (performance.view): real task/story-point/evaluation metrics; instructors see only interns they own (session instructor / project mentor) — spec 61',
   })
-  async list(@CurrentUser('userId') userId: string, @Query() query: PerformanceQueryDto) {
+  async list(@CurrentUser('userId') userId: string, @Query() query: PerformanceDirectoryQueryDto) {
     const isAdmin = await this.permissionsService.hasRole(userId, 'admin');
-    return this.performanceService.listInterns({ userId, isAdmin }, query);
+    return this.directory.list({ userId, isAdmin }, query);
   }
 
   @Get('interns/:userId')
@@ -35,6 +39,11 @@ export class PerformanceController {
   async getOne(@CurrentUser('userId') userId: string, @Param('userId', ParseUUIDPipe) targetUserId: string, @Query() query: PerformanceQueryDto) {
     const isAdmin = await this.permissionsService.hasRole(userId, 'admin');
     return this.performanceService.getInternMetrics({ userId, isAdmin }, targetUserId, query);
+  }
+  @Get('interns/:userId/detail')
+  @RequirePermissions('performance.view')
+  async studentDetail(@CurrentUser('userId') userId: string, @Param('userId', ParseUUIDPipe) targetUserId: string, @Query() query: PerformanceDirectoryQueryDto) {
+    return this.detail.get({ userId, isAdmin: await this.permissionsService.hasRole(userId, 'admin') }, targetUserId, query);
   }
 }
 
