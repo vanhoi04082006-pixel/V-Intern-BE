@@ -11,7 +11,8 @@ import { TaskStatusHistory } from '../tasks/entities/task-status-history.entity'
 import { Assignment } from '../assignments/entities/assignment.entity';
 import { AuditLog } from '../audit/entities/audit-log.entity';
 import { ActivityEvent } from '../audit/entities/activity-event.entity';
-import { Notification } from '../notifications/entities/notification.entity';
+import { notifyInTransaction } from '../common/utils/notify';
+import { notifySubmissionReviewer } from './submission-notifications';
 import { RequestPrincipal } from '../common/types/request-principal';
 import { ActorContext } from '../users/users.service';
 import { PermissionsService } from '../rbac/permissions.service';
@@ -73,6 +74,7 @@ export class SubmissionsService {
       if (snapshot) await em.query('UPDATE task_submissions SET headSha=@1,baseSha=@2,repositoryId=@3,sourceKind=@4,sourceRef=@5,pullNumber=@6 WHERE id=@0', [id, snapshot.headSha, snapshot.baseSha, snapshot.repositoryId, snapshot.sourceKind, snapshot.sourceRef, snapshot.pullNumber]);
       await this.changeTask(em, task, 'review', ctx, 'Đã nộp code để AI và giảng viên review');
       await this.record(em, ctx, id, 'submission.create', { taskId, prUrl });
+      await notifySubmissionReviewer(em, task.id, { type: 'task.submitted', title: `Sinh viên đã nộp bài: ${task.code}`, body: dto.summary.slice(0, 1000) });
       const rows: Submission[] = await em.query('SELECT * FROM task_submissions WHERE id=@0', [id]);
       return rows[0];
     });
@@ -128,11 +130,11 @@ export class SubmissionsService {
       await em.query('UPDATE task_submissions SET status=@1,score=@2,rubricJson=@3,feedback=@4,reviewerId=@5,reviewedAt=SYSUTCDATETIME() WHERE id=@0', [id, status, score, JSON.stringify(dto.rubric), dto.feedback, ctx.actorId]);
       await this.changeTask(em, task, status === 'approved' ? 'done' : 'doing', ctx, `${status}: ${score}/100; ${dto.feedback}`.slice(0, 512));
       await this.record(em, ctx, id, 'submission.review', { taskId: task.id, status, score, rubricVersion: 'task-review-v1', rubric: dto.rubric, headSha: item.headSha ?? null, manualOverrideReason: dto.overrideReason?.trim() ?? null });
-      await em.save(Notification, em.create(Notification, {
-        userId: item.internId, type: 'task.reviewed',
+      await notifyInTransaction(em, [item.internId], {
+        category: 'task', type: 'task.reviewed',
         title: status === 'approved' ? `Đã duyệt bài: ${task.code}` : `Cần làm lại: ${task.code}`,
-        body: `${score}/100 · ${dto.feedback}`, linkUrl: `/intern/work/${task.id}`, readAt: null,
-      }));
+        body: `${score}/100 · ${dto.feedback}`, linkUrl: `/intern/work/${task.id}`,
+      });
       const result: Submission[] = await em.query('SELECT * FROM task_submissions WHERE id=@0', [id]);
       return result[0];
     });

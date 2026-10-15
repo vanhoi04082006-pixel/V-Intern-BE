@@ -8,7 +8,8 @@ import { DataSource } from "typeorm";
 import { AiService } from "../ai/ai.service";
 import { aiErrorCode } from "../ai/ai-errors";
 import { RequestPrincipal } from "../common/types/request-principal";
-import { Notification } from "../notifications/entities/notification.entity";
+import { notifyInTransaction } from "../common/utils/notify";
+import { notifySubmissionReviewer } from "../submissions/submission-notifications";
 import {
   GithubEvidenceService,
   SubmissionSnapshot,
@@ -228,17 +229,7 @@ export class CodeReviewService {
             output.run.id,
           ],
         );
-        const recipient =
-          status === "awaiting_instructor"
-            ? ((
-                await em.query("SELECT mentorId FROM projects WHERE id=@0", [
-                  task.projectId,
-                ])
-              )[0]?.mentorId as string | undefined)
-            : submission.internId;
-        if (recipient)
-          await em.insert(Notification, {
-            userId: recipient,
+        const payload = {
             type: "task.ai_review",
             title:
               status === "awaiting_instructor"
@@ -248,12 +239,9 @@ export class CodeReviewService {
               status === "inconclusive"
                 ? "Chưa đủ bằng chứng để kết luận đạt. Xem chi tiết và giới hạn kiểm tra."
                 : output.data.summary.slice(0, 1000),
-            linkUrl:
-              status === "awaiting_instructor"
-                ? `/instructor/tasks/${task.id}`
-                : `/intern/work/${task.id}`,
-            readAt: null,
-          });
+          };
+        await notifyInTransaction(em, [submission.internId], { ...payload, category: 'task', linkUrl: `/intern/work/${task.id}` });
+        await notifySubmissionReviewer(em, task.id, payload);
       });
     } catch (e) {
       await this.db.query(

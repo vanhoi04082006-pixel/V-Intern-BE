@@ -13,12 +13,12 @@ export async function notifyInTransaction(
   userIds: string[],
   payload: { type: string; title: string; body?: string; linkUrl?: string; category: string },
 ): Promise<number> {
-  const unique = [...new Set(userIds)].filter((id) => id && id.length > 0);
+  const unique = [...new Set(userIds.filter(Boolean).map(id => id.toLowerCase()))];
   if (unique.length === 0) return 0;
   const prefs = await em.getRepository(NotificationPreference).find({
     where: { userId: In(unique), category: payload.category },
   });
-  const disabled = new Set(prefs.filter((p) => !p.enabled).map((p) => p.userId));
+  const disabled = new Set(prefs.filter((p) => !p.enabled).map((p) => p.userId.toLowerCase()));
   const allowed = unique.filter((id) => !disabled.has(id));
   if (allowed.length === 0) return 0;
   await em.insert(

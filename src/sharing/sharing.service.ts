@@ -8,7 +8,7 @@ import {
 import { randomUUID } from "crypto";
 import { DataSource, EntityManager } from "typeorm";
 import { AuditLog } from "../audit/entities/audit-log.entity";
-import { Notification } from "../notifications/entities/notification.entity";
+import { notifyInTransaction } from '../common/utils/notify';
 import { PermissionsService } from "../rbac/permissions.service";
 import { DecideAccessDto, RequestAccessDto } from "./sharing.dto";
 import { assertSharedRead } from "./sharing-policy";
@@ -50,8 +50,8 @@ export class SharingService {
       targetId: id,
       detail: JSON.stringify({ action }),
     });
-    await em.insert(Notification, {
-      userId: recipient,
+    await notifyInTransaction(em, [recipient], {
+      category: 'session',
       type: "session.sharing",
       title:
         action === "requested"
@@ -59,7 +59,6 @@ export class SharingService {
           : `Quyền xem phiên: ${action === "approved" ? "đã chấp nhận" : action === "denied" ? "đã từ chối" : "đã thu hồi"}`,
       body: "Mở Chia sẻ dữ liệu để xem chi tiết.",
       linkUrl: "/instructor/sharing",
-      readAt: null,
     });
   }
 

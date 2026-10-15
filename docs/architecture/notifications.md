@@ -2,6 +2,10 @@
 
 Thông báo sự kiện (kết quả phỏng vấn, phân công, publish sprint/task, cập nhật task, submission, AI/human review, chia sẻ và chứng nhận) được ghi cùng transaction nghiệp vụ qua `notifyInTransaction`, theo category preference. API list/unread/read/read-all chỉ thao tác bản ghi của principal; đọc thông báo không đổi trạng thái ứng tuyển hoặc task. FE kiểm tra route theo role và lifecycle trước khi điều hướng.
 
+Nộp bài gửi `task.submitted` tới mentor quản lý project đang hoạt động và có quyền của phiên. Kết quả AI (`awaiting_instructor`, `needs_changes`, `inconclusive`) gửi `task.ai_review` cho cả sinh viên và reviewer hiện tại; AI đề xuất đạt không chuyển task Done. Giảng viên chấm gửi `task.reviewed` cho sinh viên. Category `task` bị tắt chỉ bỏ thông báo, không bỏ submission/kết quả/audit. Reviewer phải có effective role instructor/admin; mentor ngoài phiên hoặc tài khoản bị khóa không nhận dữ liệu. Link reviewer dùng `/instructor/tasks/:id` hoặc `/admin/tasks/:id`, sinh viên dùng `/intern/work/:id`. Không broadcast tới mọi giảng viên của hệ thống.
+
+GUID từ SQL có thể khác hoa/thường so với principal. Fan-out chuẩn hóa GUID trước khi loại trùng/kiểm tra preference; mark-read dùng cùng phép so sánh để không từ chối thông báo của chính người dùng. SQL regression `submission-notifications.e2e-spec.ts` kiểm tra kết quả đạt/chưa đạt/chưa đủ bằng chứng, mute, reviewer hiện tại, deep-link và không tự duyệt bài; transport GitHub/AI/runner chỉ giả lập trong suite tự động này.
+
 ## Quét cảnh báo
 
 `LearningAlertsService` chạy ngay khi bootstrap và mỗi60giây; `LEARNING_ALERTS_ENABLED=false` tắt, `LEARNING_ALERTS_INTERVAL_SECONDS` giới hạn30–3600giây. NODE_ENV=test luôn tắt timer. Mỗi lượt lấy tối đa100 cặp sự kiện/người nhận, xử lý tuần tự để giới hạn tải. Nhiều instance có thể cùng chạy: khóa range SQL trên ledger và unique PK quyết định một lần gửi; tiến trình không chạy chồng lượt của chính nó.

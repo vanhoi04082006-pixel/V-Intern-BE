@@ -23,6 +23,7 @@ import { GithubClient } from "../src/github/github-client";
 describe("consent and OAuth persistence on the current SQL schema", () => {
   let db: DataSource, permissions: PermissionsService, sharing: SharingService;
   let owner: User, reader: User, student: User, sessionId: string;
+  let lifecycleGrantId: string;
   const originalFetch = global.fetch;
   beforeAll(async () => {
     const database = process.env.E2E_DB_NAME ?? "";
@@ -90,11 +91,12 @@ describe("consent and OAuth persistence on the current SQL schema", () => {
     if (db?.isInitialized) await db.destroy();
   });
 
-  it("requests, approves, reads only the chosen session and revokes, with notifications/audit", async () => {
+  it("requests, deduplicates, approves and reads only the consented session", async () => {
     const grant = await sharing.request(reader.id, {
       ownerEmail: owner.email,
       reason: "Review the chosen teaching session with consent.",
     });
+    lifecycleGrantId = grant.id;
     const replay = await sharing.request(reader.id, {
       ownerEmail: owner.email,
       reason: "Duplicate request must return the pending request.",
@@ -114,18 +116,31 @@ describe("consent and OAuth persistence on the current SQL schema", () => {
     expect(
       snapshot.members.map((u: { id: string }) => u.id.toLowerCase()),
     ).toEqual([student.id.toLowerCase()]);
+  });
+  it('only the owner revokes consent, immediately blocking the next read with a complete audit', async () => {
     await expect(
-      sharing.decide(reader.id, grant.id, { decision: "revoke" }),
+      sharing.decide(reader.id, lifecycleGrantId, { decision: "revoke" }),
     ).rejects.toMatchObject({ status: 404 });
-    await sharing.decide(owner.id, grant.id, { decision: "revoke" });
+    await sharing.decide(owner.id, lifecycleGrantId, { decision: "revoke" });
     await expect(
-      sharing.snapshot(reader.id, grant.id, 1, 10),
+      sharing.snapshot(reader.id, lifecycleGrantId, 1, 10),
     ).rejects.toMatchObject({ status: 403 });
     const [counts] = await db.query(
       "SELECT COUNT(*) n FROM audit_logs WHERE targetId=@0",
-      [grant.id],
+      [lifecycleGrantId],
     );
     expect(Number(counts.n)).toBe(3);
+  });
+  it('honors the session notification preference while still recording the request', async () => {
+    const [before] = await db.query("SELECT COUNT(*) n FROM notifications WHERE userId=@0 AND type='session.sharing'", [owner.id]);
+    await db.query("INSERT INTO notification_preferences(userId,category,enabled) VALUES(@0,'session',0)", [owner.id]);
+    try {
+      const grant = await sharing.request(reader.id, { ownerEmail: owner.email, reason: 'A real consent request with session notifications disabled.' });
+      expect(grant.status).toBe('pending');
+      const [after] = await db.query("SELECT COUNT(*) n FROM notifications WHERE userId=@0 AND type='session.sharing'", [owner.id]); expect(after.n).toBe(before.n);
+      const [audit] = await db.query("SELECT COUNT(*) n FROM audit_logs WHERE targetId=@0 AND action='sharing.requested'", [grant.id]); expect(audit.n).toBe(1);
+      await sharing.decide(owner.id, grant.id, { decision: 'deny' });
+    } finally { await db.query("DELETE FROM notification_preferences WHERE userId=@0 AND category='session'", [owner.id]); }
   });
   it("rejects inactive owners, self-requests and an unrelated reader", async () => {
     await expect(
