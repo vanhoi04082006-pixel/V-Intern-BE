@@ -13,7 +13,7 @@ import {
  */
 describe('AI mentor prompt contract', () => {
   it('uses the explicit ai-mentor-v2 prompt version (spec 16/51)', () => {
-    expect(AI_MENTOR_PROMPT_VERSION).toBe('ai-mentor-v2');
+    expect(AI_MENTOR_PROMPT_VERSION).toBe('ai-mentor-v3');
   });
 
   it('system prompt forbids inventing facts and instructs unavailability language (spec 9/17)', () => {

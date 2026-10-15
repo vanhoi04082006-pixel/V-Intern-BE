@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectDataSource } from '@nestjs/typeorm';
-import { DataSource, EntityManager } from 'typeorm';
+import { DataSource, EntityManager, In } from 'typeorm';
 import { AuditLog } from '../audit/entities/audit-log.entity';
 import {
   INTERVIEW_ANSWER_MAX_LENGTH,
@@ -28,7 +28,8 @@ import {
   QuestionPoolInsufficientError,
   selectSessionQuestions,
 } from './question-selection';
-import { RecruitmentService, RecruitmentResultResponse } from './recruitment.service';
+import { RecruitmentService, RecruitmentResultResponse, toResultResponse } from './recruitment.service';
+import { RecruitmentResult } from './entities/recruitment-result.entity';
 import {
   RecruitmentProfileStatus,
   canTransitionRecruitmentProfile,
@@ -78,6 +79,31 @@ export class InterviewService {
     private readonly recruitmentService: RecruitmentService,
     @InjectDataSource() private readonly dataSource: DataSource,
   ) {}
+
+  /** The principal is the only scope; neither prompts nor private rubrics leave this API. */
+  async history(userId: string, query: { page: number; pageSize: number }) {
+    const [sessions, total] = await this.dataSource.getRepository(InterviewSession).findAndCount({
+      where: { userId },
+      order: { attemptNumber: 'DESC', id: 'ASC' },
+      skip: (query.page - 1) * query.pageSize,
+      take: query.pageSize,
+    });
+    const results = sessions.length ? await this.dataSource.getRepository(RecruitmentResult).find({
+      where: { sessionId: In(sessions.map(s => s.id)) },
+    }) : [];
+    const resultBySession = new Map(results.map(r => [r.sessionId.toLowerCase(), r]));
+    return {
+      items: sessions.map(s => {
+        const result = resultBySession.get(s.id.toLowerCase());
+        return {
+          id: s.id, roleCode: s.roleCode, status: s.status, attemptNumber: s.attemptNumber,
+          startedAt: s.startedAt, submittedAt: s.submittedAt, evaluatedAt: s.evaluatedAt,
+          questionCount: s.questionCount, result: result ? toResultResponse(result) : null,
+        };
+      }),
+      total,
+    };
+  }
 
   /**
    * POST /recruitment/me/interviews — start (create + activate) a session.
@@ -310,6 +336,7 @@ export class InterviewService {
       });
       if (session.questionCount === 10) {
         if (existing?.answerText === trimmed) return { id: existing.id, sessionQuestionId: question.id, answeredAt: existing.answeredAt };
+        await this.assertNoPendingFollowUp(em, session.id);
         const questions = await em.getRepository(InterviewSessionQuestion).find({ where: { sessionId: session.id } });
         const answered = await em.getRepository(InterviewAnswer).find({ where: { sessionId: session.id, userId } });
         assertCurrentQuestion(questions, new Set(answered.map(a => a.sessionQuestionId.toLowerCase())), question.id);
@@ -372,6 +399,7 @@ export class InterviewService {
             missingAnswers: missing,
           });
         }
+        if (session.questionCount === 10) await this.assertNoPendingFollowUp(em, session.id);
         await this.transitionSession(em, session, 'submitted', new Date());
         const profile = await em.getRepository(RecruitmentProfile).findOne({
           where: { id: session.profileId },
@@ -420,6 +448,11 @@ export class InterviewService {
       result: evaluation.result,
       ...(evaluation.errorCode ? { errorCode: evaluation.errorCode } : {}),
     };
+  }
+
+  private async assertNoPendingFollowUp(em: EntityManager, sessionId: string) {
+    const pending: unknown[] = await em.query("SELECT questionId FROM interview_conversation_turns WHERE sessionId=@0 AND followUpStatus IN ('generating','ready','failed')", [sessionId]);
+    if (pending.length) throw conflict('INTERVIEW_FOLLOW_UP_PENDING', 'Hãy hoàn thành câu hỏi phụ trước khi tiếp tục.');
   }
 
   /**

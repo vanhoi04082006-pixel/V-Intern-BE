@@ -70,7 +70,7 @@ function buildHarness(opts?: {
 
   const repos: Record<string, AnyRepo> = {
     users: { findOne: jest.fn(async () => store.user) },
-    recruitmentProfiles: { findOne: jest.fn(async () => ({ userId: 'user-own', status: 'passed', selectedRole: 'frontend' })) },
+    recruitmentProfiles: { findOne: jest.fn(async () => ({ id: 'profile-own', userId: 'user-own', status: 'passed', selectedRole: 'frontend' })) },
     assignments: { findOne: jest.fn(async () => store.assignment) },
     projects: { findOne: jest.fn(async (args: { where: { id: string } }) => (args.where.id === 'p1' ? store.project : null)) },
     sessions: { findOne: jest.fn(async () => store.session) },
@@ -93,6 +93,7 @@ function buildHarness(opts?: {
     },
     kpiMetricResults: { find: jest.fn(async () => store.kpiMetrics) },
     kpiPeriods: { findOne: jest.fn(async () => store.kpiPeriod) },
+    recruitmentResults: { findOne: jest.fn(async () => ({ technicalScore: 84, strengthsJson: '["React"]', weaknessesJson: '["TypeScript"]', criteriaJson: '[{"code":"english","score":73,"feedback":"Clear"}]' })) },
   };
 
   const performanceService = {
@@ -135,12 +136,24 @@ function buildHarness(opts?: {
     performanceService as never,
     salaryService as never,
     certificatesService as never,
+    repos.recruitmentResults as never,
+    { collect: jest.fn(async () => ({ headSha: 'a'.repeat(40), complete: true, warnings: [], files: [{ path: 'src/App.tsx', sha: 'b'.repeat(40), content: 'export const title = "Notes";', lineCount: 1, patch: '' }] })) } as never,
   );
 
   return { service, repos, performanceService, salaryService, certificatesService, store };
 }
 
 describe('AiMentorContextService privacy', () => {
+  it('grounds advice in the principal interview gaps and source from the selected own task snapshot', async () => {
+    const h = buildHarness();
+    h.repos.tasks.findOne = jest.fn(async () => ({ id: 't1', code: 'VIN-1', title: 'Notes', projectId: 'p1', sprintId: 'sp1' }));
+    h.repos.tasks.query = jest.fn(async (sql: string) => sql.includes('task_specs') ? [{ specJson: '{"dod":["Persist after reload"]}' }]
+      : sql.includes('TOP(1) s.headSha') ? [{ headSha: 'a'.repeat(40), baseSha: 'c'.repeat(40), repositoryId: '12', sourceKind: 'pull', sourceRef: '3', pullNumber: 3 }] : []);
+    const ctx = await h.service.buildContext('user-own', 't1');
+    expect(ctx.interviewAssessment?.weaknesses).toEqual(['TypeScript']);
+    expect(ctx.selectedTask?.codeContext).toMatchObject({ status: 'available', headSha: 'a'.repeat(40), files: [{ path: 'src/App.tsx' }] });
+    expect(h.repos.recruitmentResults.findOne).toHaveBeenCalledWith(expect.objectContaining({ where: { profileId: 'profile-own' } }));
+  });
   it('builds authorized own facts (identity safe fields, assignment, sprint, tasks)', async () => {
     const h = buildHarness({
       tasks: [

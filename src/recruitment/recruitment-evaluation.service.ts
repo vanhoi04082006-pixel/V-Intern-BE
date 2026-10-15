@@ -6,6 +6,7 @@ import { AiInvalidResponseError } from '../ai/ai-errors';
 import { aiErrorCode } from '../ai/ai-errors';
 import {
   validateRecruitmentEvaluation,
+  validateDetailedRecruitmentEvaluation,
   RecruitmentEvaluationData,
 } from '../ai/evaluation-schema';
 import { ActivityEvent } from '../audit/entities/activity-event.entity';
@@ -118,8 +119,8 @@ export class RecruitmentEvaluationService {
       .getRepository(InterviewAnswer)
       .find({ where: { sessionId: session.id } });
     const answerByQuestion = new Map(answers.map((a) => [a.sessionQuestionId, a]));
-    const turns: Array<{ questionId: string; prompt: string; clarificationPrompt: string | null }> = session.questionCount === 10
-      ? await this.dataSource.query("SELECT questionId,prompt,clarificationPrompt FROM interview_conversation_turns WHERE sessionId=@0 AND status='ready'", [session.id]) : [];
+    const turns: Array<{ questionId: string; prompt: string; clarificationPrompt: string | null; followUpStatus?: string; followUpPrompt?: string; followUpAnswer?: string }> = session.questionCount === 10
+      ? await this.dataSource.query("SELECT questionId,prompt,clarificationPrompt,followUpStatus,followUpPrompt,followUpAnswer FROM interview_conversation_turns WHERE sessionId=@0 AND status='ready'", [session.id]) : [];
     const turnByQuestion = new Map(turns.map(t => [t.questionId.toLowerCase(), t]));
     const payloadQuestions = questions.map((q) => ({
       position: q.position,
@@ -131,6 +132,10 @@ export class RecruitmentEvaluationService {
     const payloadAnswers = questions.map((q) => ({
       position: q.position,
       answerText: answerByQuestion.get(q.id)?.answerText ?? '',
+      ...(turnByQuestion.get(q.id.toLowerCase())?.followUpStatus === 'answered' ? { followUp: {
+        question: turnByQuestion.get(q.id.toLowerCase())!.followUpPrompt!,
+        answer: turnByQuestion.get(q.id.toLowerCase())!.followUpAnswer!,
+      } } : {}),
     }));
 
     const input = buildRecruitmentEvaluationInput({
@@ -157,7 +162,7 @@ export class RecruitmentEvaluationService {
           systemPrompt: buildRecruitmentSystemPrompt(session.roleCode),
           input,
           schemaName: 'RecruitmentEvaluation',
-          validate: validateRecruitmentEvaluation,
+          validate: session.questionCount === 10 ? validateDetailedRecruitmentEvaluation : validateRecruitmentEvaluation,
           modelOptions: { temperature: 0.2, maxOutputTokens: 4096 },
         },
       });

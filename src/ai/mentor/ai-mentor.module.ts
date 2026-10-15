@@ -1,4 +1,6 @@
 import { Module } from '@nestjs/common';
+import { RecruitmentResult } from '../../recruitment/entities/recruitment-result.entity';
+import { GithubModule } from '../../github/github.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AiModule } from '../ai.module';
 import { AuditModule } from '../../audit/audit.module';
@@ -34,6 +36,7 @@ import { AiMentorController } from './ai-mentor.controller';
 @Module({
   imports: [
     AiModule,
+    GithubModule,
     AuditModule,
     PerformanceModule,
     VirtualSalaryModule,
@@ -43,6 +46,7 @@ import { AiMentorController } from './ai-mentor.controller';
       AiMentorMessage,
       User,
       RecruitmentProfile,
+      RecruitmentResult,
       Assignment,
       Project,
       InternshipSession,

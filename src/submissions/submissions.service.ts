@@ -1,4 +1,5 @@
 import { GithubEvidenceService, SubmissionSnapshot } from '../github/github-evidence.service';
+import { assertTaskDependencies } from '../tasks/task-dependencies';
 import { parseGithubSource } from '../github/github-security';
 import { assertReviewerScope } from './submission-access';
 import { ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
@@ -63,6 +64,7 @@ export class SubmissionsService {
       const task = await this.lockedTask(em, taskId);
       const active = await em.getRepository(Assignment).exists({ where: { internId: actorId, projectId: task.projectId, status: 'active' } });
       assertSubmissionOwner(task, actorId, active);
+      await assertTaskDependencies(em, task);
       if (task.version !== dto.version) throw new ConflictException('Task changed. Reload before submitting.');
       const pending: Submission[] = await em.query("SELECT id FROM task_submissions WHERE taskId=@0 AND status='submitted'", [taskId]);
       if (pending.length) throw new ConflictException('A submission is already waiting for review.');

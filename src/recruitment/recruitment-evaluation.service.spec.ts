@@ -89,7 +89,7 @@ describe("chat evaluation evidence", () => {
         promptVersion: string;
       },
     ];
-    expect(call[0].promptVersion).toBe("recruitment-evaluation-v2");
+    expect(call[0].promptVersion).toBe("recruitment-evaluation-v3");
     expect(call[0].request.input.questions).toHaveLength(10);
     expect(call[0].request.input.questions[0]).toMatchObject({
       prompt: "Delivered 1",

@@ -11,6 +11,7 @@ import { ConfigService } from '@nestjs/config';
 import { DataSource, Repository } from 'typeorm';
 import { AuditService } from '../../audit/audit.service';
 import { AiService } from '../ai.service';
+import { generateWithSchemaRepair } from '../schema-repair';
 import { aiErrorCode } from '../ai-errors';
 import { AiMentorConversation } from './entities/ai-mentor-conversation.entity';
 import { AiMentorMessage } from './entities/ai-mentor-message.entity';
@@ -18,6 +19,7 @@ import { AiMentorContextService } from './ai-mentor-context.service';
 import {
   AI_MENTOR_PROMPT_VERSION,
   AI_MENTOR_TASK,
+  MENTOR_OUTPUT_SCHEMA,
   buildMentorSystemPrompt,
   validateMentorAnswer,
 } from './ai-mentor-prompt';
@@ -209,11 +211,11 @@ export class AiMentorService {
     let answer: { answer: string; summary: string; followUps: string[] };
     let runId: string;
     try {
-      const result = await this.aiService.generateStructuredWithRun<{
+      const result = await generateWithSchemaRepair<{
         answer: string;
         summary: string;
         followUps: string[];
-      }>({
+      }>(this.aiService, {
         feature: AI_MENTOR_TASK,
         userId,
         resourceType: 'ai_mentor_conversation',
@@ -228,10 +230,11 @@ export class AiMentorService {
             userMessage: text,
           },
           schemaName: 'AiMentorAnswer',
+          outputSchema: MENTOR_OUTPUT_SCHEMA,
           validate: (raw) => validateMentorAnswer(raw, this.maxResponseChars()),
           modelOptions: { temperature: 0.4, maxOutputTokens: 4096 },
         },
-      });
+      }, 'Return exactly one valid JSON object matching the supplied answer/summary/followUps schema. No Markdown fences or text outside JSON. Keep strings within bounds. Reuse the same authorized facts and user question; do not invent metrics or claim access to unavailable source.');
       answer = result.data;
       runId = result.run.id;
     } catch (err) {

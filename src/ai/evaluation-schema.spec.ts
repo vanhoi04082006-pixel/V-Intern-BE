@@ -1,5 +1,5 @@
 import { AiInvalidResponseError } from './ai-errors';
-import { validateRecruitmentEvaluation } from './evaluation-schema';
+import { validateRecruitmentEvaluation, validateDetailedRecruitmentEvaluation, INTERVIEW_CRITERIA } from './evaluation-schema';
 
 /**
  * Structured output contract (Phase 4 spec 29/30/36/64).
@@ -15,6 +15,12 @@ const base = {
 };
 
 describe('recruitment evaluation schema (spec 29/36/64)', () => {
+  it('requires all six evidence-based dimensions for conversational evaluations', () => {
+    expect(() => validateDetailedRecruitmentEvaluation(base)).toThrow(AiInvalidResponseError);
+    const detailed = { ...base, criteria: INTERVIEW_CRITERIA.map(code => ({ code, score: 75, feedback: 'Evidence in the answer.' })) };
+    expect(validateDetailedRecruitmentEvaluation(detailed).criteria).toHaveLength(6);
+    expect(() => validateDetailedRecruitmentEvaluation({ ...detailed, criteria: [...detailed.criteria, detailed.criteria[0]] })).toThrow(AiInvalidResponseError);
+  });
   it('accepts a valid payload and preserves component scores', () => {
     const out = validateRecruitmentEvaluation(base);
     expect(out.technicalScore).toBe(85);

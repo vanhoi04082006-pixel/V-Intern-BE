@@ -6,6 +6,8 @@ Pagination chuẩn: {data,meta:{page,pageSize,total,totalPages}}. Một số agg
 
 | Method | Route | Mô tả |
 |---|---|---|
+| GET | /api/v1/recruitment/me/interviews | Lịch sử phiên/kết quả của principal, có phân trang |
+| PUT | /api/v1/recruitment/me/interviews/{id}/follow-ups/{questionId} | Trả lời câu phụ đang chờ, đúng owner/expiry; replay giống hệt là idempotent |
 | GET | /api/v1/activity-events | Paginated recent activity (activity.read) |
 | GET | /api/v1/ai-generations/plans | AI plan history of one session (owned scope) |
 | GET | /api/v1/ai-generations/plans/{id} | One AI plan with fresh warnings (owned scope) |

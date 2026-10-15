@@ -44,6 +44,10 @@ API: http://localhost:8080/api/v1; Swagger: http://localhost:8080/api/docs; heal
 - GITHUB_CLIENT_ID/SECRET/CALLBACK_URL, GITHUB_TOKEN_ENCRYPTION_KEY, FRONTEND_ORIGIN: [hướng dẫn GitHub](docs/architecture/github-code-review.md).
 - GRADING_RUNNER_URL/TOKEN/SIGNING_KEY và GRADING_SUITES_JSON: [hợp đồng runner](docs/architecture/grading-runner.md).
 
+Thiết lập GitHub trên Windows: chạy `./scripts/configure-github.ps1`, nhập OAuth Client ID/Secret trực tiếp trong terminal (secret được ẩn). Script chỉ ghi `.env` đã bị Git ignore và sinh encryption key nếu chưa có; không đổi key liên kết cũ. Không gửi secret trong chat. Đăng ký callback đúng URL rồi restart API và liên kết từng tài khoản trong ứng dụng.
+
+Source dịch vụ thực thi riêng, Docker images, Notes acceptance checks, công cụ tạo cấu hình theo task và CI smoke nằm trong [grading-runner](grading-runner/README.md). Cần Linux Docker host riêng để nghiệm thu thực thi; backend vẫn từ chối đề xuất đạt khi thiếu suite đúng task/spec.
+
 ## Cấu trúc
 
 ~~~text
@@ -65,8 +69,9 @@ Giữ nghiệp vụ trong module của nó; dùng helper quyền chuẩn, DTO va
 ## Hợp đồng quan trọng
 
 - Giảng viên chỉ quản lý dự án/phiên được giao; quyền đọc được chia sẻ qua snapshot riêng, không cấp quyền ghi hay thay đổi ownership.
-- Mười lượt chat là tuần tự, câu đã gửi giữ nguyên. Không trả rubric/đáp án mẫu/câu tương lai cho sinh viên. Phiên lịch sử tám câu vẫn được đọc theo hợp đồng cũ.
+- Mười câu chính và tối đa hai câu phụ thích ứng; câu đã gửi giữ nguyên. Ngân hàng 185 câu cho năm vai trò có Fullstack. Không trả rubric/đáp án mẫu/câu tương lai cho sinh viên. Phiên lịch sử tám câu vẫn đọc theo hợp đồng cũ.
 - Start phiên chỉ tạo draft; Confirm mới ghi sprint/task. Template version và task specification được snapshot.
+- Planner dùng bằng chứng kỹ năng/điểm yếu, có mốc bàn giao, đầu ra, giờ ước lượng, task con và phụ thuộc đã kiểm tra vòng lặp. Task phụ thuộc chỉ bắt đầu khi tiền nhiệm đã được duyệt Done.
 - Task template cần repo đúng phiên và danh tính GitHub liên kết khi nộp. Kết quả AI gắn base/head SHA, không tự xác nhận Done.
 - Source, diff, câu trả lời và nội dung chat là dữ liệu không tin cậy. Không chạy code sinh viên trên host BE. GitHub checks do sinh viên tạo không phải bằng chứng test tin cậy.
 - Thiếu provider/runner/repo không sinh kết quả đạt giả. Giảng viên chấm thủ công cần lý do rõ, ghi audit và kiểm tra SHA.
@@ -76,3 +81,5 @@ Giữ nghiệp vụ trong module của nó; dùng helper quyền chuẩn, DTO va
 [Mục lục](docs/README.md) · [SQL Server](docs/database/SQLSERVER2019_SETUP.md) · [Migration](docs/database/MIGRATION_POLICY.md) · [Domain](docs/architecture/domain-model.md) · [API](docs/api/ROUTES.md) · [Bảo mật](docs/SECURITY.md) · [Kiểm thử](docs/TESTING.md).
 
 Các báo cáo phase/handoff cũ được giữ dưới docs/archive để truy vết, không thay thế tài liệu hiện hành. Không xem một báo cáo cũ hoặc unit test là bằng chứng tích hợp GitHub/runner đã được vận hành.
+
+[Hội thoại và rubric](docs/architecture/recruitment-chat.md) · [Kế hoạch và ngữ cảnh Mentor](docs/architecture/learning-plans.md) · [Vận hành worker](grading-runner/README.md).

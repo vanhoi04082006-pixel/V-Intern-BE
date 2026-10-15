@@ -24,7 +24,7 @@ export interface SelectedQuestion {
   rubricJson: string;
 }
 
-/** Fisher–Yates shuffle (Fisher–Yates via crypto-quality Math.random is fine here). */
+/** Fisher–Yates shuffle for content variety; this is not a security token generator. */
 export function shuffle<T>(items: readonly T[]): T[] {
   const copy = [...items];
   for (let i = copy.length - 1; i > 0; i -= 1) {
@@ -65,7 +65,16 @@ export function selectSessionQuestions(
   if (introduction.length < 2) missing.push({ category: 'soft', needed: 2, available: introduction.length });
   if (english.length < 2) missing.push({ category: 'soft', needed: 2, available: english.length });
   if (missing.length) throw new QuestionPoolInsufficientError(roleCode, missing);
-  const ordered = [...sampleWithoutReplacement(introduction, 2), ...sampleWithoutReplacement(technical, TECHNICAL_QUESTION_COUNT), ...sampleWithoutReplacement(english, 2)];
+  const technicalSelection: SelectableQuestion[] = [];
+  for (const [difficulty, count] of [['easy', 2], ['medium', 3], ['hard', 1]] as const) {
+    const candidates = technical.filter(q => q.difficulty === difficulty);
+    technicalSelection.push(...sampleWithoutReplacement(candidates, Math.min(count, candidates.length)));
+  }
+  const selectedIds = new Set(technicalSelection.map(q => q.id));
+  technicalSelection.push(...sampleWithoutReplacement(technical.filter(q => !selectedIds.has(q.id)), TECHNICAL_QUESTION_COUNT - technicalSelection.length));
+  const difficultyOrder: Record<string, number> = { easy: 0, medium: 1, hard: 2 };
+  technicalSelection.sort((a, b) => (difficultyOrder[a.difficulty] ?? 1) - (difficultyOrder[b.difficulty] ?? 1));
+  const ordered = [...sampleWithoutReplacement(introduction, 2), ...technicalSelection, ...sampleWithoutReplacement(english, 2)];
 
   return ordered.map((q, index) => ({
     questionId: q.id,

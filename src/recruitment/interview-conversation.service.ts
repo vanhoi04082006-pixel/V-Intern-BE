@@ -13,6 +13,7 @@ import {
   validateInterviewerResponse,
 } from "./conversation-policy";
 import { questionPhase } from "./question-selection";
+import { InterviewFollowUpService } from './interview-follow-up.service';
 
 interface Turn {
   questionId: string;
@@ -23,6 +24,10 @@ interface Turn {
   errorCode: string | null;
   clarificationPrompt?: string | null;
   clarificationStartedAt?: Date | null;
+  followUpStatus?: 'generating' | 'ready' | 'answered' | 'skipped' | 'failed' | null;
+  followUpPrompt?: string | null;
+  followUpAnswer?: string | null;
+  followUpErrorCode?: string | null;
 }
 interface Snapshot {
   id: string;
@@ -42,12 +47,13 @@ export class InterviewConversationService {
     private readonly interviews: InterviewService,
     private readonly db: DataSource,
     private readonly ai: AiService,
+    private readonly followUps: InterviewFollowUpService,
   ) {}
 
   async view(userId: string, sessionId: string) {
     const view = await this.interviews.getQuestions(userId, sessionId, true);
     const turns: Turn[] = await this.db.query(
-      "SELECT questionId,status,prompt,leaseId,startedAt,errorCode,clarificationPrompt,clarificationStartedAt FROM interview_conversation_turns WHERE sessionId=@0",
+      "SELECT * FROM interview_conversation_turns WHERE sessionId=@0",
       [sessionId],
     );
     const prompts = new Map(turns.map((t) => [t.questionId.toLowerCase(), t]));
@@ -76,6 +82,10 @@ export class InterviewConversationService {
           position: question.position,
           content: question.answerText,
         });
+      if (prompt?.followUpPrompt) {
+        messages.push({ role: 'assistant', questionId: question.id, position: question.position, content: prompt.followUpPrompt });
+        if (prompt.followUpAnswer) messages.push({ role: 'user', questionId: question.id, position: question.position, content: prompt.followUpAnswer });
+      }
       if (!question.answered) break;
     }
     const snapshots: Snapshot[] = next
@@ -85,12 +95,18 @@ export class InterviewConversationService {
         )
       : [];
     const snapshot = snapshots[0];
+    const pending = view.questions.find(q => q.answered && ['ready', 'generating', 'failed'].includes(prompts.get(q.id.toLowerCase())?.followUpStatus ?? ''));
+    const pendingTurn = pending ? prompts.get(pending.id.toLowerCase()) : undefined;
     return {
       session: view.session,
       messages,
       answeredCount: view.questions.filter((q) => q.answered).length,
-      currentQuestion: next
+      currentQuestion: pending && pendingTurn ? {
+        id: pending.id, position: pending.position, phase: 'technical', kind: 'follow_up',
+        status: pendingTurn.followUpStatus as 'ready' | 'generating' | 'failed', errorCode: pendingTurn.followUpErrorCode ?? null,
+      } : next
         ? {
+            kind: 'main',
             id: next.id,
             position: next.position,
             phase: snapshot
@@ -110,6 +126,7 @@ export class InterviewConversationService {
     const view = await this.interviews.getQuestions(userId, sessionId, true);
     if (view.session.status !== "in_progress")
       return this.view(userId, sessionId);
+    if (await this.followUps.prepare(userId, sessionId, view)) return this.view(userId, sessionId);
     const next = view.questions.find((q) => !q.answered);
     if (!next) return this.view(userId, sessionId);
     const leaseId = randomUUID();

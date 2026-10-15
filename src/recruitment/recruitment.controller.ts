@@ -1,4 +1,5 @@
 import { InterviewConversationService } from './interview-conversation.service';
+import { InterviewFollowUpService } from './interview-follow-up.service';
 import { Body, Controller, Get, HttpCode, Param, ParseUUIDPipe, Patch, Post, Put, Query, Req, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
@@ -13,6 +14,7 @@ import {
 import { RecruitmentService } from './recruitment.service';
 import { RecruitmentEvaluationService } from './recruitment-evaluation.service';
 import { SaveAnswerDto, SelectRoleDto, QueryCandidatesDto } from './dto/recruitment.dto';
+import { PaginationQueryDto } from '../common/pagination/pagination-query.dto';
 
 /**
  * Phase 4 recruitment APIs (spec 41-45).
@@ -36,6 +38,7 @@ export class RecruitmentController {
     private readonly interviewService: InterviewService,
     private readonly evaluationService: RecruitmentEvaluationService,
     private readonly conversation: InterviewConversationService,
+    private readonly followUps: InterviewFollowUpService,
   ) {}
 
   private ctx(req: Request, actorId: string) {
@@ -47,6 +50,13 @@ export class RecruitmentController {
   @ApiOperation({ summary: 'My recruitment profile: status, attempts, cooldown, latest result (spec 41)' })
   async me(@CurrentUser('userId') userId: string) {
     return this.recruitmentService.me(userId);
+  }
+
+  @Get('me/interviews')
+  @RequirePermissions('recruitment.view.own')
+  @ApiOperation({ summary: 'My interview attempts and persisted results, newest attempt first' })
+  history(@CurrentUser('userId') userId: string, @Query() query: PaginationQueryDto) {
+    return this.interviewService.history(userId, query);
   }
 
   @Patch('me/role')
@@ -115,6 +125,13 @@ export class RecruitmentController {
     @Body() dto: SaveAnswerDto,
   ) {
     return this.interviewService.saveAnswer(userId, id, questionId, dto.answerText);
+  }
+
+  @Put('me/interviews/:id/follow-ups/:questionId')
+  @RequirePermissions('recruitment.answer.own')
+  answerFollowUp(@CurrentUser('userId') userId: string, @Param('id', ParseUUIDPipe) id: string,
+    @Param('questionId', ParseUUIDPipe) questionId: string, @Body() dto: SaveAnswerDto) {
+    return this.followUps.answer(userId, id, questionId, dto.answerText);
   }
 
   @Post('me/interviews/:id/submit')

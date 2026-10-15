@@ -1,3 +1,4 @@
+import { assertTaskDependencies } from './task-dependencies';
 import {
   ConflictException,
   ForbiddenException,
@@ -582,6 +583,7 @@ export class TasksService {
       }
 
       await this.assertCodeWorkflowTransition(em, task, patch.status);
+      if (patch.status && patch.status !== task.status && patch.status !== 'todo') await assertTaskDependencies(em, task);
       const statusResult = this.validateAndApplyStatus(task, patch.status, { internSelf: false });
 
       await this.saveOrConflict(em, task);
@@ -666,6 +668,7 @@ export class TasksService {
 
       this.assertExpectedVersion(task, patch.expectedVersion);
       await this.assertCodeWorkflowTransition(em, task, patch.status);
+      if (patch.status && patch.status !== task.status && patch.status !== 'todo') await assertTaskDependencies(em, task);
       const statusResult = this.validateAndApplyStatus(task, patch.status, { internSelf: true });
       const doneOverride = statusResult.changed && statusResult.to === 'done';
       if (patch.progress !== undefined && !doneOverride) {

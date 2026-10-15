@@ -54,6 +54,7 @@ interface ScriptedStep {
 
 /** Deterministic test double (spec 24/60) — NEVER used in production. */
 class ScriptableTestAiProvider implements AiProvider {
+  askFollowUp = false;
   readonly name = 'test';
   readonly model = 'test-model-1';
   private queue: ScriptedStep[] = [];
@@ -70,6 +71,11 @@ class ScriptableTestAiProvider implements AiProvider {
     input: Record<string, unknown>;
   }): Promise<{ data: T; provider: string; model: string; latencyMs: number; inputTokens: number | null; outputTokens: number | null }> {
     this.calls.push({ input: req.input, systemPrompt: req.systemPrompt });
+    if (req.task === 'interview_follow_up') {
+      const needsFollowUp = this.askFollowUp;
+      this.askFollowUp = false;
+      return { data: req.validate({ needsFollowUp, message: needsFollowUp ? 'Bạn vừa nhắc kiểm tra API. Bạn có thể nêu một ví dụ cụ thể từ trải nghiệm của mình không?' : '' }), provider: this.name, model: this.model, latencyMs: 1, inputTokens: 10, outputTokens: 20 };
+    }
     if (req.task === 'interview_next_question' || req.task === 'clarify_interview_question') {
       const message = req.task === 'interview_next_question'
         ? `${req.input.position === 1 ? 'Chào bạn! ' : ''}${String(req.input.plannedQuestion)}`
@@ -88,9 +94,7 @@ class ScriptableTestAiProvider implements AiProvider {
 const PASS_PAYLOAD = (_overrides: Record<string, unknown> = {}) => ({
   technicalScore: 85,
   softSkillScore: 72,
-  criteria: [
-    { code: 'validation', score: 82, feedback: 'Concrete validation reasoning.' },
-  ],
+  criteria: ['knowledge', 'communication', 'problem_solving', 'english', 'confidence', 'reasoning'].map(code => ({ code, score: 82, feedback: 'Concrete evidence in the answers.' })),
   strengths: ['Strong fundamentals'],
   weaknesses: ['Could add more examples'],
   feedback: 'Good interview overall.',
@@ -104,7 +108,7 @@ const PASS_PAYLOAD = (_overrides: Record<string, unknown> = {}) => ({
 const FAIL_PAYLOAD = () => ({
   technicalScore: 58,
   softSkillScore: 72,
-  criteria: [],
+  criteria: ['knowledge', 'communication', 'problem_solving', 'english', 'confidence', 'reasoning'].map(code => ({ code, score: 58, feedback: 'Insufficient evidence in the answers.' })),
   strengths: [],
   weaknesses: ['Gaps in fundamentals'],
   feedback: 'Not enough technical depth this time.',
@@ -187,7 +191,7 @@ beforeAll(async () => {
   await dataSource.initialize();
   await dataSource.runMigrations();
   const applied = await dataSource.query('SELECT COUNT(*) n FROM migrations');
-  expect(Number(applied[0].n)).toBe(24);
+  expect(Number(applied[0].n)).toBe((migrationSource.options.migrations as unknown[]).length);
 
   testProvider = new ScriptableTestAiProvider();
 
@@ -514,6 +518,28 @@ describe('Phase 4 recruitment + AI interview e2e (spec 64-69)', () => {
     expect(submit.body.details.missingAnswers).toBe(9);
   });
 
+  it('adaptive follow-up survives reload, blocks jumping ahead and rejects foreign or changed answers', async () => {
+    const profile = await request(apiBase()).get('/api/v1/recruitment/me').set('Authorization', `Bearer ${i4}`);
+    const id = profile.body.currentInterviewSessionId as string;
+    for (let n = 0; n < 2; n++) {
+      const chat = await nextQuestion(i4, id);
+      await request(apiBase()).put(`/api/v1/recruitment/me/interviews/${id}/answers/${chat.currentQuestion.id}`).set('Authorization', `Bearer ${i4}`).send({ answerText: 'I check API requests against the current user.' }).expect(200);
+    }
+    testProvider.askFollowUp = true;
+    const followUp = await nextQuestion(i4, id);
+    expect(followUp.currentQuestion.kind).toBe('follow_up');
+    const qid = followUp.currentQuestion.id as string;
+    const resumed = await request(apiBase()).get(`/api/v1/recruitment/me/interviews/${id}/conversation`).set('Authorization', `Bearer ${i4}`).expect(200);
+    expect(resumed.body.currentQuestion.id).toBe(qid);
+    expect(resumed.body.messages.at(-1).content).toContain('ví dụ cụ thể');
+    const future = (await query('SELECT id FROM interview_session_questions WHERE sessionId=? AND position=4', [id]))[0].id;
+    await request(apiBase()).put(`/api/v1/recruitment/me/interviews/${id}/answers/${future}`).set('Authorization', `Bearer ${i4}`).send({ answerText: 'Jump ahead' }).expect(409);
+    await request(apiBase()).put(`/api/v1/recruitment/me/interviews/${id}/follow-ups/${qid}`).set('Authorization', `Bearer ${i3}`).send({ answerText: 'Foreign answer' }).expect(409);
+    for (let repeat = 0; repeat < 2; repeat++) await request(apiBase()).put(`/api/v1/recruitment/me/interviews/${id}/follow-ups/${qid}`).set('Authorization', `Bearer ${i4}`).send({ answerText: 'I compare the authenticated user ID to the owner of the requested resource.' }).expect(200);
+    await request(apiBase()).put(`/api/v1/recruitment/me/interviews/${id}/follow-ups/${qid}`).set('Authorization', `Bearer ${i4}`).send({ answerText: 'Changed answer' }).expect(409);
+    expect((await nextQuestion(i4, id)).currentQuestion.kind).toBe('main');
+  });
+
   // ── PASS FLOW (spec 65) — THE CRITICAL PRODUCT-LIFECYCLE E2E ────────────
   it('PASS flow: 85/72 → 81.1 → passed → workspace unassigned → assignment → active (spec 65)', async () => {
     // i1 already has an active session (from the earlier start test).
@@ -543,7 +569,7 @@ describe('Phase 4 recruitment + AI interview e2e (spec 64-69)', () => {
     expect(Number(submit.body.result.overallScore)).toBe(81.1);
     // Backend decision IGNORED the provider's passed:false
     expect(submit.body.result.decision).toBe('passed');
-    expect(submit.body.result.promptVersion).toBe('recruitment-evaluation-v2');
+    expect(submit.body.result.promptVersion).toBe('recruitment-evaluation-v3');
 
     // persisted + reloadable (spec 34)
     const result = await request(apiBase()).get('/api/v1/recruitment/me/result').set('Authorization', `Bearer ${i1}`);
@@ -557,7 +583,7 @@ describe('Phase 4 recruitment + AI interview e2e (spec 64-69)', () => {
     const runRows = await query("SELECT provider, model, status FROM ai_runs WHERE resourceType = 'interview_session' AND resourceId = ? AND feature='recruitment-evaluation'", [activeSessionId]);
     expect(runRows).toHaveLength(1);
     expect(runRows[0].status).toBe('succeeded');
-    const questionRuns = await query("SELECT COUNT(*) n FROM ai_runs WHERE resourceId=? AND feature='interview_conversation'", [activeSessionId]);
+    const questionRuns = await query("SELECT COUNT(*) n FROM ai_runs WHERE resourceId=? AND promptVersion='interview-chat-v1'", [activeSessionId]);
     expect(Number(questionRuns[0].n)).toBe(10);
     const uid = (await query('SELECT id FROM users WHERE email = ?', [EMAILS.i1]))[0].id as string;
     const notif = await query("SELECT COUNT(*) AS n FROM notifications WHERE userId = ? AND type = 'recruitment'", [uid]);

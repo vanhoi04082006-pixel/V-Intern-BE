@@ -33,6 +33,17 @@ const MAX_LIST_ITEMS = 10;
 const MAX_ITEM_LENGTH = 512;
 const MAX_CRITERION_FEEDBACK = 2000;
 const MAX_FEEDBACK = 4000;
+export const INTERVIEW_CRITERIA = ['knowledge', 'communication', 'problem_solving', 'english', 'confidence', 'reasoning'] as const;
+
+/** New conversational interviews require a complete skill assessment. Legacy results remain readable. */
+export function validateDetailedRecruitmentEvaluation(raw: unknown): RecruitmentEvaluationData {
+  const result = validateRecruitmentEvaluation(raw);
+  const codes = new Set(result.criteria.map(c => c.code));
+  if (result.criteria.length !== INTERVIEW_CRITERIA.length || !INTERVIEW_CRITERIA.every(c => codes.has(c))) {
+    throw new AiInvalidResponseError('criteria must contain each of the six interview dimensions exactly once');
+  }
+  return result;
+}
 
 /** Scores are persisted decimal(5,1): normalize to one decimal (spec 35). */
 export function normalizeScore(value: unknown, field: string): number {

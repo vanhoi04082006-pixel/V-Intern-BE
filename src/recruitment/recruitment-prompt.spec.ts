@@ -10,7 +10,7 @@ import {
  */
 describe('recruitment prompt security (spec 31/32/71)', () => {
   it('uses a stable explicit prompt version (spec 71)', () => {
-    expect(RECRUITMENT_EVALUATION_PROMPT_VERSION).toBe('recruitment-evaluation-v2');
+    expect(RECRUITMENT_EVALUATION_PROMPT_VERSION).toBe('recruitment-evaluation-v3');
   });
 
   it('system prompt separates rubric from candidate content and forbids decisions', () => {

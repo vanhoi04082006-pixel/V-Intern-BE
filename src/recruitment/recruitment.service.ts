@@ -18,6 +18,7 @@ import {
 } from './recruitment-roles';
 import { computeAttemptGate } from './attempt-policy';
 import { RecruitmentProfileStatus } from './recruitment-status.machine';
+import { learningAssessment } from './learning-assessment';
 
 /** Public shape of GET /recruitment/me (spec 41/19). */
 export interface RecruitmentMeResponse {
@@ -36,6 +37,7 @@ export interface RecruitmentResultResponse {
   id: string;
   sessionId: string;
   technicalScore: number;
+  englishScore: number | null;
   softSkillScore: number;
   overallScore: number;
   decision: 'passed' | 'failed';
@@ -56,6 +58,7 @@ export function toResultResponse(r: RecruitmentResult): RecruitmentResultRespons
     id: r.id,
     sessionId: r.sessionId,
     technicalScore: Number(r.technicalScore),
+    englishScore: learningAssessment(r).englishScore,
     softSkillScore: Number(r.softSkillScore),
     overallScore: Number(r.overallScore),
     decision: r.decision,
@@ -284,7 +287,7 @@ export class RecruitmentService {
           : 'ORDER BY p.updatedAt DESC, p.userId ASC';
     const from = `FROM recruitment_profiles p
       INNER JOIN users u ON u.id = p.userId
-      OUTER APPLY (SELECT TOP(1) r.overallScore, r.technicalScore, r.softSkillScore, r.decision, r.evaluatedAt
+      OUTER APPLY (SELECT TOP(1) r.overallScore, r.technicalScore, r.softSkillScore, r.decision, r.evaluatedAt,r.strengthsJson,r.weaknessesJson,r.criteriaJson
         FROM recruitment_results r WHERE r.profileId = p.id ORDER BY r.evaluatedAt DESC) r
       LEFT JOIN assignments a ON a.internId = p.userId AND a.status = 'active'`;
     const totalRows: { n: number }[] = await this.dataSource.query(
@@ -297,11 +300,13 @@ export class RecruitmentService {
       overallScore: number | null; technicalScore: number | null; softSkillScore: number | null;
       decision: string | null; evaluatedAt: Date | null;
       activeAssignmentId: string | null; activeProjectId: string | null;
+      strengthsJson: string | null; weaknessesJson: string | null; criteriaJson: string | null;
     }> = await this.dataSource.query(
       `SELECT p.userId AS userId, u.displayName AS displayName, u.email AS email,
         p.status AS status, p.selectedRole AS selectedRole, p.attemptCount AS attemptCount, p.recruitedAt AS recruitedAt,
         r.overallScore AS overallScore, r.technicalScore AS technicalScore, r.softSkillScore AS softSkillScore,
         r.decision AS decision, r.evaluatedAt AS evaluatedAt,
+        r.strengthsJson,r.weaknessesJson,r.criteriaJson,
         a.id AS activeAssignmentId, a.projectId AS activeProjectId
        ${from} ${where} ${order}
        OFFSET ${(page - 1) * pageSize} ROWS FETCH NEXT ${pageSize} ROWS ONLY`,
@@ -323,10 +328,10 @@ export class RecruitmentService {
             ? null
             : {
                 overallScore: Number(row.overallScore),
-                technicalScore: row.technicalScore === null ? null : Number(row.technicalScore),
                 softSkillScore: row.softSkillScore === null ? null : Number(row.softSkillScore),
                 decision: row.decision,
                 evaluatedAt: row.evaluatedAt,
+                ...learningAssessment(row),
               },
       })),
       total,

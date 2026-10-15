@@ -53,6 +53,14 @@ describe('question selection (spec 14/15)', () => {
       expect(new Set(ids).size).toBe(10);
     }
   });
+  it('balances technical difficulty when the role bank has enough questions at every level', () => {
+    const pool = fullPool().filter(q => q.category === 'soft');
+    for (const difficulty of ['easy', 'medium', 'hard']) {
+      for (let n = 0; n < 6; n++) pool.push({ ...question(`${difficulty}-${n}`, 'technical'), difficulty });
+    }
+    const selected = selectSessionQuestions('frontend', pool).filter(q => q.category === 'technical');
+    expect(selected.map(q => q.difficulty)).toEqual(['easy', 'easy', 'medium', 'medium', 'medium', 'hard']);
+  });
 
   it('samples different compositions across runs (retake variety, spec 51)', () => {
     const compositions = new Set<string>();

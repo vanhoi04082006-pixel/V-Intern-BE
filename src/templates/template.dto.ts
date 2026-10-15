@@ -5,7 +5,7 @@ export class TemplateTaskDto {
   @IsString() @Length(1, 256) title!: string;
   @IsString() @Length(10, 4000) requirements!: string;
   @IsArray() @ArrayMinSize(1) @ArrayMaxSize(20) @IsString({ each: true }) @MaxLength(256, { each: true }) dod!: string[];
-  @IsIn(['frontend','backend','qa','business_analyst','devops']) role!: string;
+  @IsIn(['frontend','backend','fullstack','qa','business_analyst','devops']) role!: string;
   @IsInt() @Min(1) @Max(100) storyPoints!: number;
 }
 export class TemplateSprintDto {
@@ -41,7 +41,7 @@ export class CreateTemplateDto {
   @IsString() @Length(10, 4000) description!: string;
   @IsIn(['beginner','intermediate','advanced']) difficulty!: 'beginner' | 'intermediate' | 'advanced';
   @IsArray() @ArrayMinSize(1) @ArrayMaxSize(20) @ArrayUnique() @IsString({ each: true }) @MaxLength(64, { each: true }) techStack!: string[];
-  @IsArray() @ArrayMinSize(1) @ArrayMaxSize(5) @ArrayUnique() @IsIn(['frontend','backend','qa','business_analyst','devops'], { each: true }) roles!: string[];
+  @IsArray() @ArrayMinSize(1) @ArrayMaxSize(6) @ArrayUnique() @IsIn(['frontend','backend','fullstack','qa','business_analyst','devops'], { each: true }) roles!: string[];
   @IsArray() @ArrayMinSize(1) @ArrayMaxSize(30) @IsString({ each: true }) @MaxLength(256, { each: true }) modules!: string[];
   @IsArray() @ArrayMinSize(1) @ArrayMaxSize(18) @ValidateNested({ each: true }) @Type(() => TemplateSprintDto) sprints!: TemplateSprintDto[];
   @IsArray() @ArrayMinSize(1) @ArrayMaxSize(20) @IsString({ each: true }) @MaxLength(256, { each: true }) dod!: string[];
@@ -56,7 +56,7 @@ export class CreateTemplateDto {
   @IsOptional() @IsArray() @ArrayMaxSize(20) @IsString({ each: true }) @MaxLength(512, { each: true }) scopeOut?: string[];
   @IsOptional() @IsArray() @ArrayMaxSize(40) @IsString({ each: true }) @MaxLength(1000, { each: true }) functionalRequirements?: string[];
   @IsOptional() @IsArray() @ArrayMaxSize(20) @IsString({ each: true }) @MaxLength(1000, { each: true }) nonFunctionalRequirements?: string[];
-  @IsOptional() @IsArray() @ArrayMaxSize(5) @ValidateNested({ each: true }) @Type(() => TemplateRoleDto) roleDetails?: TemplateRoleDto[];
+  @IsOptional() @IsArray() @ArrayMaxSize(6) @ValidateNested({ each: true }) @Type(() => TemplateRoleDto) roleDetails?: TemplateRoleDto[];
   @IsOptional() @ValidateNested() @Type(() => TemplateOutputsDto) expectedOutputs?: TemplateOutputsDto;
   @IsOptional() @ValidateNested() @Type(() => TemplateAcceptanceDto) acceptance?: TemplateAcceptanceDto;
 }

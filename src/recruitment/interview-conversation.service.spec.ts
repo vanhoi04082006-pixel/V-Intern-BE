@@ -4,6 +4,7 @@ import { AiService } from "../ai/ai.service";
 import { InterviewService } from "./interview.service";
 import { InterviewConversationService } from "./interview-conversation.service";
 import { RecruitmentService } from "./recruitment.service";
+import { InterviewFollowUpService } from './interview-follow-up.service';
 
 const sessionId = "session-1";
 const userId = "intern-1";
@@ -147,6 +148,7 @@ describe("clarification concurrency", () => {
       interviews as unknown as InterviewService,
       db as unknown as DataSource,
       ai as unknown as AiService,
+      {} as InterviewFollowUpService,
     );
     return {
       service,
