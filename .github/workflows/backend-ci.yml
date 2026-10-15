@@ -50,12 +50,12 @@ jobs:
     timeout-minutes: 20
     env:
       # Disposable test database — never production (spec 8).
-      E2E_DB_NAME: VIntern_E2E
+      E2E_DB_NAME: VIntern_E2E_CI_${{ github.run_id }}_${{ github.run_attempt }}
       DB_HOST: 127.0.0.1
       DB_PORT: '1433'
       DB_ENCRYPT: 'false'
       DB_TRUST_SERVER_CERTIFICATE: 'true'
-      DB_NAME: VIntern_E2E
+      DB_NAME: VIntern_E2E_CI_${{ github.run_id }}_${{ github.run_attempt }}
       DB_USERNAME: vintern_app
       NODE_ENV: test
 
@@ -82,6 +82,9 @@ jobs:
 
       - name: Build
         run: npm run build
+
+      - name: Production dependency audit (high and critical block release)
+        run: npm audit --omit=dev --audit-level=high
 
       # ── SQL Server 2019 (spec 7/9) ────────────────────────────────────
       - name: Generate ephemeral credentials (masked, never echoed)
@@ -165,7 +168,7 @@ jobs:
           node -e "
             const sql = require('mssql');
             (async () => {
-              const c = new sql.ConnectionPool({ server: '127.0.0.1', port: 1433, database: 'VIntern_E2E', user: 'vintern_app', password: process.env.DB_PASSWORD, options: { encrypt: false, trustServerCertificate: true } });
+            const c = new sql.ConnectionPool({ server: '127.0.0.1', port: 1433, database: process.env.DB_NAME, user: 'vintern_app', password: process.env.DB_PASSWORD, options: { encrypt: false, trustServerCertificate: true } });
               await c.connect();
               const n = async (s) => (await c.request().query(s)).recordset[0].n;
               const counts = {
@@ -196,7 +199,7 @@ jobs:
           node -e "
             const sql = require('mssql');
             (async () => {
-              const c = new sql.ConnectionPool({ server: '127.0.0.1', port: 1433, database: 'VIntern_E2E', user: 'vintern_app', password: process.env.DB_PASSWORD, options: { encrypt: false, trustServerCertificate: true } });
+            const c = new sql.ConnectionPool({ server: '127.0.0.1', port: 1433, database: process.env.DB_NAME, user: 'vintern_app', password: process.env.DB_PASSWORD, options: { encrypt: false, trustServerCertificate: true } });
               await c.connect();
               const n = async (s) => (await c.request().query(s)).recordset[0].n;
               const counts = {
