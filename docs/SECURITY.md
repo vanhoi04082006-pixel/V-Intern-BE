@@ -12,4 +12,6 @@ AI chỉ đề xuất; teacher và backend quyết định. Không nhận model 
 
 Public signup chỉ tạo intern trong transaction và không tự đăng nhập, không nhận role từ client. Mật khẩu kiểm tra giới hạn UTF-8 trước bcrypt, tên/email bounded, terms phải là boolean true. Có switch đóng signup và rate limit riêng; xem [đăng ký](architecture/registration.md).
 
-Giới hạn: rate limits memory theo process, runner local WSL đã triển khai nhưng chưa nghiệm thu repo/OAuth thật; chưa có email verification/reset hoặc Google OAuth. Khi cần nhiều instance, dùng limiter/job processing chung và kiểm chứng reentry/concurrency trước rollout.
+OAuth/repo/PR/runner đã nghiệm thu với hai tài khoản GitHub thật và fixture tổng hợp; [chi tiết](../../docs/GITHUB-LIVE-ACCEPTANCE.md). Webhook HMAC/redelivery thật đạt, hook/tunnel tạm đã đóng. Không coi bằng chứng này là phê duyệt production cho mọi contract.
+
+Giới hạn: rate limits memory theo process; chưa có email verification/reset hoặc Google OAuth. Khi cần nhiều instance, dùng limiter/job processing chung và kiểm chứng reentry/concurrency trước rollout.
