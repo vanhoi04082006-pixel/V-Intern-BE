@@ -2,7 +2,7 @@
 
 Migrations1–21 là lịch sử đã có; không viết lại migration đã áp dụng. Thay đổi schema mới dùng migration additive, đăng ký data-source.ts và kiểm tra freshDB + upgradeDB + pending=false. synchronize luôn false.
 
-Schema hiện có 29 migrations (thêm ledger cảnh báo học tập để chống gửi trùng). Các migration gần nhất bổ sung consent sharing, hội thoại, GitHub delivery, follow-up phỏng vấn, metadata ngân hàng câu hỏi, signed webhook/event observations và version câu hỏi quản trị. Backfill metadata chỉ thêm key chưa có, giữ nội dung đã chỉnh và snapshot phiên. Blueprint mới lưu trong definition JSON, seed nâng bản bundled chưa sửa mà không đổi run snapshot. Tài liệu/count không phải authority; CLI và TypeORM configuration là nguồn thật.
+Schema hiện có 30 migrations (ledger cảnh báo học tập và snapshot/ngày hoàn thành chứng nhận). Các migration gần nhất bổ sung consent sharing, hội thoại, GitHub delivery, follow-up phỏng vấn, metadata ngân hàng câu hỏi, signed webhook/event observations và version câu hỏi quản trị. Backfill metadata chỉ thêm key chưa có, giữ nội dung đã chỉnh và snapshot phiên. Blueprint mới lưu trong definition JSON, seed nâng bản bundled chưa sửa mà không đổi run snapshot. Tài liệu/count không phải authority; CLI và TypeORM configuration là nguồn thật.
 
 Chạy bằng account migration với quyền DDL, không dùng user/application connection để CREATE DATABASE nếu user đó không có quyền. Tách cấp quyền server/database. TypeORM runMigrations transaction:'all' đảm bảo migration không để schema nửa chừng khi SQL hỗ trợ.
 

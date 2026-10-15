@@ -89,6 +89,9 @@ const conflict = (message: string, details?: unknown) =>
 
 @Injectable()
 export class AssignmentsService {
+  hasAssignmentHistory(internId: string): Promise<boolean> {
+    return this.assignments.existsBy({ internId });
+  }
   constructor(
     @InjectRepository(Assignment) private readonly assignments: Repository<Assignment>,
     @InjectRepository(User) private readonly users: Repository<User>,

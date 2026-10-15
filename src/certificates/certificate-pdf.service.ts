@@ -34,6 +34,7 @@ export interface CertificatePdfData {
   policyCode: string;
   policyVersion: number;
   issuedAt: Date;
+  completedAt?: Date | null;
   verifyBaseUrl: string;
 }
 
@@ -112,7 +113,7 @@ export class CertificatePdfService {
 
     doc.font(CERTIFICATE_FONTS.regular).fontSize(10.5).fillColor('#4a4a4a');
     doc.text(
-      `Chính sách cấp: ${data.policyCode} (phiên bản ${data.policyVersion}) — cấp ngày ${data.issuedAt.toISOString().slice(0, 10)}`,
+      `Chính sách cấp: ${data.policyCode} (phiên bản ${data.policyVersion})${data.completedAt ? ` — hoàn thành ${data.completedAt.toISOString().slice(0, 10)}` : ''} — cấp ngày ${data.issuedAt.toISOString().slice(0, 10)}`,
       left,
       y,
       { align: 'center', width: page.width - 2 * left },

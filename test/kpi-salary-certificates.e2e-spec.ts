@@ -13,6 +13,7 @@ import { User } from '../src/users/entities/user.entity';
 import { UserRole } from '../src/rbac/entities/user-role.entity';
 import { KpiPeriod } from '../src/kpi/entities/kpi-period.entity';
 import { KpiResult } from '../src/kpi/entities/kpi-result.entity';
+import { CertificatesService } from '../src/certificates/certificates.service';
 
 /**
  * PHASE 5 — KPI + VIRTUAL SALARY + CERTIFICATES e2e (spec 82-87) on REAL
@@ -178,6 +179,17 @@ describe('Phase 5 KPI + virtual salary + certificates e2e (spec 82-87)', () => {
   const criterionIds: Record<string, string> = {};
   let periodId: string;
   let k1AssignmentId: string;
+  async function persistedResults() {
+    const items: Array<{ userId: string; finalScore: string | number; status: string; id: string }> = [];
+    let page = 1, total = 0;
+    do {
+      const response = await request(apiBase()).get(`/api/v1/kpi-periods/${periodId}/results?page=${page}&pageSize=100`).set('Authorization', `Bearer ${admin}`);
+      expect(response.status).toBe(200); expect(response.body.items.length).toBeLessThanOrEqual(100);
+      total = response.body.total; items.push(...response.body.items); page++;
+    } while (items.length < total && page <= 100);
+    expect(items).toHaveLength(total); expect(new Set(items.map(r => r.id)).size).toBe(total);
+    return items;
+  }
 
   async function assignIntern(internId: string): Promise<string> {
     const res = await request(apiBase()).post('/api/v1/assignments').set('Authorization', `Bearer ${admin}`).send({
@@ -277,6 +289,9 @@ describe('Phase 5 KPI + virtual salary + certificates e2e (spec 82-87)', () => {
     await ensureRecruitedProfile(dataSource, k2Id);
     await ensureRecruitedProfile(dataSource, k3Id);
 
+    const beforePlacement = await request(apiBase()).get('/api/v1/intern/me/workspace').set('Authorization', `Bearer ${k1}`);
+    expect(beforePlacement.status).toBe(200); expect(beforePlacement.body).toMatchObject({ status: 'unassigned', hasAssignmentHistory: false });
+
     k1AssignmentId = await assignIntern(k1Id);
     await assignIntern(k2Id);
     await assignIntern(k3Id);
@@ -304,6 +319,8 @@ describe('Phase 5 KPI + virtual salary + certificates e2e (spec 82-87)', () => {
       .post(`/api/v1/assignments/${k1AssignmentId}/complete`)
       .set('Authorization', `Bearer ${admin}`);
     expect(completed.status).toBe(201);
+    const pastPlacement = await request(apiBase()).get('/api/v1/intern/me/workspace').set('Authorization', `Bearer ${k1}`);
+    expect(pastPlacement.status).toBe(200); expect(pastPlacement.body).toMatchObject({ status: 'unassigned', assignment: null, hasAssignmentHistory: true, focusedTask: null, taskSummary: { total: 0 } });
 
     // k3: task rate 50 (1 of 2 done), timeliness 100 (done met its due date)
     const k3t1 = await createTask({ title: 'K3-T1', assigneeId: k3Id, dueDate: new Date(Date.now() + 3 * 86_400_000).toISOString() });
@@ -339,10 +356,8 @@ describe('Phase 5 KPI + virtual salary + certificates e2e (spec 82-87)', () => {
     // overlap the window, so ABSOLUTE batch counts are not deterministic
     // across suite orders. The determinism contract is asserted per-user
     // below (the authoritative results), not on batch counters.
-    const results = await request(apiBase()).get(`/api/v1/kpi-periods/${periodId}/results`).set('Authorization', `Bearer ${admin}`);
-    expect(results.status).toBe(200);
     const byUser = new Map<string, { userId: string; finalScore: string | number; status: string; id: string }>(
-      results.body.items.map((r: { userId: string }) => [r.userId, r]),
+      (await persistedResults()).map(r => [r.userId, r]),
     );
     expect(byUser.has(k1Id)).toBe(true);
     expect(byUser.has(k2Id)).toBe(true);
@@ -378,15 +393,18 @@ describe('Phase 5 KPI + virtual salary + certificates e2e (spec 82-87)', () => {
     expect(k2Result.status).toBe('insufficient_data');
     expect(k2Result.finalScore).toBeNull();
 
+  });
+
+  it('KPI recalculation preserves persisted rows and exact scores across paginated results', async () => {
+    const [prior] = await query('SELECT id FROM kpi_results WHERE periodId=@0 AND userId=@1', [periodId, k1Id]);
     // RELOAD: identical results (no dynamic recompute) — recalculate is idempotent
     const recalculated = await request(apiBase()).post(`/api/v1/kpi-periods/${periodId}/calculate`).set('Authorization', `Bearer ${admin}`);
     expect(recalculated.status).toBe(201);
-    const again = await request(apiBase()).get(`/api/v1/kpi-periods/${periodId}/results`).set('Authorization', `Bearer ${admin}`);
     const byUserAgain = new Map<string, { userId: string; finalScore: string | number; status: string; id: string }>(
-      again.body.items.map((r: { userId: string; finalScore: string | number; status: string; id: string }) => [r.userId, r]),
+      (await persistedResults()).map(r => [r.userId, r]),
     );
     expect(Number(byUserAgain.get(k1Id)!.finalScore)).toBe(83.8);
-    expect(byUserAgain.get(k1Id)!.id).toBe(k1Result.id); // same row upserted, never duplicated
+    expect(byUserAgain.get(k1Id)!.id.toLowerCase()).toBe(String(prior.id).toLowerCase()); // same row upserted, never duplicated
     const rowCount = await query(
       `SELECT COUNT(*) AS n FROM kpi_results WHERE periodId = @0 AND userId IN (@1, @2, @3)`,
       [periodId, k1Id, k2Id, k3Id],
@@ -524,6 +542,15 @@ describe('Phase 5 KPI + virtual salary + certificates e2e (spec 82-87)', () => {
     expect(ledger.body.items).toHaveLength(4); // earning + bonus + penalty + reversal
   });
 
+  it('certificates: a later active placement cannot replace the completed placement context', async () => {
+    const session = await request(apiBase()).post('/api/v1/sessions').set('Authorization', `Bearer ${admin}`).send({ code: `E2E-CERT-NEXT-S-${RUN}`, name: 'Next uncompleted session', startDate: '2026-01-01T00:00:00.000Z', endDate: '2026-12-31T00:00:00.000Z' });
+    expect(session.status).toBe(201);
+    const project = await request(apiBase()).post('/api/v1/projects').set('Authorization', `Bearer ${admin}`).send({ code: `E2E-CERT-NEXT-P-${RUN}`, name: 'Next uncompleted project', description: 'Not the completed certificate project', status: 'active', technologies: [] });
+    expect(project.status).toBe(201);
+    const placement = await request(apiBase()).post('/api/v1/assignments').set('Authorization', `Bearer ${admin}`).send({ internId: k1Id, projectId: project.body.id, sessionId: session.body.id });
+    expect(placement.status).toBe(201);
+  });
+
   it('certificates: concurrent double issue → exactly ONE certificate (spec 87)', async () => {
     const [a, b] = await Promise.all([
       request(apiBase()).post('/api/v1/certificates/issue').set('Authorization', `Bearer ${admin}`).send({ userId: k1Id }),
@@ -544,6 +571,12 @@ describe('Phase 5 KPI + virtual salary + certificates e2e (spec 82-87)', () => {
     expect(certificate.status).toBe('issued');
     expect(certificate.policyCode).toBe('V-INTERN-COMPLETE');
     expect(certificate.policyVersion).toBe(1);
+    expect(certificate.projectId.toLowerCase()).toBe(projectId.toLowerCase());
+    expect(certificate.sessionId.toLowerCase()).toBe(sessionId.toLowerCase());
+    expect(certificate.assignmentId.toLowerCase()).toBe(k1AssignmentId.toLowerCase());
+    const [completed] = await query('SELECT completedAt FROM assignments WHERE id=@0', [k1AssignmentId]);
+    expect(completed.completedAt).toBeInstanceOf(Date);
+    expect(certificate.completedAt).toBe((completed.completedAt as Date).toISOString());
 
     const notification = await query(
       `SELECT COUNT(*) AS n FROM notifications WHERE userId = @0 AND type = 'certificate.issued'`,
@@ -591,6 +624,29 @@ describe('Phase 5 KPI + virtual salary + certificates e2e (spec 82-87)', () => {
       .get(`/api/v1/intern/me/certificates/${certificate.id}/pdf`)
       .set('Authorization', `Bearer ${k2}`);
     expect(foreignPdf.status).toBe(404);
+  });
+
+  it('certificates: persisted identity and PDF survive later profile/project/session edits', async () => {
+    const mine = await request(apiBase()).get('/api/v1/intern/me/certificates').set('Authorization', `Bearer ${k1}`);
+    const certificate = mine.body.items[0];
+    const url = `/api/v1/certificates/verify/${certificate.verificationCode}`;
+    const before = await request(apiBase()).get(url); expect(before.status).toBe(200);
+    expect(before.body.projectName).toBe('KPI project'); expect(before.body.sessionName).toBe('KPI session');
+    expect(before.body.completedAt).toBe(certificate.completedAt);
+    const pdfBefore = await app.get(CertificatesService).renderPdf(certificate.id, { userId: k1Id, isAdmin: false });
+    const [user] = await query('SELECT displayName FROM users WHERE id=@0', [k1Id]);
+    try {
+      await query("UPDATE users SET displayName=N'Renamed after certificate' WHERE id=@0", [k1Id]);
+      await query("UPDATE projects SET name=N'Renamed project after certificate' WHERE id=@0", [projectId]);
+      await query("UPDATE internship_sessions SET name=N'Renamed session after certificate' WHERE id=@0", [sessionId]);
+      const after = await request(apiBase()).get(url); expect(after.status).toBe(200); expect(after.body).toEqual(before.body);
+      const pdf = await app.get(CertificatesService).renderPdf(certificate.id, { userId: k1Id, isAdmin: false });
+      expect(pdf.buffer.equals(pdfBefore.buffer)).toBe(true);
+    } finally {
+      await query('UPDATE users SET displayName=@0 WHERE id=@1', [user.displayName, k1Id]);
+      await query("UPDATE projects SET name='KPI project' WHERE id=@0", [projectId]);
+      await query("UPDATE internship_sessions SET name='KPI session' WHERE id=@0", [sessionId]);
+    }
   });
 
   it('certificates: each major ineligibility reason surfaces separately (spec 86)', async () => {

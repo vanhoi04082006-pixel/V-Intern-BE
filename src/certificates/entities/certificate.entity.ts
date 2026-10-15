@@ -53,6 +53,21 @@ export class Certificate {
   @Column({ type: 'datetime2', name: 'issuedAt' })
   issuedAt!: Date;
 
+  @Column({ type: 'datetime2', nullable: true })
+  completedAt!: Date | null;
+
+  @Column({ type: 'nvarchar', length: 256, nullable: true })
+  holderNameSnapshot!: string | null;
+
+  @Column({ type: 'nvarchar', length: 128, nullable: true })
+  roleLabelSnapshot!: string | null;
+
+  @Column({ type: 'nvarchar', length: 256, nullable: true })
+  projectNameSnapshot!: string | null;
+
+  @Column({ type: 'nvarchar', length: 256, nullable: true })
+  sessionNameSnapshot!: string | null;
+
   @Column('uuid', { name: 'issuedById', nullable: true })
   issuedById!: string | null;
 
