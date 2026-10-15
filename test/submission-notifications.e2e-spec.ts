@@ -1,4 +1,4 @@
-import { randomUUID } from 'crypto';
+import { randomInt, randomUUID } from 'crypto';
 import { DataSource } from 'typeorm';
 import source from '../src/database/data-source';
 import { ensureRbac } from '../src/bootstrap/ensure-rbac';
@@ -23,8 +23,9 @@ import { notifySubmissionReviewer } from '../src/submissions/submission-notifica
 let db: DataSource, owner: User, student: User, foreign: User, project: Project, sprint: Sprint, task: Task;
 let review: CodeReviewService, submissions: SubmissionsService;
 const sha = 'a'.repeat(40), principal = () => ({ userId: student.id, email: student.email });
+const fixtureRepositoryId = randomInt(1000000000, 9000000000);
 const runner = { grade: jest.fn() }, ai = { generateStructuredWithRun: jest.fn() };
-const github = { isWorkflowTask: async () => true, snapshot: async () => ({ headSha: sha, baseSha: 'b'.repeat(40), repositoryId: 123456, sourceKind: 'pull', sourceRef: '1', pullNumber: 1 }),
+const github = { isWorkflowTask: async () => true, snapshot: async () => ({ headSha: sha, baseSha: 'b'.repeat(40), repositoryId: fixtureRepositoryId, sourceKind: 'pull', sourceRef: '1', pullNumber: 1 }),
   collect: async () => ({ files: [{ path: 'index.js', content: 'valid fixture', lineCount: 1 }], complete: true }), evidenceSummary: () => ({ complete: true }), assertFresh: async () => undefined };
 const rubric = { functional: 90, quality: 90, testing: 90, errors: 90, security: 90, dod: 90 };
 beforeAll(async () => {
@@ -44,7 +45,7 @@ beforeAll(async () => {
   const template = randomUUID();
   await db.query("INSERT INTO project_templates(id,code,name,definitionJson,createdById) VALUES(@0,@1,'Notification fixture','{}',@2)", [template, `NT-${randomUUID()}`, owner.id]);
   await db.query("INSERT INTO template_runs(templateId,projectId,sessionId,templateVersion,snapshotJson) VALUES(@0,@1,@2,1,'{}')", [template, project.id, session.id]);
-  await db.query("INSERT INTO session_repositories(sessionId,ownerUserId,githubOwnerId,ownerLogin,repoName,repoId,status,leaseId) VALUES(@0,@1,12345,'fixture','fixture',123456,'ready',@2)", [session.id, owner.id, randomUUID()]);
+  await db.query("INSERT INTO session_repositories(sessionId,ownerUserId,githubOwnerId,ownerLogin,repoName,repoId,status,leaseId) VALUES(@0,@1,12345,'fixture','fixture',@2,'ready',@3)", [session.id, owner.id, fixtureRepositoryId, randomUUID()]);
   const tasks = { getOneDetailed: async (id: string) => db.getRepository(Task).findOneByOrFail({ id }) } as unknown as TasksService;
   const permissions = { hasRole: async () => false } as unknown as PermissionsService;
   submissions = new SubmissionsService(db, tasks, permissions, github as unknown as GithubEvidenceService);

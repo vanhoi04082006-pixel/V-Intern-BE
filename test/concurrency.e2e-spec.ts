@@ -116,12 +116,8 @@ let dataSource: DataSource;
 const RUN = Date.now().toString(36);
 
 const INTERN_EMAILS = [
-  'e2e-conc-intern-1@vintern.test',
-  'e2e-conc-intern-2@vintern.test',
-  'e2e-conc-intern-3@vintern.test',
-  'e2e-conc-intern-4@vintern.test',
-  'e2e-conc-intern-rb@vintern.test',
-];
+  '1', '2', '3', '4', 'rb',
+].map(suffix => `e2e-conc-intern-${suffix}-${RUN}@vintern.test`);
 
 beforeAll(async () => {
   if (!DB_NAME) {
@@ -212,8 +208,8 @@ beforeAll(async () => {
   const internRole = await roles.findOneOrFail({ where: { code: 'intern' } });
 
   const specs: Array<{ email: string; username: string; roleId: string }> = [
-    { email: 'e2e-conc-admin@vintern.test', username: `e2e-conc-admin-${RUN}`, roleId: adminRole.id },
-    { email: 'e2e-conc-instructor@vintern.test', username: `e2e-conc-instructor-${RUN}`, roleId: instructorRole.id },
+    { email: `e2e-conc-admin-${RUN}@vintern.test`, username: `e2e-conc-admin-${RUN}`, roleId: adminRole.id },
+    { email: `e2e-conc-instructor-${RUN}@vintern.test`, username: `e2e-conc-instructor-${RUN}`, roleId: instructorRole.id },
     ...INTERN_EMAILS.map((email, i) => ({
       email,
       username: `e2e-conc-intern-${i + 1}-${RUN}`,
@@ -277,7 +273,7 @@ describe('Phase 3.5 — real SQL Server concurrency, filtered indexes, rollback 
   let projectGId: string; // assignment rollback
 
   it('setup: users, session, projects (unique RUN codes)', async () => {
-    instructor = await login('e2e-conc-instructor@vintern.test');
+    instructor = await login(`e2e-conc-instructor-${RUN}@vintern.test`);
     intern1 = await internIdByEmail(INTERN_EMAILS[0]);
 
     const session = await request(apiBase())
