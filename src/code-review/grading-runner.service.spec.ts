@@ -38,6 +38,7 @@ describe("Trusted grading result request binding", () => {
   function signedResponse(
     body: Record<string, unknown>,
     hash: string | undefined,
+    details: Record<string, unknown> = {},
   ) {
     const payload = {
       headSha: body.headSha,
@@ -48,6 +49,7 @@ describe("Trusted grading result request binding", () => {
       failed: 0,
       summary: "Trusted tests passed.",
       ...(hash === undefined ? {} : { requestHash: hash }),
+      ...details,
     };
     const signature = createHmac("sha256", signingKey)
       .update(JSON.stringify(payload))
@@ -103,6 +105,24 @@ describe("Trusted grading result request binding", () => {
     expect(
       (await runner().grade({ ...input, taskId: "TASK-ONE" })).status,
     ).toBe("completed");
+  });
+
+  it('accepts signed timing, deterministic score and individual trusted checks', async () => {
+    const details = { passed: 1, failed: 1, executionTimeMs: 1234, score: 50, checks: [
+      { name: 'Valid input', passed: true, log: 'Verified.' }, { name: 'Empty input rejected', passed: false, log: 'Expected rejection missing.' },
+    ] };
+    fetchMock.mockImplementation(async (_url: unknown, init: RequestInit) => { const body = JSON.parse(String(init.body)); return signedResponse(body, requestHash(body), details); });
+    expect(await runner().grade(input)).toMatchObject({ status: 'completed', ...details });
+  });
+
+  it.each([
+    { executionTimeMs: -1 }, { executionTimeMs: 999999 },
+    { executionTimeMs: 10, score: 101, checks: [] },
+    { executionTimeMs: 10, score: 100, checks: [{ name: 'Fake', passed: true, log: 'Claimed five checks but only one supplied.' }] },
+    { passed: 0, failed: 0 },
+  ])('rejects even correctly signed inconsistent execution details: %o', details => {
+    fetchMock.mockImplementation(async (_url: unknown, init: RequestInit) => { const body = JSON.parse(String(init.body)); return signedResponse(body, requestHash(body), details); });
+    return expect(runner().grade(input)).resolves.toMatchObject({ status: 'failed' });
   });
 
   it.each([

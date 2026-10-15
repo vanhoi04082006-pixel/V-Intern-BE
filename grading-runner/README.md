@@ -5,6 +5,7 @@ Node 22 service for a **separate Linux Docker host**, outside the API/database h
 ## Files and boundaries
 
 - `server.mjs`: authenticated `/grade`, one active job, bounded requests, replay protection and HMAC. Infrastructure errors return503 without a signed pass.
+- Signed results include measured execution time, a deterministic test score and each trusted check's name/outcome/bounded diagnostic. The server cross-checks counts before signing; backend validates all fields and preserves them in review evidence. Raw student output does not become trusted logs.
 - `docker-worker.mjs`: fixed codeload GitHub HTTPS, immutable SHA, 20MiB maximum archive, no host extraction, loopback-only network namespace, verified cleanup after success/failure.
 - `images/runtime`: React/Vite with locked preinstalled dependencies, trusted Vite config and source extracted only into container tmpfs. Student install scripts/config are not used. Other dependencies require a reviewed runtime image.
 - `images/tester`: independent HTTP/Playwright checker, no student filesystem mounts. It receives instructor checks on stdin and calculates counts itself. Neither student stdout nor student-authored tests supply authoritative counts.

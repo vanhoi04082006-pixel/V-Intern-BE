@@ -21,7 +21,7 @@ test("student and tests use separate restricted containers; no credentials or te
     },
     async () => Buffer.from("opaque archive"),
   );
-  assert.deepEqual(report, { passed: 1, failed: 1, failedChecks: ["Check 2"] });
+  assert.deepEqual(report, { passed: 1, failed: 1, failedChecks: ["Check 2"], checks: [{ name: 'Check 1', passed: true }, { name: 'Check 2', passed: false }] });
   const student = calls.find((c) => c.args.includes("--detach"));
   const tester = calls.find((c) => c.args.includes("--interactive"));
   assert.equal(student.args[student.args.indexOf("--network") + 1], "none");

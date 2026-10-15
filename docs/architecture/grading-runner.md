@@ -16,6 +16,8 @@ POST body: repository, headSha, baseSha, templateCode, taskId, taskSpecHash, sui
 
 Response: {payload,signature}. Payload gồm status:'completed', requestHash, headSha, suiteId, suiteDigest, passed, failed, summary. Counts là integer không âm, summary<=4000chars. signature=HMAC-SHA256(signingKey,JSON.stringify(payload)) hex64. Ký đúng bytes object payload gửi lại. Adapter so sánh constant-time, verify toàn request/suite/SHA; replay của bài khác không hợp lệ.
 
+Worker mới ký thêm executionTimeMs (gồm thực thi và cleanup), score=round(passed/total×100,2) và checks[{name,passed,log}] từ tester riêng. Tên lấy từ suite tin cậy, log là kết luận kiểm chứng có giới hạn, không đưa stdout/secret/source tùy ý vào phản hồi. Adapter kiểm tra thời gian0–120000ms, tổng1–50, số dòng/số pass và score phải khớp; không chỉ tin vì chữ ký đúng. Evidence lưu toàn bộ chi tiết, UI hiển thị cùng AI review. Kết quả cũ có requestHash hợp lệ vẫn đọc được khi cả nhóm chi tiết chưa có; không bịa thời gian/score cho lịch sử cũ.
+
 ## Yêu cầu triển khai
 
 Runner tải archive tối đa20MiB từ codeload GitHub cố định, không redirect/extract trên host. Bài sinh viên và tester ở hai container non-root riêng, root filesystem chỉ đọc, dropped capabilities, no-new-privileges, giới hạn CPU/RAM/PIDs/tmpfs/output/deadline. App dùng network none; tester chỉ chia sẻ namespace loopback của app. Không bridge, host gateway, Internet, published port, secret, Docker socket hoặc host IPC. Tester không mount source, không import test sinh viên; signer ở ngoài cả hai container. Dependency/image pin và review, install hooks không chạy trên host. Dọn tester trước app và kiểm tra không còn container; lỗi cleanup không sinh kết quả đạt.

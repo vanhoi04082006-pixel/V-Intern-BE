@@ -63,13 +63,17 @@ export function createRunner({
         nonces.set(body.nonce, Date.now());
         busy = true;
         try {
+          const startedAt = Date.now();
           const counts = await worker(body, suite);
           if (
             !Number.isSafeInteger(counts.passed) ||
             !Number.isSafeInteger(counts.failed) ||
             counts.passed < 0 ||
             counts.failed < 0 ||
-            counts.passed + counts.failed !== suite.checks.length
+            counts.passed + counts.failed !== suite.checks.length ||
+            !Array.isArray(counts.checks) || counts.checks.length !== suite.checks.length ||
+            counts.checks.some(check => typeof check.passed !== 'boolean') ||
+            counts.checks.filter(check => check.passed).length !== counts.passed
           )
             throw Error("Invalid worker result");
           const payload = {
@@ -80,6 +84,10 @@ export function createRunner({
             suiteDigest: body.suiteDigest,
             passed: counts.passed,
             failed: counts.failed,
+            executionTimeMs: Date.now() - startedAt,
+            score: Math.round(counts.passed / suite.checks.length * 10000) / 100,
+            checks: counts.checks.map((check, i) => ({ name: String(suite.checks[i].name ?? `Check ${i + 1}`).slice(0, 120), passed: check.passed,
+              log: check.passed ? 'Acceptance behavior verified.' : 'Expected acceptance behavior was not satisfied.' })),
             summary: (
               `${counts.passed}/${suite.checks.length} trusted acceptance checks passed; ${counts.failed} failed.` +
               (counts.failedChecks?.length

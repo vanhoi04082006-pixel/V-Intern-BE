@@ -55,7 +55,7 @@ test("HTTP accepts only authenticated scoped requests and signs exact SHA-bound 
   await using(
     async () => {
       calls++;
-      return { passed: 1, failed: 0 };
+      return { passed: 1, failed: 0, checks: [{ passed: true }] };
     },
     async (post) => {
       assert.equal((await post(request(), "wrong")).status, 401);
@@ -73,6 +73,8 @@ test("HTTP accepts only authenticated scoped requests and signs exact SHA-bound 
       );
       assert.equal(payload.requestHash, body.requestHash);
       assert.equal(payload.headSha, body.headSha);
+      assert.equal(payload.score, 100); assert.ok(Number.isSafeInteger(payload.executionTimeMs)); assert.ok(payload.executionTimeMs >= 0);
+      assert.deepEqual(payload.checks, [{ name: 'Check 1', passed: true, log: 'Acceptance behavior verified.' }]);
       assert.equal((await post(body)).status, 409);
       assert.equal(calls, 1);
     },
@@ -84,6 +86,7 @@ test("execution errors and invalid totals return unavailable, never signed PASS"
       throw Error("timeout");
     },
     async () => ({ passed: 100, failed: 0 }),
+    async () => ({ passed: 1, failed: 0, checks: [{ passed: false }] }),
   ]) {
     await using(worker, async (post) => {
       const response = await post(request());
@@ -103,7 +106,7 @@ test("rejects parallel requests instead of queueing unbounded execution", async 
       await new Promise((resolve) => {
         release = resolve;
       });
-      return { passed: 1, failed: 0 };
+      return { passed: 1, failed: 0, checks: [{ passed: true }] };
     },
     async (post) => {
       const pending = post(request());

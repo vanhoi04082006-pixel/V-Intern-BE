@@ -107,6 +107,7 @@ export async function runGrade(
     const report = JSON.parse(output);
     return {
       ...validateCounts(report, suite.checks.length),
+      checks: report.results.map((r, i) => ({ name: String(suite.checks[i].name ?? `Check ${i + 1}`).slice(0, 120), passed: r.passed })),
       failedChecks: report.results.flatMap((r, i) =>
         r.passed
           ? []
