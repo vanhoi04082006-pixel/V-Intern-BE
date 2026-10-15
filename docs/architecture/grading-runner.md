@@ -1,25 +1,25 @@
 # Hợp đồng runner tin cậy
 
-Adapter GradingRunnerService gọi service riêng; BE không npm install/chạy code sinh viên trên host của ứng dụng. Để nghiệm thu thực thi cần runner đã triển khai và test suite do giảng viên/đơn vị vận hành quản lý, không lấy lệnh/bộ test chấm từ PR sinh viên làm authority.
+Mã thực thi service, Docker images, bộ test Notes, công cụ tạo catalog và Docker smoke CI đã có trong [grading-runner](../../grading-runner/README.md). Backend gọi service riêng; không cài dependency hoặc chạy code sinh viên trên host API. Bộ test do giảng viên/đơn vị vận hành quản lý, không lấy lệnh/test/counts từ PR sinh viên làm authority.
 
 ## Cấu hình
 
-GRADING_RUNNER_URL là HTTPS; localhost HTTP chỉ development. GRADING_RUNNER_TOKEN là bearer riêng cho service; GRADING_RUNNER_SIGNING_KEY là khóa HMAC riêng. GRADING_SUITES_JSON map templateCode → {id,digest}, digest là SHA25664hex của suite đã review. Không đặt template/digest giả để bật PASS.
+GRADING_RUNNER_URL là HTTPS `/grade`; localhost HTTP chỉ development. GRADING_RUNNER_TOKEN là bearer riêng; GRADING_RUNNER_SIGNING_KEY là khóa HMAC khác token. GRADING_SUITES_JSON map **templateCode:taskId → {id,digest}**. Không dùng suite chung theo template để chấm mọi task. Digest bao gồm repository chính xác, task/spec hash, image bất biến, lệnh chạy và toàn bộ checks. Dùng prepare-catalog.mjs để sinh từ đặc tả thật đã duyệt; không điền digest giả.
 
 Ví dụ cấu trúc (thay suite thật):
 
 ~~~json
-{"LEARN-NOTES-V1":{"id":"notes-contract-v1","digest":"<sha256-of-reviewed-suite>"}}
+{"LEARN-NOTES-V1:REAL-TASK-UUID":{"id":"notes-foundation-reviewed-v1","digest":"<sha256-of-reviewed-suite>"}}
 ~~~
 
-POST body: repository, headSha, baseSha, templateCode, suiteId, suiteDigest, nonce, requestHash. requestHash=SHA256(JSON.stringify của toàn bộ request trước khi thêm requestHash), theo đúng thứ tự mà adapter gửi. Không chấp nhận ref mutable hoặc repo ngoài allowlist. Timeout tối đa120s.
+POST body: repository, headSha, baseSha, templateCode, taskId, taskSpecHash, suiteId, suiteDigest, nonce, requestHash. taskSpecHash=SHA256(JSON.stringify(specification)). requestHash=SHA256(JSON.stringify toàn bộ request trước requestHash), theo đúng thứ tự adapter gửi. Không nhận ref mutable/repo/task/spec khác catalog. Sửa yêu cầu phải duyệt lại suite. Timeout adapter120s.
 
 Response: {payload,signature}. Payload gồm status:'completed', requestHash, headSha, suiteId, suiteDigest, passed, failed, summary. Counts là integer không âm, summary<=4000chars. signature=HMAC-SHA256(signingKey,JSON.stringify(payload)) hex64. Ký đúng bytes object payload gửi lại. Adapter so sánh constant-time, verify toàn request/suite/SHA; replay của bài khác không hợp lệ.
 
 ## Yêu cầu triển khai
 
-Runner fetch đúng immutable commit; code và archive là untrusted. Thực thi trong worker/container dùng một lần, non-root, không network/secret/docker socket, readonly suite, giới hạn CPU/RAM/PIDs/disk/output và deadline. Dependency/test image pin và review; không cho install hook/untrusted command chạy ngoài worker. Service signer/keys ở bên ngoài sandbox, không nhận counts do sinh viên tự công bố làm kết quả test.
+Runner tải archive tối đa20MiB từ codeload GitHub cố định, không redirect/extract trên host. Bài sinh viên và tester ở hai container non-root riêng, root filesystem chỉ đọc, dropped capabilities, no-new-privileges, giới hạn CPU/RAM/PIDs/tmpfs/output/deadline. App dùng network none; tester chỉ chia sẻ namespace loopback của app. Không bridge, host gateway, Internet, published port, secret, Docker socket hoặc host IPC. Tester không mount source, không import test sinh viên; signer ở ngoài cả hai container. Dependency/image pin và review, install hooks không chạy trên host. Dọn tester trước app và kiểm tra không còn container; lỗi cleanup không sinh kết quả đạt.
 
-Suite phải kiểm tra tiêu chí của template/task, có negative tests và test pass có ý nghĩa. Thiếu dependency, source, suite, runtime hoặc timeout thì trả failed/inconclusive, không completed/passed. Kết quả GitHub Actions của sinh viên không thay suite này.
+Suite kiểm tra tiêu chí của đúng task, có negative tests. Thiếu dependency/source/suite/runtime hoặc timeout/report/dọn tài nguyên lỗi trả503, không ký PASS. Suite chạy xong nhưng có check lỗi trả completed với failed>0 và tên check lỗi. Kết quả GitHub Actions của sinh viên chỉ bổ sung bằng chứng. Suite Notes có hợp đồng data-testid rõ trong README; không tự áp cho mọi UI/template hoặc yêu cầu task chưa bao phủ.
 
-Máy local hiện không có Docker/runner cấu hình; unit tests chỉ chứng minh adapter reject chữ ký sai, request/suite/SHA mismatch và counts sai. Đây chưa phải bằng chứng execution sandbox đã vận hành. Manual teacher review vẫn cần explicit reason; không đánh dấu feature execution nghiệm thu xong khi chưa có runner thật.
+Ngày 15/10/2026 đã triển khai worker trong WSL riêng với Docker Linux và kiểm tra hai container thật: fixture đúng 2/2, fixture bỏ validation 1/2 và bị phát hiện. BE adapter đã gọi HTTP/HMAC tới worker dưới service user và nhận cùng kết quả. Archive là fixture sở hữu nội bộ; catalog bài nộp thật còn trống, chưa nghiệm thu OAuth/repo/PR thật hoặc remote CI. Xem README runner để build, niêm phong catalog và giữ WSL hoạt động. Manual teacher review cần lý do rõ ràng, được ghi audit.

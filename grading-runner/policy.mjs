@@ -61,6 +61,7 @@ export function sandboxArgs(name, network, image) {
     "--network",
     network,
     "--read-only",
+    "--label=io.vintern.grading=true",
     "--cap-drop=ALL",
     "--security-opt=no-new-privileges",
     "--user=10001:10001",
