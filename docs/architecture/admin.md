@@ -2,6 +2,12 @@
 
 Admin giữ các chức năng user/role/group/catalog/settings/audit hiện có. Ngân hàng câu hỏi, cấu hình AI và giám sát tích hợp dùng API riêng; tất cả kiểm tra permission và effective admin role tại backend. Không dựa vào việc ẩn menu.
 
+## Template, phiên và báo cáo
+
+`/admin/templates` có tạo/nhân bản, preview đầy đủ, sửa definition, archive/restore. Editor giữ toàn bộ metadata blueprint bằng JSON có validation server; tên/mã/mô tả có trường riêng. Update gửi expectedVersion để chặn editor cũ; metadata summary và definition được cập nhật cùng transaction và tăng version. Code giữ nguyên, session/project code rút prefix để mã template64ký tự vẫn khởi tạo được. Mẫu archived không Start được; run snapshots giữ nguyên.
+
+`/admin/sessions` dùng cùng list/pagination và màn hình sửa academic metadata. Detail, sprint/task, performance và reports có route admin riêng; các link không đẩy admin sang layout chỉ dành cho instructor. Workflow lập/publish kế hoạch và OAuth owner vẫn thuộc màn hình giảng viên. Admin giám sát tất cả báo cáo theo permission/effective role; giảng viên vẫn chỉ thấy report của mình và mất quyền đọc nếu scope task bị thu hồi. Student/Instructor API không kế thừa quyền toàn cục của admin.
+
 ## Ngân hàng câu hỏi
 
 `/admin/question-bank` hỗ trợ GET list/detail, POST, PUT theo version và DELETE `?version=` để ngừng sử dụng. Search/role/phase/difficulty/status và pagination ở SQL. Đáp án mẫu, expected concepts, scoring rubric, hints và tags chỉ trả cho admin. Nội dung được validate/bounded; câu English dùng language=en. Role của câu đã tạo giữ nguyên để seed identity không đổi; tạo câu mới khi muốn đổi role. Sort order quản trị cấp từ1000 và serialize transaction để không xung đột seed.

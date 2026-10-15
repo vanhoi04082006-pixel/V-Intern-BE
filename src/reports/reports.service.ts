@@ -22,22 +22,25 @@ export class ReportsService {
   constructor(private readonly db: DataSource, private readonly performance: PerformanceService, private readonly permissions: PermissionsService, private readonly audit: AuditService, private readonly facts: ReportFactsService) {}
   private async principal(userId: string) { return { userId, isAdmin: await this.permissions.hasRole(userId,'admin') }; }
   async list(userId: string, query: ReportQueryDto) {
-    const scope = `createdById=@0 AND (@3 IS NULL OR projectId=@3) AND (@4 IS NULL OR JSON_VALUE(snapshotJson,'$.scope.sessionId')=@4)`;
-    const params = [userId,query.kind??null,(query.page-1)*8,query.projectId??null,query.sessionId??null];
+    const principal = await this.principal(userId);
+    const scope = `(@5=1 OR r.createdById=@0) AND (@3 IS NULL OR r.projectId=@3) AND (@4 IS NULL OR JSON_VALUE(r.snapshotJson,'$.scope.sessionId')=@4)`;
+    const params = [userId,query.kind??null,(query.page-1)*8,query.projectId??null,query.sessionId??null,principal.isAdmin?1:0];
     const [items,counts] = await Promise.all([
-      this.db.query(`SELECT r.id,r.title,r.kind,r.projectId,r.createdAt,p.name projectName FROM report_snapshots r LEFT JOIN projects p ON p.id=r.projectId WHERE r.${scope.replaceAll('projectId=@3', 'r.projectId=@3')} AND (@1 IS NULL OR r.kind=@1) ORDER BY r.createdAt DESC,r.id OFFSET @2 ROWS FETCH NEXT 8 ROWS ONLY`,params),
-      this.db.query(`SELECT kind,COUNT(*) count,SUM(CASE WHEN createdAt>=DATEADD(day,-7,SYSUTCDATETIME()) THEN 1 ELSE 0 END) recentCount FROM report_snapshots WHERE ${scope} GROUP BY kind`,params),
+      this.db.query(`SELECT r.id,r.title,r.kind,r.projectId,r.createdAt,p.name projectName,r.createdById,u.displayName createdByName FROM report_snapshots r LEFT JOIN projects p ON p.id=r.projectId LEFT JOIN users u ON u.id=r.createdById WHERE ${scope} AND (@1 IS NULL OR r.kind=@1) ORDER BY r.createdAt DESC,r.id OFFSET @2 ROWS FETCH NEXT 8 ROWS ONLY`,params),
+      this.db.query(`SELECT r.kind,COUNT(*) count,SUM(CASE WHEN r.createdAt>=DATEADD(day,-7,SYSUTCDATETIME()) THEN 1 ELSE 0 END) recentCount FROM report_snapshots r WHERE ${scope} GROUP BY r.kind`,params),
     ]);
     return {items,total:counts.filter((c: {kind:string})=>!query.kind||c.kind===query.kind).reduce((n:number,c:{count:number})=>n+c.count,0),counts};
   }
   async get(id: string, userId: string) {
-    const [row]: SavedReport[] = await this.db.query('SELECT * FROM report_snapshots WHERE id=@0 AND createdById=@1',[id,userId]);
+    const principal = await this.principal(userId);
+    const [row]: SavedReport[] = await this.db.query('SELECT * FROM report_snapshots WHERE id=@0 AND (createdById=@1 OR @2=1)',[id,userId,principal.isAdmin?1:0]);
     if (!row) throw new NotFoundException('Report not found.');
     const snapshot: ReportSnapshot = JSON.parse(row.snapshotJson);
-    const principal = await this.principal(userId);
-    const fresh = await this.performance.listInterns(principal,snapshot.scope,snapshot.scope.studentId ? [snapshot.scope.studentId] : undefined);
-    const visible = new Set(fresh.items.map(m=>m.userId.toLowerCase()));
-    if (snapshot.members.some(m=>!visible.has(m.userId.toLowerCase()))) throw new ForbiddenException('Report scope is no longer accessible.');
+    if (!principal.isAdmin) {
+      const fresh = await this.performance.listInterns(principal,snapshot.scope,snapshot.scope.studentId ? [snapshot.scope.studentId] : undefined);
+      const visible = new Set(fresh.items.map(m=>m.userId.toLowerCase()));
+      if (snapshot.members.some(m=>!visible.has(m.userId.toLowerCase()))) throw new ForbiddenException('Report scope is no longer accessible.');
+    }
     await this.facts.assertSavedAccess(snapshot.details,row.projectId,principal);
     return {id:row.id,title:row.title,kind:row.kind,projectId:row.projectId,createdById:row.createdById,createdAt:row.createdAt,snapshot};
   }

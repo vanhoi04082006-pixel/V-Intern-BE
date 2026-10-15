@@ -66,6 +66,7 @@ export class TemplatesService {
   }
 
   private validateDefinition(definition: CreateTemplateDto): void {
+    if (definition.name.trim().length < 2 || definition.description.trim().length < 10) throw new BadRequestException('Template name and description must contain meaningful text.');
     validateBlueprint(definition);
     if (definition.roleDetails) {
       const codes = new Set(definition.roles ?? []);
@@ -154,18 +155,20 @@ export class TemplatesService {
       const rows: TemplateRow[] = await em.query('SELECT * FROM project_templates WITH(UPDLOCK,HOLDLOCK) WHERE id=@0', [id]);
       if (!rows.length) throw new NotFoundException('Template not found.');
       const current = rows[0];
+      if (dto.expectedVersion !== undefined && dto.expectedVersion !== current.version) throw new ConflictException({ code: 'TEMPLATE_VERSION_CONFLICT', message: 'Template đã thay đổi. Hãy tải lại trước khi lưu.' });
       const sets: string[] = [];
       const params: unknown[] = [];
-      if (dto.name !== undefined) { params.push(dto.name); sets.push(`name=@${params.length - 1}`); }
-      if (dto.category !== undefined) { params.push(dto.category?.trim() || null); sets.push(`category=@${params.length - 1}`); }
-      if (dto.difficulty !== undefined) { params.push(dto.difficulty); sets.push(`difficulty=@${params.length - 1}`); }
       let version = current.version;
-      if (dto.definition !== undefined) {
-        if (dto.definition.sprints.some(s => s.tasks.some(t => !dto.definition!.roles.includes(t.role)))) {
+      if (dto.definition !== undefined || dto.name !== undefined || dto.category !== undefined || dto.difficulty !== undefined) {
+        const definition: CreateTemplateDto = { ...(dto.definition ?? this.parseDefinition(current)),
+          ...(dto.name !== undefined ? { name: dto.name } : {}), ...(dto.category !== undefined ? { category: dto.category } : {}), ...(dto.difficulty !== undefined ? { difficulty: dto.difficulty as CreateTemplateDto['difficulty'] } : {}) };
+        if (definition.code && definition.code !== current.code) throw new BadRequestException('Template code cannot be changed.');
+        if (definition.sprints.some(s => s.tasks.some(t => !definition.roles.includes(t.role)))) {
           throw new BadRequestException('Task role must belong to template roles.');
         }
-        this.validateDefinition(dto.definition);
-        params.push(JSON.stringify(dto.definition));
+        this.validateDefinition(definition);
+        for (const [column, value] of [['name', definition.name], ['category', definition.category?.trim() || null], ['difficulty', definition.difficulty]] as const) { params.push(value); sets.push(`${column}=@${params.length - 1}`); }
+        params.push(JSON.stringify(definition));
         sets.push(`definitionJson=@${params.length - 1}`);
         version = current.version + 1;
         sets.push(`version=${version}`);
@@ -228,7 +231,7 @@ export class TemplatesService {
       const definition = this.parseDefinition(template);
       const existing: { n: number }[] = await em.query('SELECT COUNT(*) AS n FROM template_runs WHERE templateId=@0', [id]);
       const seq = Number(existing[0]?.n ?? 0) + 1;
-      const base = template.code || 'TPL';
+      const base = (template.code || 'TPL').slice(0, 48);
       let sessionCode = `${base}-S${seq}`;
       let projectCode = `${base}-P${seq}`;
       const session = await em.save(InternshipSession, em.create(InternshipSession, {

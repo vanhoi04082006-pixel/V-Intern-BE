@@ -188,8 +188,8 @@ export class RecruitmentController {
   @Get('candidates')
   @RequirePermissions('recruitment.view')
   @ApiOperation({ summary: 'Candidate recruitment status list (instructor/admin read-only)' })
-  async candidates(@Query() query: QueryCandidatesDto) {
-    return this.recruitmentService.listCandidates({
+  async candidates(@CurrentUser('userId') actor: string, @Query() query: QueryCandidatesDto) {
+    return this.recruitmentService.listCandidates(actor, {
       page: query.page,
       pageSize: query.pageSize,
       search: query.search,
@@ -203,7 +203,7 @@ export class RecruitmentController {
   @Get('candidates/:userId')
   @RequirePermissions('recruitment.view')
   @ApiOperation({ summary: 'One candidate recruitment status (read-only)' })
-  async candidate(@Param('userId', ParseUUIDPipe) userId: string) {
-    return this.recruitmentService.getCandidateProfile(userId);
+  async candidate(@Param('userId', ParseUUIDPipe) userId: string, @CurrentUser('userId') actor: string) {
+    return this.recruitmentService.getCandidateProfile(userId, actor);
   }
 }

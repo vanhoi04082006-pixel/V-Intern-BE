@@ -546,6 +546,9 @@ describe('Phase 5 evaluation + performance e2e (spec 80/81)', () => {
       expect(directory.body.items.some((m: { userId: string }) => m.userId === i1UserId)).toBe(true);
       await request(apiBase()).get(`/api/v1/reports/${report.body.id}`).set('Authorization', `Bearer ${si}`).expect(403);
       await request(apiBase()).get(`/api/v1/reports/${report.body.id}/pdf`).set('Authorization', `Bearer ${si}`).expect(403);
+      await request(apiBase()).get(`/api/v1/reports/${report.body.id}`).set('Authorization', `Bearer ${admin}`).expect(200);
+      const adminReports = await request(apiBase()).get(`/api/v1/reports?projectId=${projectId}`).set('Authorization', `Bearer ${admin}`).expect(200);
+      expect(adminReports.body.items.some((row: { id: string }) => row.id === report.body.id)).toBe(true);
     } finally { await dataSource.query('INSERT INTO session_instructors(sessionId,instructorId,assignedAt) VALUES(@0,@1,SYSUTCDATETIME())', [sessionId, teacherId]); }
   });
 });

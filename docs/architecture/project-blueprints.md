@@ -10,4 +10,6 @@ DTO giới hạn kích thước input. `validateBlueprint` kiểm tra slug, tổ
 
 Start Template tạo session upcoming, project và role slots trong transaction, pin snapshot; requestId chống tạo trùng. Một mẫu tạo nhiều phiên độc lập. AI Planner đọc snapshot đầy đủ, tạo draft để giảng viên chỉnh và publish. Dependency của blueprint là key; plan publish chuyển key sang task UUID thật. Chỉ task được giảng viên duyệt Done mới mở điều kiện task phụ thuộc.
 
+Admin editor gửi expectedVersion khi PATCH; metadata-only name/category/difficulty cũng cập nhật definition và tăng version trong transaction, không tạo summary khác nội dung snapshot tương lai. Stale version trả409 TEMPLATE_VERSION_CONFLICT. Template code không đổi; mã session/project dùng prefix tối đa48ký tự để không vượt giới hạn64. API cũ không gửi expectedVersion vẫn tương thích, các editor mới luôn gửi.
+
 Kiểm chứng: DTO/domain/seed unit, SQL HTTP template-library kiểm tra tạo/cập nhật, graph sai, snapshot bất biến, nhiều phiên, request đồng thời và quyền truy cập. Frontend có kiểm thử detail/disclosure, nội dung cũ và tạo phiên. Seed không xóa dữ liệu hoặc ghi đè template tùy chỉnh.

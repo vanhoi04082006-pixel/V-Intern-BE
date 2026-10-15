@@ -349,4 +349,27 @@ describe('M2 Project Template Library', () => {
     expect((await request(apiBase()).post(`/api/v1/project-changes/${change.body.id}/apply`).set('Authorization', `Bearer ${other}`)).status).toBe(201);
   });
 
+  it('keeps summary metadata and future definitions consistent and rejects concurrent stale editors', async () => {
+    const current = await request(apiBase()).get(`/api/v1/project-templates/${templateId}`).set('Authorization', `Bearer ${token}`);
+    const expectedVersion = current.body.version;
+    const changedName = `Reviewed metadata ${RUN}`;
+    const changes = await Promise.all([changedName, 'Stale overwrite'].map(name => request(apiBase()).patch(`/api/v1/project-templates/${templateId}`).set('Authorization', `Bearer ${token}`).send({ name, expectedVersion })));
+    expect(changes.map(r => r.status).sort()).toEqual([200, 409]);
+    expect(changes.find(r => r.status === 409)?.body.code).toBe('TEMPLATE_VERSION_CONFLICT');
+    const fresh = await request(apiBase()).get(`/api/v1/project-templates/${templateId}`).set('Authorization', `Bearer ${token}`);
+    expect(fresh.body.name).toBe(fresh.body.definition.name);
+    expect(fresh.body.version).toBe(expectedVersion + 1);
+    const run = fresh.body.runs[0];
+    const pinned = await request(apiBase()).get(`/api/v1/projects/${run.projectId}/template-context`).set('Authorization', `Bearer ${token}`);
+    expect(pinned.body.definition.name).not.toBe(fresh.body.name);
+  });
+  it('starts templates with a maximum-length code without overflowing session or project identifiers', async () => {
+    const longCode = (`${'LONG'.repeat(12)}-${RUN}`).padEnd(64, 'X').slice(0, 64);
+    const created = await request(apiBase()).post('/api/v1/project-templates').set('Authorization', `Bearer ${token}`).send(definition(longCode)).expect(201);
+    const run = await request(apiBase()).post(`/api/v1/project-templates/${created.body.id}/start`).set('Authorization', `Bearer ${token}`).send({ name: 'Long code session', startDate: '2026-11-01', endDate: '2026-12-31', requestId: randomUUID() }).expect(201);
+    const [session] = await dataSource.query('SELECT code FROM internship_sessions WHERE id=@0', [run.body.sessionId]);
+    const [project] = await dataSource.query('SELECT code FROM projects WHERE id=@0', [run.body.projectId]);
+    expect(session.code.length).toBeLessThanOrEqual(64); expect(project.code.length).toBeLessThanOrEqual(64);
+  });
+
 });

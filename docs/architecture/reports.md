@@ -8,6 +8,8 @@ Ngày trên UI gồm cả ngày kết thúc, adapter đổi thành UTC `[from,to
 
 Cảnh báo tiến độ là quy tắc minh bạch: high nếu có task trễ hoặc sprint hết hạn còn task; medium nếu chờ phụ thuộc/chưa phân công; low nếu chưa có dấu hiệu đó. Hiển thị các lý do. Đây không phải dự báo ngày hoàn thành hoặc nhận xét AI. Bản chụp đã lưu không bị tính lại khi task thay đổi; quyền đọc hiện tại được kiểm tra lại trước khi trả hoặc xuất file. Report của người khác không truy cập được. Nếu mất quyền task/session trong bản chụp thì từ chối đọc thay vì dựa vào việc vẫn nhìn thấy cùng sinh viên trong một phiên khác.
 
+Quy tắc "report của mình" áp dụng cho giảng viên. Effective admin được quản trị/list/read/export mọi snapshot, kể cả khi assignment cũ đã dừng; quyền này kiểm tra từ DB và không cấp cho instructor chỉ do sửa URL sang route admin.
+
 PDF gồm thành viên, summary, sprint, task/review và timeline. XLSX có các sheet Thông tin, Hiệu suất, Task và review, Sprint, Lịch sử. CSV trình duyệt cũng có task/timeline và escape formula input. UI phân trang task trong bản chụp 15 dòng; tải file chứa toàn bộ phạm vi đã lưu. Bản cũ schemaVersion1 vẫn đọc và xuất metrics như trước.
 
 Kiểm chứng real SQL trong start-session E2E: publish→performance→report→idempotent replay→filter riêng sinh viên/sprint→chặn sprint lạ→đổi deadline và xác nhận cảnh báo có căn cứ, snapshot cũ bất biến→PDF/XLSX. Provider kế hoạch được script riêng trong automated test; browser QA dùng API/SQL thật và kế hoạch từ lần gọi provider thật đã lưu, không mock response báo cáo.

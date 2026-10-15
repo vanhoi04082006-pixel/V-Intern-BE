@@ -102,6 +102,7 @@ export class QueryTemplatesDto extends PaginationQueryDto {
   @IsOptional() @IsIn(['createdAt', 'name', 'code']) sort?: string;
 }
 export class UpdateTemplateDto {
+  @IsOptional() @IsInt() @Min(1) expectedVersion?: number;
   @IsOptional() @IsString() @Length(2, 256) name?: string;
   @IsOptional() @IsString() @MaxLength(64) category?: string;
   @IsOptional() @IsIn(['beginner', 'intermediate', 'advanced']) difficulty?: string;

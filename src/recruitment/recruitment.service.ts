@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, EntityManager, Repository } from 'typeorm';
@@ -19,6 +19,10 @@ import {
 import { computeAttemptGate } from './attempt-policy';
 import { RecruitmentProfileStatus } from './recruitment-status.machine';
 import { learningAssessment } from './learning-assessment';
+import { PermissionsService } from '../rbac/permissions.service';
+
+const candidateVisibility = (actor: string) => `(a.id IS NULL OR EXISTS(SELECT 1 FROM projects ownProject JOIN internship_sessions ownSession ON ownSession.id=a.sessionId
+  WHERE ownProject.id=a.projectId AND (ownProject.mentorId=${actor} OR ownSession.leadInstructorId=${actor} OR EXISTS(SELECT 1 FROM session_instructors si WHERE si.sessionId=a.sessionId AND si.instructorId=${actor}))))`;
 
 /** Public shape of GET /recruitment/me (spec 41/19). */
 export interface RecruitmentMeResponse {
@@ -99,6 +103,7 @@ export class RecruitmentService {
     @InjectRepository(RecruitmentResult) private readonly results: Repository<RecruitmentResult>,
     private readonly config: ConfigService,
     @InjectDataSource() private readonly dataSource: DataSource,
+    private readonly permissions: PermissionsService,
   ) {}
 
   /** Latest result for the profile, if any. */
@@ -258,7 +263,7 @@ export class RecruitmentService {
    * eligibility/status filters, stable sort (key, userId) and pagination.
    * Response shape is unchanged (backward compatible with plain page/pageSize).
    */
-  async listCandidates(q: { page: number; pageSize: number; search?: string; role?: string; eligibility?: string; status?: string; sort?: string }) {
+  async listCandidates(actor: string, q: { page: number; pageSize: number; search?: string; role?: string; eligibility?: string; status?: string; sort?: string }) {
     const page = q.page || 1;
     const pageSize = q.pageSize || 20;
     const clauses = [`u.status = 'active'`];
@@ -267,6 +272,7 @@ export class RecruitmentService {
       params.push(v);
       return `@${params.length - 1}`;
     };
+    if (!await this.permissions.hasRole(actor, 'admin')) clauses.push(candidateVisibility(param(actor)));
     if (q.search?.trim()) {
       const like = `%${q.search.trim()}%`;
       const p = param(like);
@@ -338,7 +344,12 @@ export class RecruitmentService {
     };
   }
 
-  async getCandidateProfile(targetUserId: string): Promise<RecruitmentMeResponse & { displayName: string | null; email: string | null }> {
+  async getCandidateProfile(targetUserId: string, actor: string): Promise<RecruitmentMeResponse & { displayName: string | null; email: string | null }> {
+    if (!await this.permissions.hasRole(actor, 'admin')) {
+      const allowed = await this.dataSource.query(`SELECT p.userId FROM recruitment_profiles p JOIN users u ON u.id=p.userId LEFT JOIN assignments a ON a.internId=p.userId AND a.status='active'
+        WHERE p.userId=@0 AND u.status='active' AND ${candidateVisibility('@1')}`, [targetUserId, actor]);
+      if (!allowed.length) throw new ForbiddenException({ code: 'CANDIDATE_SCOPE_FORBIDDEN', message: 'Ứng viên không thuộc pool chưa phân công hoặc phạm vi giảng viên quản lý.' });
+    }
     const profile = await this.profiles.findOne({ where: { userId: targetUserId } });
     const user = await this.dataSource.getRepository(User).findOne({ where: { id: targetUserId } });
     if (!profile && !user) {

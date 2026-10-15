@@ -261,6 +261,12 @@ describe('Instructor ownership — sessions/projects/sprints/tasks/assignments',
   it('candidate pool stays readable for hiring; admin sees the session', async () => {
     const pool = await request(apiBase()).get('/api/v1/recruitment/candidates').set('Authorization', `Bearer ${instructorB}`);
     expect(pool.status).toBe(200);
-    expect(pool.body.total).toBeGreaterThan(0);
+    const internId = await userIdByEmail(dataSource, `e2e-own-i1-${RUN}@vintern.test`);
+    expect(pool.body.items.some((candidate: { userId: string }) => candidate.userId.toLowerCase() === internId.toLowerCase())).toBe(false);
+    const searched = await request(apiBase()).get(`/api/v1/recruitment/candidates?search=e2e-own-i1-${RUN}`).set('Authorization', `Bearer ${instructorB}`);
+    expect(searched.body.total).toBe(0);
+    await request(apiBase()).get(`/api/v1/recruitment/candidates/${internId}`).set('Authorization', `Bearer ${instructorB}`).expect(403);
+    await request(apiBase()).get(`/api/v1/recruitment/candidates/${internId}`).set('Authorization', `Bearer ${instructorA}`).expect(200);
+    await request(apiBase()).get(`/api/v1/recruitment/candidates/${internId}`).set('Authorization', `Bearer ${admin}`).expect(200);
   });
 });
