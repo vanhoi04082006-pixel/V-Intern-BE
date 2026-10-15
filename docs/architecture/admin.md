@@ -26,4 +26,6 @@ AiService đọc policy cho lời gọi Gemini mới, giữ transport/secret ở
 
 `GET /admin/system/repositories`: danh sách repository theo phiên có pagination/search/status, owner login, instructor, trạng thái webhook và delivery cuối. Không trả ciphertext/token/secret/payload webhook. Live provisioning vẫn cần OAuth của chính giảng viên và URL webhook public; số suite0 là trạng thái chưa seal, không phải bộ test đã chạy.
 
+Status còn hiển thị worker cảnh báo quá hạn/sự cố phiên: bật/tắt, chu kỳ, lượt quét gần nhất, số đã gửi/muted và mã lỗi an toàn của instance hiện tại. Cơ chế chống gửi trùng dùng ledger SQL chung; xem [thông báo](notifications.md).
+
 Kiểm chứng: question-bank SQL HTTP5test gồm RBAC, CRUD, conflict, soft retirement, snapshot bất biến, policy/version/secret rejection và status safe. Gemini transport unit chứng minh model mới qua cùng transport. Browser thật ở1440/820/390 kiểm tra tạo/ngừng câu hỏi, lưu AI policy và status, không mock API. Validation DB dùng bank cũ cho fixture AI; runtime hai DB có185câu và6blueprint.

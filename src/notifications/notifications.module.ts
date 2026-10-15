@@ -4,11 +4,12 @@ import { Notification } from './entities/notification.entity';
 import { NotificationPreference } from './entities/notification-preference.entity';
 import { NotificationsController } from './notifications.controller';
 import { NotificationsService } from './notifications.service';
+import { LearningAlertsService } from './learning-alerts.service';
 
 @Module({
   imports: [TypeOrmModule.forFeature([Notification, NotificationPreference])],
   controllers: [NotificationsController],
-  providers: [NotificationsService],
-  exports: [NotificationsService],
+  providers: [NotificationsService, LearningAlertsService],
+  exports: [NotificationsService, LearningAlertsService],
 })
 export class NotificationsModule {}

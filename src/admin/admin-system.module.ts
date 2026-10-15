@@ -7,13 +7,15 @@ import { RequirePermissions } from '../common/decorators/permissions.decorator';
 import { PaginationQueryDto } from '../common/pagination/pagination-query.dto';
 import { PermissionsService } from '../rbac/permissions.service';
 import { RbacModule } from '../rbac/rbac.module';
+import { NotificationsModule } from '../notifications/notifications.module';
+import { LearningAlertsService } from '../notifications/learning-alerts.service';
 class RepositoryQuery extends PaginationQueryDto {
   @IsOptional() @IsIn(['ready', 'failed', 'provisioning', 'not_configured']) status?: string;
   @IsOptional() @IsString() @MaxLength(100) search?: string;
 }
 @Injectable()
 class AdminSystemService {
-  constructor(private readonly db: DataSource, private readonly config: ConfigService, private readonly permissions: PermissionsService) {}
+  constructor(private readonly db: DataSource, private readonly config: ConfigService, private readonly permissions: PermissionsService, private readonly alerts: LearningAlertsService) {}
   private async authorize(actor: string) { if (!await this.permissions.hasRole(actor, 'admin')) throw new ForbiddenException('Administrator access required.'); }
   async status(actor: string) {
     await this.authorize(actor);
@@ -34,7 +36,7 @@ class AdminSystemService {
       if (!suites || typeof suites !== 'object' || Array.isArray(suites)) throw Error();
       for (const item of Object.values(suites)) { if (!item || typeof item !== 'object' || typeof item.id !== 'string' || typeof item.digest !== 'string' || !/^[0-9a-f]{64}$/i.test(item.digest)) throw Error(); sealedSuites++; }
     } catch { suiteConfigValid = false; sealedSuites = 0; }
-    return { checkedAt: new Date(), database: { status: 'reachable', latencyMs: latency }, counts, aiLast24Hours: ai,
+    return { checkedAt: new Date(), database: { status: 'reachable', latencyMs: latency }, counts, aiLast24Hours: ai, learningAlerts: this.alerts.status(),
       integrations: { github: { configured: oauth.every(has), missing: oauth.filter(key => !has(key)) }, webhook: { configured: has('GITHUB_WEBHOOK_URL') && this.config.get<string>('GITHUB_WEBHOOK_SECRET', '').length >= 32 },
         runner: { configured: runner.every(has), missing: runner.filter(key => !has(key)), sealedSuites, suiteConfigValid, connectivity: 'not_probed' } } };
   }
@@ -58,5 +60,5 @@ class AdminSystemController {
   @Get('status') status(@CurrentUser('userId') actor: string) { return this.system.status(actor); }
   @Get('repositories') repositories(@CurrentUser('userId') actor: string, @Query() q: RepositoryQuery) { return this.system.repositories(actor, q); }
 }
-@Module({ imports: [RbacModule], controllers: [AdminSystemController], providers: [AdminSystemService] })
+@Module({ imports: [RbacModule, NotificationsModule], controllers: [AdminSystemController], providers: [AdminSystemService] })
 export class AdminSystemModule {}
