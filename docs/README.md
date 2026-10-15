@@ -12,5 +12,6 @@
 - [API routes](api/ROUTES.md), [security](SECURITY.md), [testing](TESTING.md), [ADRs](decisions/0001-ai-github-authority.md).
 - [Quản trị câu hỏi, AI và giám sát](architecture/admin.md).
 - [Thông báo và cảnh báo tự động](architecture/notifications.md).
+- [Đăng ký sinh viên](architecture/registration.md).
 
 Source DTO/controller/service là authority nếu tài liệu và code khác nhau; sửa tài liệu cùng thay đổi hành vi, không tự sửa lịch sử migration đã áp dụng.

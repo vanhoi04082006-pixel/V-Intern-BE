@@ -21,6 +21,7 @@ Pagination chuẩn: {data,meta:{page,pageSize,total,totalPages}}. Một số agg
 | POST | /api/v1/assignments/{id}/complete | Complete an active assignment (assignments.manage; audited; intern notified; history preserved) |
 | GET | /api/v1/audit-logs | Paginated audit trail (audit.read) |
 | POST | /api/v1/auth/login | Login → access token + HttpOnly refresh cookie |
+| POST | /api/v1/auth/register | Public intern-only signup: fullName/email/password/acceptedTerms=true; atomic role/profile/audit, no auto-login; duplicate409, closed403, rate limit |
 | POST | /api/v1/auth/logout | Revoke refresh token + clear cookie (204) |
 | GET | /api/v1/auth/me | Fresh principal from DB (roles + permissions) |
 | POST | /api/v1/auth/refresh | Rotate refresh token (family reuse detection) |

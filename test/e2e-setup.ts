@@ -8,6 +8,7 @@ process.env.THROTTLE_INTERVIEW_START_PER_MIN = '10000';
 process.env.THROTTLE_INTERVIEW_SUBMIT_PER_MIN = '10000';
 process.env.THROTTLE_EVALUATION_PER_MIN = '10000';
 process.env.THROTTLE_AUTH_PER_MIN = '10000';
+process.env.THROTTLE_REGISTER_PER_MIN = '10000';
 // Phase 6 AI route limits (spec 56) — raised for the full AI e2e flow.
 process.env.THROTTLE_AI_MENTOR_PER_MIN = '10000';
 process.env.THROTTLE_AI_EVALUATION_ASSIST_PER_MIN = '10000';

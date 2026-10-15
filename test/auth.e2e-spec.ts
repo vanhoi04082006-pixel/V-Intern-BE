@@ -1,4 +1,5 @@
 import { createConnection } from 'node:net';
+import { randomUUID } from 'crypto';
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { hash } from 'bcryptjs';
@@ -30,6 +31,7 @@ const DB_PORT = Number(process.env.DB_PORT ?? 1433);
 const DB_NAME = process.env.E2E_DB_NAME ?? '';
 const DB_USER = process.env.DB_USERNAME ?? 'vintern_app';
 const DB_PASS = process.env.DB_PASSWORD ?? '';
+const RUN = randomUUID().slice(0, 8);
 
 function tcpReachable(host: string, port: number, timeoutMs = 2000): Promise<boolean> {
   return new Promise((resolve) => {
@@ -220,8 +222,8 @@ describe('Platform core e2e — auth + RBAC + pagination + health', () => {
       .post('/api/v1/users')
       .set('Authorization', `Bearer ${token}`)
       .send({
-        email: 'e2e-locked@vintern.test',
-        username: 'e2e-locked',
+        email: `e2e-locked-${RUN}@vintern.test`,
+        username: `e2e-locked-${RUN}`,
         displayName: 'E2E Locked',
         password: 'E2e-Password-1',
       });
@@ -232,7 +234,7 @@ describe('Platform core e2e — auth + RBAC + pagination + health', () => {
       .set('Authorization', `Bearer ${token}`)
       .send({ status: 'locked' });
     expect(locked.status).toBe(200);
-    const res = await login('e2e-locked@vintern.test', 'E2e-Password-1');
+    const res = await login(`e2e-locked-${RUN}@vintern.test`, 'E2e-Password-1');
     expect(res.status).toBe(403);
     expect(res.body.code).toBe('ACCOUNT_LOCKED');
   });
@@ -391,20 +393,22 @@ describe('Platform core e2e — auth + RBAC + pagination + health', () => {
     const actual = await dataSource.query('SELECT COUNT(*) AS n FROM role_permissions WHERE roleId=@0', [role.id]);
     expect(grants.body.meta.total).toBe(Number(actual[0].n));
     expect(grants.body.data.map((p: { code: string }) => p.code)).toContain('tasks.update.own');
-    const group = await request(apiBase()).post('/api/v1/groups').set('Authorization', `Bearer ${token}`).send({ code: 'e2e-read-grants', name: 'Read grants' });
+    const filterName = `e2e-grants-${RUN}`;
+    const member = await request(apiBase()).post('/api/v1/users').set('Authorization', `Bearer ${token}`).send({ email: `${filterName}@vintern.test`, username: filterName, displayName: 'Role filter fixture', password: 'E2e-Password-1', roleCodes: ['admin'] }).expect(201);
+    const group = await request(apiBase()).post('/api/v1/groups').set('Authorization', `Bearer ${token}`).send({ code: `e2e-read-grants-${RUN}`, name: 'Read grants' });
     expect(group.status).toBe(201);
     await request(apiBase()).put(`/api/v1/groups/${group.body.id}/roles`).set('Authorization', `Bearer ${token}`).send({ roleCodes: ['intern'] }).expect(200);
     const groupRoles = await request(apiBase()).get(`/api/v1/groups/${group.body.id}/roles`).set('Authorization', `Bearer ${token}`);
     expect(groupRoles.status).toBe(200);
     expect(groupRoles.body.roles).toEqual(['intern']);
-    const beforeRoleFilter = await request(apiBase()).get('/api/v1/users?roleCode=intern&q=e2e-admin').set('Authorization', `Bearer ${token}`);
+    const beforeRoleFilter = await request(apiBase()).get(`/api/v1/users?roleCode=intern&q=${filterName}`).set('Authorization', `Bearer ${token}`);
     expect(beforeRoleFilter.status).toBe(200);
     expect(beforeRoleFilter.body.meta.total).toBe(0);
-    await request(apiBase()).post(`/api/v1/groups/${group.body.id}/members`).set('Authorization', `Bearer ${token}`).send({userIds: [ids.adminId]}).expect(201);
-    const inheritedRoleFilter = await request(apiBase()).get('/api/v1/users?roleCode=intern&q=e2e-admin').set('Authorization', `Bearer ${token}`);
+    await request(apiBase()).post(`/api/v1/groups/${group.body.id}/members`).set('Authorization', `Bearer ${token}`).send({userIds: [member.body.id]}).expect(201);
+    const inheritedRoleFilter = await request(apiBase()).get(`/api/v1/users?roleCode=intern&q=${filterName}`).set('Authorization', `Bearer ${token}`);
     expect(inheritedRoleFilter.status).toBe(200);
     expect(inheritedRoleFilter.body.meta.total).toBe(1);
-    expect(inheritedRoleFilter.body.data[0].id).toBe(ids.adminId);
+    expect(inheritedRoleFilter.body.data[0].id).toBe(member.body.id);
     expect(inheritedRoleFilter.body.data[0]).not.toHaveProperty('passwordHash');
     await request(apiBase()).get('/api/v1/users?roleCode=invalid%20role').set('Authorization', `Bearer ${token}`).expect(400);
     const intern = await login('e2e-intern@vintern.test', 'E2e-Password-1');
@@ -415,20 +419,22 @@ describe('Platform core e2e — auth + RBAC + pagination + health', () => {
   it('audit trail records sensitive actions (user.created present after creation)', async () => {
     const admin = await login('e2e-admin@vintern.test', 'E2e-Password-1');
     const token = admin.body.accessToken as string;
-    await request(apiBase())
+    const created = await request(apiBase())
       .post('/api/v1/users')
       .set('Authorization', `Bearer ${token}`)
       .send({
-        email: 'e2e-audited@vintern.test',
-        username: 'e2e-audited',
+        email: `e2e-audited-${RUN}@vintern.test`,
+        username: `e2e-audited-${RUN}`,
         displayName: 'E2E Audited',
         password: 'E2e-Password-1',
       });
+    expect(created.status).toBe(201);
     const res = await request(apiBase())
       .get('/api/v1/audit-logs?action=user.created&page=1&pageSize=5')
       .set('Authorization', `Bearer ${token}`);
     expect(res.status).toBe(200);
     expect(res.body.data.length).toBeGreaterThan(0);
+    expect(res.body.data.some((row: { targetId: string }) => row.targetId.toLowerCase() === created.body.id.toLowerCase())).toBe(true);
   });
 
   it('notification ownership: user cannot read/mark another user’s notification', async () => {

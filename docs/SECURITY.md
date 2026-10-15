@@ -10,4 +10,6 @@ Source/PR/ref/URL/câu trả lời là untrusted. Github host HTTPS cố định
 
 AI chỉ đề xuất; teacher và backend quyết định. Không nhận model pass/approve field hoặc student-controlled checks làm bằng chứng authoritative. Audit final rubric/manual override/SHA và các thay đổi quyền.
 
-Giới hạn: rate limits memory theo process, runner external chưa deploy, không có frontend public signup/reset API. Khi cần nhiều instance, dùng limiter/job processing chung và kiểm chứng reentry/concurrency trước rollout.
+Public signup chỉ tạo intern trong transaction và không tự đăng nhập, không nhận role từ client. Mật khẩu kiểm tra giới hạn UTF-8 trước bcrypt, tên/email bounded, terms phải là boolean true. Có switch đóng signup và rate limit riêng; xem [đăng ký](architecture/registration.md).
+
+Giới hạn: rate limits memory theo process, runner local WSL đã triển khai nhưng chưa nghiệm thu repo/OAuth thật; chưa có email verification/reset hoặc Google OAuth. Khi cần nhiều instance, dùng limiter/job processing chung và kiểm chứng reentry/concurrency trước rollout.

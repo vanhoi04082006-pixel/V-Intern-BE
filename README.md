@@ -30,7 +30,7 @@ API: http://localhost:8080/api/v1; Swagger: http://localhost:8080/api/docs; heal
 | npm run migration:run / migration:show | Áp dụng / kiểm tra migrations |
 | npm run migration:revert | Revert migration mới nhất; kiểm tra dữ liệu và down trước |
 | npm run bootstrap:admin | RBAC và admin từ env; chạy lại không đổi mật khẩu tài khoản cũ |
-| npm run seed:library | Chèn thiếu ba template và ngân hàng câu hỏi; không ghi đè bản đã sửa |
+| npm run seed:library | Sáu blueprint và185câu hỏi; seed chạy lại giữ bản đã sửa/archived và run snapshot |
 | npm run seed:recruitment | Chèn thiếu câu hỏi theo role/sortOrder |
 | npm run seed:dev | Demo local; có tạo dữ liệu/tài khoản, không dùng production |
 | npm run audit:schema | Kiểm tra schema |
@@ -39,6 +39,7 @@ API: http://localhost:8080/api/v1; Swagger: http://localhost:8080/api/docs; heal
 
 - DB_HOST/PORT/NAME/USERNAME/PASSWORD và DB_ENCRYPT/TRUST_SERVER_CERTIFICATE: kết nối SQL. Production dùng TLS và chứng chỉ tin cậy.
 - JWT_SECRET: ít nhất 32 ký tự ngẫu nhiên. Access token ngắn hạn; refresh cookie HttpOnly, rotate và phát hiện reuse theo family.
+- AUTH_PUBLIC_REGISTRATION=true mở đăng ký sinh viên (false/giá trị không hợp lệ đóng); THROTTLE_REGISTER_PER_MIN mặc định5/IP/phút. Signup chỉ tạo intern/not_started trong transaction, không tự login; [hợp đồng đăng ký](docs/architecture/registration.md).
 - CORS_ORIGINS: allowlist chính xác FE; không dùng wildcard với credentials. Rate limits hiện lưu trong memory của từng process.
 - AI_PROVIDER=gemini, AI_API_KEY, AI_MODEL, AI_TIMEOUT_MS, AI_MAX_RETRIES: provider thật. Model cần quyền generateContent và output JSON. Kiểm tra model qua API/provider trước khi đổi; alias có thể thay đổi. Khóa không rời server.
 - GITHUB_CLIENT_ID/SECRET/CALLBACK_URL, GITHUB_TOKEN_ENCRYPTION_KEY, FRONTEND_ORIGIN: [hướng dẫn GitHub](docs/architecture/github-code-review.md).
