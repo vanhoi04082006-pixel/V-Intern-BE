@@ -1,5 +1,7 @@
 # Kiểm thử backend
 
+DB_FILES_ROOT là thư mục tuyệt đối trên máy SQL Server để tạo file MDF/LDF của database test mới. Local đặt thư mục này trong project; thư mục phải tồn tại và SQL Database Engine cần quyền Full Control tại đó. CLI db:create:e2e và18suite setup dùng cùng một bộ dựng SQL, từ chối tên/đường dẫn không hợp lệ, UNC và traversal; không fallback sang vị trí khác khi cấu hình có lỗi. CI container có thể để trống để dùng volume tạm mặc định. Các chốt kiểm tra database disposable vẫn giữ nguyên.
+
 Unit: npm test. Build: npm run build. Lint: npm run lint. Test provider chỉ trong test override, không có production fake-score fallback. Tests cần invariant/negative cases, không chỉ mirror implementation.
 
 Nhóm mới kiểm tra question phases/conversation ownership/clarification races, sharing consent, GitHub crypto/parser/durable identities/batch, immutable diff/credential filtering, HMAC runner binding, rubric schema và provenance. Adapter mocks không chứng minh GitHub/runner ngoài đã vận hành.

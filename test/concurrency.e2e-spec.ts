@@ -1,3 +1,4 @@
+import { createDatabaseSql } from '../src/database/create-database-sql';
 import { createConnection } from 'node:net';
 import { randomUUID } from 'node:crypto';
 import { hash } from 'bcryptjs';
@@ -145,7 +146,7 @@ beforeAll(async () => {
     logging: false,
   });
   await adminDs.initialize();
-  await adminDs.query(`IF DB_ID(N'${DB_NAME.replace(/'/g, "''")}') IS NULL CREATE DATABASE [${DB_NAME.replace(/]/g, ']]')}];`);
+  await adminDs.query(createDatabaseSql(DB_NAME, process.env.DB_FILES_ROOT));
   await adminDs.destroy();
 
   // 2) REAL migrations (Phase 1+2+3) — idempotent when CI already applied them.

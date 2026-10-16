@@ -1,6 +1,7 @@
 import 'reflect-metadata';
 import 'dotenv/config';
 import { DataSource } from 'typeorm';
+import { createDatabaseSql } from '../database/create-database-sql';
 
 /**
  * PHASE 3.5 (spec 10) — create the DISPOSABLE E2E database + app login.
@@ -64,9 +65,9 @@ async function main(): Promise<void> {
   if (!adminUser || !adminPass) fail('DB_ADMIN_USERNAME/DB_ADMIN_PASSWORD (or app credentials) are required.', 2);
   if (!appUser || !appPass) fail('DB_USERNAME/DB_PASSWORD are required (the app login to provision).', 2);
 
-  const quotedDb = validateDatabaseName(dbName);
+  validateDatabaseName(dbName);
   const encrypt = (process.env.DB_ENCRYPT ?? 'false') !== 'false';
-  const dbNameSqlLiteral = `N'${dbName.replace(/'/g, "''")}'`;
+  const creationSql = createDatabaseSql(dbName, process.env.DB_FILES_ROOT);
 
   const master = new DataSource({
     type: 'mssql',
@@ -85,7 +86,7 @@ async function main(): Promise<void> {
 
     // 1) Create the database when missing. NEVER drop — the disposable
     //    lifetime of the database is owned by the CI environment.
-    await master.query(`IF DB_ID(${dbNameSqlLiteral}) IS NULL CREATE DATABASE ${quotedDb};`);
+    await master.query(creationSql);
     console.log(`[create-e2e-database] database ready: ${dbName}`);
 
     // 2) Provision the app login/user (skipped when the app IS the admin, e.g. sa).

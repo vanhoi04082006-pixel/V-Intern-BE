@@ -1,6 +1,8 @@
 # Kiểm chứng backend — 16/10/2026
 
-Source hiện hành:70unit suites/542tests đạt, build đạt, lint0errors/15warning console có sẵn. Registry31migrations; hai runtime và DB nghiệm thu đã migrate, pending=false. Seed runtime giữ185câu/5role,6blueprint, không reset dữ liệu/tài khoản trắng.
+Source hiện hành:71unit suites/555tests đạt, build đạt, lint0errors/15warning console có sẵn. Registry31migrations; hai runtime và DB nghiệm thu đã migrate, pending=false. Seed runtime giữ185câu/5role,6blueprint, không reset dữ liệu/tài khoản trắng.
+
+Thêm13regression cho tạo database trong thư mục cấu hình trên SQL Server: Windows/POSIX, escape literal và từ chối tên/đường dẫn không hợp lệ. CLI và18suite setup dùng chung DB_FILES_ROOT, giữ nguyên guard disposable. SQL gate của thay đổi này phải chạy lại; không dùng kết quả CI commit cũ làm bằng chứng cho source mới.
 
 Full SQL gate25suites/225tests đạt trong227.359giây trên VIntern_E2E_Release_20261015, chạy lại trên cùng DB sau khi cô lập email/repository ID của fixtures: xem [chứng cứ hệ thống](LIVE-GITHUB.md) và log manual-runtime/private/master-release-e2e.log. Bao gồm auth/signup, recruitment/follow-up/scoring/history, ownership/consent, plan/publish/dependency, raw task-spec export, templates/admin, report scope, KPI/salary/certificates, signed webhook và token rotation.
 

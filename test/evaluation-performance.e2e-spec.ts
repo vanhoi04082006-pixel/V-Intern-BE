@@ -1,3 +1,4 @@
+import { createDatabaseSql } from '../src/database/create-database-sql';
 import { createConnection } from 'node:net';
 import { hash } from 'bcryptjs';
 import { randomUUID } from 'crypto';
@@ -77,7 +78,7 @@ beforeAll(async () => {
     options: { useUTC: true, encrypt: (process.env.DB_ENCRYPT ?? 'false') !== 'false', trustServerCertificate: true }, logging: false,
   });
   await adminDs.initialize();
-  await adminDs.query(`IF DB_ID(N'${DB_NAME}') IS NULL CREATE DATABASE [${DB_NAME}];`);
+  await adminDs.query(createDatabaseSql(DB_NAME, process.env.DB_FILES_ROOT));
   await adminDs.destroy();
 
   dataSource = new DataSource({
