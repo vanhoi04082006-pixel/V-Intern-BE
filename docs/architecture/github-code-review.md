@@ -44,6 +44,6 @@ Kiểm chứng local: 6 test HTTP với SQL Server kiểm tra chữ ký, dung l�
 
 ## Giới hạn nghiệm thu ngoài
 
-Nghiệm thu16/10 đã dùng OAuth App local, hai linked accounts khác nhau, public repo/invite/PR, một bài lỗi và một bài sửa, live Docker/Gemini và teacher final approval. GitHub gửi webhook thật200, redelivery200/deduped với một event SQL; hook/receiver HTTPS tạm đã đóng sau nghiệm thu. [Bằng chứng và giới hạn](../../../docs/GITHUB-LIVE-ACCEPTANCE.md). Không dùng fixture tổng hợp để tuyên bố đã kiểm tra mọi lớp/framework hoặc độ chính xác AI.
+Nghiệm thu16/10 đã dùng OAuth App local, hai linked accounts khác nhau, public repo/invite/PR, một bài lỗi và một bài sửa, live Docker/Gemini và teacher final approval. GitHub gửi webhook thật200, redelivery200/deduped với một event SQL; hook/receiver HTTPS tạm đã đóng sau nghiệm thu. [Bằng chứng và giới hạn](../LIVE-GITHUB.md). Không dùng fixture tổng hợp để tuyên bố đã kiểm tra mọi lớp/framework hoặc độ chính xác AI.
 
 Nguồn chính thức: [OAuth/PKCE](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/authorizing-oauth-apps), [repo API](https://docs.github.com/en/rest/repos/repos), [PR API](https://docs.github.com/en/rest/pulls/pulls), [users API](https://docs.github.com/en/rest/users/users).

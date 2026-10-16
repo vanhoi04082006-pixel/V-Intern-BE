@@ -12,6 +12,8 @@ AI chỉ đề xuất; teacher và backend quyết định. Không nhận model 
 
 Public signup chỉ tạo intern trong transaction và không tự đăng nhập, không nhận role từ client. Mật khẩu kiểm tra giới hạn UTF-8 trước bcrypt, tên/email bounded, terms phải là boolean true. Có switch đóng signup và rate limit riêng; xem [đăng ký](architecture/registration.md).
 
-OAuth/repo/PR/runner đã nghiệm thu với hai tài khoản GitHub thật và fixture tổng hợp; [chi tiết](../../docs/GITHUB-LIVE-ACCEPTANCE.md). Webhook HMAC/redelivery thật đạt, hook/tunnel tạm đã đóng. Không coi bằng chứng này là phê duyệt production cho mọi contract.
+OAuth/repo/PR/runner đã nghiệm thu với hai tài khoản GitHub thật và fixture tổng hợp; [chi tiết](LIVE-GITHUB.md). Webhook HMAC/redelivery thật đạt, hook/tunnel tạm đã đóng. Không coi bằng chứng này là phê duyệt production cho mọi contract.
 
 Giới hạn: rate limits memory theo process; chưa có email verification/reset hoặc Google OAuth. Khi cần nhiều instance, dùng limiter/job processing chung và kiểm chứng reentry/concurrency trước rollout.
+
+Audit16/10: dependency production không có high/critical, còn3moderate lan truyền từ sprintf-js qua tedious/mssql. Format trong driver là literal cố định; ứng dụng không cho request cung cấp format string. Toàn cây dev có thêm advisory braces qua Jest. Cả hai chưa có bản vá upstream; không coi full audit là sạch. [Phân tích và nguồn advisory](DEPENDENCIES.md). CI chặn high/critical của dependency production.

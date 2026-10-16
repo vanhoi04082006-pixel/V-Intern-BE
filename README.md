@@ -83,6 +83,6 @@ Giữ nghiệp vụ trong module của nó; dùng helper quyền chuẩn, DTO va
 
 [Mục lục](docs/README.md) · [SQL Server](docs/database/SQLSERVER2019_SETUP.md) · [Migration](docs/database/MIGRATION_POLICY.md) · [Domain](docs/architecture/domain-model.md) · [API](docs/api/ROUTES.md) · [Bảo mật](docs/SECURITY.md) · [Kiểm thử](docs/TESTING.md).
 
-Các báo cáo phase/handoff cũ được giữ dưới docs/archive để truy vết, không thay thế tài liệu hiện hành. [Nghiệm thu16/10](../docs/GITHUB-LIVE-ACCEPTANCE.md) đã chạy OAuth hai danh tính, repo/invite/PR, codeload/Docker/Gemini, teacher approval và webhook/redelivery thật. Đây là fixture tổng hợp với một task đã seal; remote CI/nativeSQL2019/production deployment chưa chạy.
+Các báo cáo phase/handoff cũ được giữ dưới docs/archive để truy vết, không thay thế tài liệu hiện hành. [Nghiệm thu16/10](docs/LIVE-GITHUB.md) đã chạy OAuth hai danh tính, repo/invite/PR, codeload/Docker/Gemini, teacher approval, webhook/redelivery và refresh token thật. Đây là fixture tổng hợp với một task đã seal. NativeSQL2019/remote backend và runner CI đã đạt; [kết quả](docs/VERIFICATION.md). Production deployment chưa chạy.
 
 [Hội thoại và rubric](docs/architecture/recruitment-chat.md) · [Kế hoạch và ngữ cảnh Mentor](docs/architecture/learning-plans.md) · [Vận hành worker](grading-runner/README.md).
