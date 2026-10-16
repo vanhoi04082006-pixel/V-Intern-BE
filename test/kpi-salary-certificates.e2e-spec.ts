@@ -240,15 +240,14 @@ describe('Phase 5 KPI + virtual salary + certificates e2e (spec 82-87)', () => {
   }
 
   it('setup: logins + session/project/sprint/cycle/assignments', async () => {
-    admin = await login(EMAILS.admin);
-    si = await login(EMAILS.si);
-    k1 = await login(EMAILS.k1);
-    k2 = await login(EMAILS.k2);
-    await login(EMAILS.k3); // auth sanity only — k3 assertions go through admin views
-    k1Id = await userIdByEmail(EMAILS.k1);
-    k2Id = await userIdByEmail(EMAILS.k2);
-    k3Id = await userIdByEmail(EMAILS.k3);
-    i2Id = await userIdByEmail(EMAILS.i2);
+    [admin, si, k1, k2] = await Promise.all([
+      login(EMAILS.admin), login(EMAILS.si), login(EMAILS.k1), login(EMAILS.k2),
+      login(EMAILS.k3), // auth sanity only — k3 assertions go through admin views
+    ]);
+    [k1Id, k2Id, k3Id, i2Id] = await Promise.all([
+      userIdByEmail(EMAILS.k1), userIdByEmail(EMAILS.k2),
+      userIdByEmail(EMAILS.k3), userIdByEmail(EMAILS.i2),
+    ]);
 
     const session = await request(apiBase()).post('/api/v1/sessions').set('Authorization', `Bearer ${admin}`).send({
       code: `E2E-E5B-S-${RUN}`, name: 'KPI session', startDate: '2026-01-01T00:00:00.000Z', endDate: '2026-12-31T00:00:00.000Z',
