@@ -23,6 +23,10 @@ import {
 import { SessionsService } from './sessions.service';
 import { PermissionsService } from '../rbac/permissions.service';
 import { resolveOwnership } from '../rbac/ownership';
+import { SessionWorkService } from './session-work.service';
+import { QueryTasksDto } from '../tasks/dto/task.dtos';
+import { RequestPrincipal } from '../common/types/request-principal';
+import { PaginationQueryDto } from '../common/pagination/pagination-query.dto';
 
 @ApiTags('sessions')
 @ApiBearerAuth()
@@ -33,6 +37,7 @@ export class SessionsController {
     private readonly permissionsService: PermissionsService,
     private readonly generations: AiGenerationService,
     private readonly repositories: GithubRepositoriesService,
+    private readonly work: SessionWorkService,
   ) {}
 
   private readonly logger = new Logger(SessionsController.name);
@@ -111,6 +116,21 @@ export class SessionsController {
   @ApiOperation({ summary: 'Session detail (sessions.view; managed scope only)' })
   async getOne(@Param('id', ParseUUIDPipe) id: string, @CurrentUser('userId') userId: string) {
     return this.sessionsService.detail(id, await this.ownership(userId));
+  }
+
+  @Get(':id/work')
+  @RequirePermissions('sessions.view', 'tasks.view')
+  @ApiOperation({ summary: 'Session work page with dependency, latest submission and AI/human review facts; managed task scope' })
+  async delivery(@Param('id', ParseUUIDPipe) id: string, @Query() query: QueryTasksDto, @CurrentUser() principal: RequestPrincipal) {
+    const result = await this.work.list(id, query, principal);
+    return toPaginated(result.items, query.page, query.pageSize, result.total);
+  }
+
+  @Get(':id/timeline')
+  @RequirePermissions('sessions.view', 'tasks.view')
+  async timeline(@Param('id', ParseUUIDPipe) id: string, @Query() query: PaginationQueryDto, @CurrentUser() principal: RequestPrincipal) {
+    const result = await this.work.timeline(id, query, principal);
+    return toPaginated(result.items, query.page, query.pageSize, result.total);
   }
 
   @Patch(':id')

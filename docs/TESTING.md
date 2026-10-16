@@ -10,7 +10,7 @@ E2E: npm run test:e2e với E2E_DB_NAME explicit dùng một lần và SQL liste
 
 Live acceptance dùng dedicatedDB và HTTP thật, provider thật khi cấu hình. Ghi rõ lúc provider503/invalid JSON; retry trên evidence lưu, không sửa profile để giả pass. Kiểm tra eligibility, Start/draft/publish, own tasks/specs, consent/revoke/write403, mentor, reports và browser. GitHub/runner cần OAuth accounts và isolated runner thật để kiểm tra repo/PR/bài lỗi/bài đạt.
 
-SQL local major17compat150 khác native2019. Native2019 CI hiện chạy toàn bộ registry và25SQLsuites/225tests, sau đó giữ rollback gate lịch sử trên database riêng có đúng baseline. Tên DB/E2E_DB_NAME theo từng run và đáp ứng guard disposable, không giảm guard để chạy CI. Kiểm tra `migration:show` thay vì suy ra từ số liệu tài liệu. Không reset runtime để chạy test. [Kết quả hiện tại](VERIFICATION.md).
+SQL local major17compat150 khác native2019. Native2019 CI hiện chạy toàn bộ registry và25SQLsuites/231tests, sau đó giữ rollback gate lịch sử trên database riêng có đúng baseline. Tên DB/E2E_DB_NAME theo từng run và đáp ứng guard disposable, không giảm guard để chạy CI. Kiểm tra `migration:show` thay vì suy ra từ số liệu tài liệu. Không reset runtime để chạy test. [Kết quả hiện tại](VERIFICATION.md).
 
 ## Các hồi quy quan trọng
 

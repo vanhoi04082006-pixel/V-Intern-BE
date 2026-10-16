@@ -34,6 +34,8 @@ export interface SessionMemberRow {
   displayName: string;
   email: string;
   joinedAt: Date;
+  role: string | null;
+  assignmentStatus: string | null;
 }
 
 export interface SessionInstructorRow {
@@ -460,13 +462,14 @@ export class SessionsService {
 
   async listMembers(sessionId: string, o?: Ownership): Promise<SessionMemberRow[]> {
     await this.getOne(sessionId, o);
-    const rows = await this.members
-      .createQueryBuilder('m')
-      .innerJoin(User, 'u', 'u.id = m.userId')
-      .where('m.sessionId = :sessionId', { sessionId })
-      .select(['m.userId AS userId', 'u.displayName AS displayName', 'u.email AS email', 'm.joinedAt AS joinedAt'])
-      .orderBy('m.joinedAt', 'ASC')
-      .getRawMany();
+    const rows: SessionMemberRow[] = await this.dataSource.query(`SELECT m.userId,u.displayName,u.email,m.joinedAt,
+      memberAssignment.roleInProject role,memberAssignment.status assignmentStatus
+      FROM session_members m JOIN users u ON u.id=m.userId
+      OUTER APPLY(SELECT TOP(1) pm.roleInProject,a.status FROM assignments a
+        LEFT JOIN project_members pm ON pm.projectId=a.projectId AND pm.userId=a.internId
+        WHERE a.sessionId=m.sessionId AND a.internId=m.userId AND a.status IN ('active','completed')
+        ORDER BY CASE WHEN a.status='active' THEN 0 ELSE 1 END,a.assignedAt DESC,a.id DESC) memberAssignment
+      WHERE m.sessionId=@0 ORDER BY m.joinedAt,m.userId`, [sessionId]);
     return rows;
   }
 

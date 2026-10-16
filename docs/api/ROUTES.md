@@ -186,6 +186,8 @@ Pagination chuẩn: {data,meta:{page,pageSize,total,totalPages}}. Một số agg
 | GET | /api/v1/sessions | Paginated sessions (sessions.view; filters: q, status; scoped to managed sessions) |
 | POST | /api/v1/sessions | Create session (sessions.manage; audited) |
 | GET | /api/v1/sessions/{id} | Session detail (sessions.view; managed scope only) |
+| GET | /api/v1/sessions/{id}/work | Paginated managed task page with dependencies, latest submission/SHA/PR and separate AI/instructor review facts; sessions.view + tasks.view; task filters apply, route session is authoritative |
+| GET | /api/v1/sessions/{id}/timeline | Paginated activity events related to this session/Sprint/task/submission/milestone, stable date/ID order; sessions.view + tasks.view; excludes foreign/deleted/invalid targets |
 | PATCH | /api/v1/sessions/{id} | Update session (sessions.manage; status transitions enforced by the backend state machine — 409 INVALID_SESSION_TRANSITION) |
 | GET | /api/v1/sessions/{id}/github | github |
 | POST | /api/v1/sessions/{id}/github/invite | github |

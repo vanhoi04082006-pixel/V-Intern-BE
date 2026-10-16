@@ -192,6 +192,24 @@ describe('M6 session overview', () => {
       await dataSource.query(`INSERT INTO tasks(code,title,projectId,sprintId,status,deletedAt,assigneeId,dueDate)
         VALUES(@0,@1,@2,@3,@4,@5,@6,@7)`, [`M6-T-${RUN}-${i}`, `Task ${i}`, projectId, sprint.body.id, status, deleted ? new Date() : null, instructorB[0].id, new Date(i === 1 ? '2000-01-01T00:00:00.000Z' : '2026-11-10T00:00:00.000Z')]);
     }
+    // Explicit read-model fixtures; these are not provider/execution acceptance results.
+    await dataSource.query(`INSERT INTO assignments(internId,projectId,sessionId,status,assignedAt,completedAt)
+      VALUES(@0,@1,@2,'completed','2026-01-01','2026-02-01')`, [instructorB[0].id, projectId, sessionA]);
+    await dataSource.query("INSERT INTO project_members(projectId,userId,roleInProject) VALUES(@0,@1,'frontend')", [projectId, instructorB[0].id]);
+    const taskRows = await dataSource.query('SELECT id,code FROM tasks WHERE sprintId=@0', [sprint.body.id]);
+    const reviewTask = taskRows.find((t: { code: string }) => t.code === `M6-T-${RUN}-1`);
+    const deletedTask = taskRows.find((t: { code: string }) => t.code === `M6-T-${RUN}-2`);
+    await dataSource.query('INSERT INTO task_specs(taskId,specJson) VALUES(@0,@1)', [reviewTask.id, JSON.stringify({ dependencies: [{ taskId: deletedTask.id }] })]);
+    const submissionId = randomUUID();
+    await dataSource.query(`INSERT INTO task_submissions(id,taskId,internId,prUrl,summary,status,headSha)
+      VALUES(@0,@1,@2,'https://github.com/fixture/repository/pull/1','Read model fixture','submitted',@3)`, [submissionId, reviewTask.id, instructorB[0].id, 'a'.repeat(40)]);
+    await dataSource.query(`INSERT INTO submission_code_reviews(id,submissionId,headSha,status,leaseId,resultJson)
+      VALUES(@0,@1,@2,'needs_changes',@3,@4)`, [randomUUID(), submissionId, 'a'.repeat(40), randomUUID(), JSON.stringify({ score: 50, summary: 'Fixture requires tests' })]);
+    await dataSource.query(`INSERT INTO activity_events(actorId,module,action,targetType,targetId,summary)
+      VALUES(@0,'tasks','submission.create','task_submission',@1,'Scoped submission event'),
+      (@0,'tasks','task.updated','task',@3,'Scoped task event'),
+      (@0,'tasks','task.updated','task',@2,'Deleted task event must be excluded'),
+      (@0,'tasks','task.updated','task','not-a-uuid','Malformed target must be excluded')`, [instructorB[0].id, submissionId, deletedTask.id, reviewTask.id]);
 
     // B: legacy session with no template, members or sprints.
     const legacy = await request(apiBase()).post('/api/v1/sessions').set('Authorization', `Bearer ${tokenB}`).send({
@@ -271,8 +289,55 @@ describe('M6 session overview', () => {
     expect(detail.status).toBe(200);
     expect(detail.body.overview).toMatchObject({ taskTotal: 2, taskDone: 1, taskPercent: 50 });
     expect(detail.body.members).toHaveLength(1);
+    expect(detail.body.members[0]).toMatchObject({ role: 'frontend', assignmentStatus: 'completed' });
     expect(detail.body.projectSnapshot.techStack).toEqual(['React']);
     expect(detail.body.sprintProgress).toEqual([expect.objectContaining({ taskTotal: 2, taskDone: 1, taskReview: 1 })]);
+  });
+
+  it('returns paged task submission, dependency and review facts without widening scope', async () => {
+    const own = await request(apiBase()).get(`/api/v1/sessions/${sessionA}/work?status=review&page=1&pageSize=1`).set('Authorization', `Bearer ${tokenA}`);
+    expect(own.status).toBe(200);
+    expect(own.body.meta.total).toBe(1);
+    expect(own.body.data).toHaveLength(1);
+    expect(own.body.data[0].delivery).toMatchObject({ blocked: true, submission: {
+      status: 'submitted', prUrl: 'https://github.com/fixture/repository/pull/1', headSha: 'a'.repeat(40),
+      aiStatus: 'needs_changes', aiScore: 50, aiSummary: 'Fixture requires tests', instructorScore: null,
+    } });
+    expect(own.body.data[0].delivery.submission.leaseId).toBeUndefined();
+    const hidden = await request(apiBase()).get(`/api/v1/sessions/${sessionA}/work`).set('Authorization', `Bearer ${tokenB}`);
+    expect(hidden.status).toBe(403);
+    const next = await request(apiBase()).get(`/api/v1/sessions/${sessionA}/work?status=review&page=2&pageSize=1`).set('Authorization', `Bearer ${tokenA}`);
+    expect(next.body.meta.total).toBe(1); expect(next.body.data).toEqual([]);
+  });
+
+  it('requires task-view permission even when the actor manages and can read the session', async () => {
+    const roles = dataSource.getRepository(Role), users = dataSource.getRepository(User);
+    const role = await roles.save(roles.create({ code: `session-reader-${RUN}`, name: 'Session reader' }));
+    const user = await users.save(users.create({ email: `e2e-m6-reader-${RUN}@vintern.test`, username: `e2e-m6-reader-${RUN}`, displayName: 'Session reader', passwordHash: await hash(PW, 10), status: 'active' }));
+    await dataSource.query("INSERT INTO role_permissions(roleId,permissionId) SELECT @0,id FROM permissions WHERE code='sessions.view'", [role.id]);
+    await dataSource.getRepository(UserRole).insert({ userId: user.id, roleId: role.id });
+    await dataSource.query('INSERT INTO session_instructors(sessionId,instructorId) VALUES(@0,@1)', [sessionA, user.id]);
+    const token = await login(user.email);
+    const detail = await request(apiBase()).get(`/api/v1/sessions/${sessionA}`).set('Authorization', `Bearer ${token}`);
+    expect(detail.status).toBe(200);
+    for (const section of ['work', 'timeline']) {
+      const denied = await request(apiBase()).get(`/api/v1/sessions/${sessionA}/${section}`).set('Authorization', `Bearer ${token}`);
+      expect(denied.status).toBe(403);
+    }
+  });
+
+  it('scopes and paginates the activity timeline by target, excluding deleted/invalid targets', async () => {
+    const own = await request(apiBase()).get(`/api/v1/sessions/${sessionA}/timeline?page=1&pageSize=100`).set('Authorization', `Bearer ${tokenA}`);
+    expect(own.status).toBe(200);
+    expect(own.body.data.some((e: { summary: string }) => e.summary === 'Scoped submission event')).toBe(true);
+    expect(own.body.data.some((e: { summary: string }) => /must be excluded/.test(e.summary))).toBe(false);
+    const page = await request(apiBase()).get(`/api/v1/sessions/${sessionA}/timeline?page=2&pageSize=1`).set('Authorization', `Bearer ${tokenA}`);
+    expect(page.body.meta.total).toBe(own.body.meta.total);
+    expect(page.body.data[0].id).toBe(own.body.data[1].id);
+    const foreign = await request(apiBase()).get(`/api/v1/sessions/${sessionA}/timeline`).set('Authorization', `Bearer ${tokenB}`);
+    expect(foreign.status).toBe(403);
+    const invalidPage = await request(apiBase()).get(`/api/v1/sessions/${sessionA}/timeline?pageSize=101`).set('Authorization', `Bearer ${tokenA}`);
+    expect(invalidPage.status).toBe(400);
   });
 
   it('searches roster identities only inside managed sessions and rejects foreign scope', async () => {
