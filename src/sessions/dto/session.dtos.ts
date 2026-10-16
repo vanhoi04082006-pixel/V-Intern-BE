@@ -189,6 +189,16 @@ export class QuerySessionsDto extends PaginationQueryDto {
   status?: (typeof SESSION_STATUSES)[number];
 }
 
+export class QuerySessionOverviewDto extends QuerySessionsDto {
+  @ApiPropertyOptional({ enum: ['startDate', 'endDate', 'name', 'progress'], default: 'startDate' })
+  @IsOptional() @IsIn(['startDate', 'endDate', 'name', 'progress'])
+  sortBy?: 'startDate' | 'endDate' | 'name' | 'progress';
+
+  @ApiPropertyOptional({ enum: ['asc', 'desc'], default: 'desc' })
+  @IsOptional() @IsIn(['asc', 'desc'])
+  sortDirection?: 'asc' | 'desc';
+}
+
 export class QueryInstructorOptionsDto extends PaginationQueryDto {
   @ApiPropertyOptional({ maxLength: 100 })
   @IsOptional()

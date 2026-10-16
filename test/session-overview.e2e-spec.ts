@@ -190,7 +190,7 @@ describe('M6 session overview', () => {
     expect(sprint.body.sessionId).toBe(sessionA);
     for (const [i, status, deleted] of [[0, 'done', false], [1, 'review', false], [2, 'done', true]] as const) {
       await dataSource.query(`INSERT INTO tasks(code,title,projectId,sprintId,status,deletedAt,assigneeId,dueDate)
-        VALUES(@0,@1,@2,@3,@4,@5,@6,@7)`, [`M6-T-${RUN}-${i}`, `Task ${i}`, projectId, sprint.body.id, status, deleted ? new Date() : null, instructorB[0].id, new Date('2026-11-10T00:00:00.000Z')]);
+        VALUES(@0,@1,@2,@3,@4,@5,@6,@7)`, [`M6-T-${RUN}-${i}`, `Task ${i}`, projectId, sprint.body.id, status, deleted ? new Date() : null, instructorB[0].id, new Date(i === 1 ? '2000-01-01T00:00:00.000Z' : '2026-11-10T00:00:00.000Z')]);
     }
 
     // B: legacy session with no template, members or sprints.
@@ -213,6 +213,8 @@ describe('M6 session overview', () => {
     expect(row.taskTotal).toBe(2);
     expect(row.taskDone).toBe(1);
     expect(row.taskPercent).toBe(50);
+    expect(row.currentSprint).toBeNull();
+    expect(row.alerts).toEqual({ overdueTasks: 1, pendingReview: 1, sessionOverdue: false });
     expect(row.taskDone).toBeLessThanOrEqual(row.taskTotal);
     expect(row.taskPercent).toBe(row.taskTotal === 0 ? 0 : Math.round((row.taskDone / row.taskTotal) * 100));
   });
@@ -224,6 +226,44 @@ describe('M6 session overview', () => {
     expect(res.body.meta.total).toBeGreaterThanOrEqual(1);
     const forbidden = await request(apiBase()).get(`/api/v1/sessions/${sessionA}`).set('Authorization', `Bearer ${tokenB}`);
     expect(forbidden.status).toBe(403);
+  });
+
+  it('selects only an active Sprint and keeps it inside the managed session', async () => {
+    await dataSource.query("UPDATE sprints SET status='active' WHERE sessionId=@0", [sessionA]);
+    try {
+      const res = await request(apiBase()).get(`/api/v1/sessions/overview?q=M6%20overview%20${RUN}`).set('Authorization', `Bearer ${tokenA}`);
+      expect(res.status).toBe(200);
+      expect(res.body.data[0].currentSprint).toMatchObject({ name: 'Sprint one', code: `M6-SP-${RUN}` });
+      const foreign = await request(apiBase()).get(`/api/v1/sessions/overview?q=M6%20overview%20${RUN}`).set('Authorization', `Bearer ${tokenB}`);
+      expect(foreign.body.meta.total).toBe(0);
+    } finally {
+      await dataSource.query("UPDATE sprints SET status='planned' WHERE sessionId=@0", [sessionA]);
+    }
+  });
+
+  it('sorts the complete scoped result before applying pagination', async () => {
+    for (const letter of ['A', 'B']) {
+      const created = await request(apiBase()).post('/api/v1/sessions').set('Authorization', `Bearer ${tokenA}`).send({
+        code: `M6-SORT-${RUN}-${letter}`, name: `M6 sort ${RUN} ${letter}`,
+        startDate: '2026-11-01T00:00:00.000Z', endDate: '2026-12-31T00:00:00.000Z',
+      });
+      expect(created.status).toBe(201);
+    }
+    const sorted = await request(apiBase()).get(`/api/v1/sessions/overview?q=M6%20sort%20${RUN}&sortBy=name&sortDirection=desc&pageSize=1&page=2`).set('Authorization', `Bearer ${tokenA}`);
+    expect(sorted.status).toBe(200);
+    expect(sorted.body.meta.total).toBe(2);
+    expect(sorted.body.data[0].name).toBe(`M6 sort ${RUN} A`);
+    const progress = await request(apiBase()).get(`/api/v1/sessions/overview?q=${RUN}&sortBy=progress&sortDirection=desc&pageSize=1`).set('Authorization', `Bearer ${tokenA}`);
+    expect(progress.body.meta.total).toBe(3);
+    expect(progress.body.data[0].id).toBe(sessionA);
+    expect(progress.body.data[0].taskPercent).toBe(50);
+  });
+
+  it('rejects unsupported sort keys and SQL fragments at the DTO boundary', async () => {
+    for (const query of ['sortBy=name%3BDROP%20TABLE%20tasks', 'sortDirection=DESC%3BSELECT%201', 'sortBy=__proto__']) {
+      const invalid = await request(apiBase()).get(`/api/v1/sessions/overview?${query}`).set('Authorization', `Bearer ${tokenA}`);
+      expect(invalid.status).toBe(400);
+    }
   });
 
   it('returns complete detail counters, pinned snapshot, members and sprint rollups', async () => {

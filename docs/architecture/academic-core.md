@@ -12,4 +12,6 @@ Setup tìm ứng viên đủ điều kiện và hiển thị đội hình hiện
 
 Danh sách/chi tiết giảng viên áp ownership tiêu chuẩn. Co-instructor được giao có scope của phiên; giảng viên khác chỉ đọc snapshot consent riêng. Class/attendance lịch sử vẫn có API nhưng không phải workflow chính project-first.
 
+`GET /sessions/overview` phân trang sau khi tìm/lọc và sắp xếp toàn bộ phạm vi quản lý. `sortBy=startDate|endDate|name|progress`, `sortDirection=asc|desc` (mặc định startDate/desc), luôn có ID phân xử đồng hạng; DTO từ chối giá trị ngoài danh sách. Tìm kiếm gồm mã/tên phiên và dự án snapshot. `currentSprint` chỉ chọn Sprint active, không lấy planned thay thế. `alerts` gồm task chưa Done đã quá hạn UTC, task Review và phiên active/ending đã quá ngày kết thúc; bỏ task soft-delete. Hai truy vấn tổng hợp cho mỗi trang, không gọi riêng từng phiên.
+
 Xem [mục lục](../README.md), controller/DTO tương ứng và tests trước khi thay đổi contract.

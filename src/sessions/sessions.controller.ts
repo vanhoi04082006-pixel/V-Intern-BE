@@ -14,6 +14,7 @@ import {
   CreateMilestoneDto,
   CreateSessionDto,
   QuerySessionsDto,
+  QuerySessionOverviewDto,
   UpdateMilestoneDto,
   UpdateSessionDto,
   QueryInstructorOptionsDto,
@@ -65,7 +66,7 @@ export class SessionsController {
     summary:
       'Session management overview (sessions.view; bounded aggregate queries; scoped; no N+1)',
   })
-  async overview(@Query() query: QuerySessionsDto, @CurrentUser('userId') userId: string) {
+  async overview(@Query() query: QuerySessionOverviewDto, @CurrentUser('userId') userId: string) {
     const { items, total } = await this.sessionsService.listOverview({
       page: query.page,
       pageSize: query.pageSize,
@@ -73,6 +74,8 @@ export class SessionsController {
       status: query.status,
       projectId: query.projectId,
       leadInstructorId: query.leadInstructorId,
+      sortBy: query.sortBy,
+      sortDirection: query.sortDirection,
     }, await this.ownership(userId));
     return toPaginated(items, query.page, query.pageSize, total);
   }

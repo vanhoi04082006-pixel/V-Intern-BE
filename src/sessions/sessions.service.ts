@@ -118,7 +118,7 @@ export class SessionsService {
    * Same filters and managed scope as list(); no per-row queries (no N+1).
    */
   async listOverview(
-    q: { page: number; pageSize: number; q?: string; status?: string; projectId?: string; leadInstructorId?: string; id?: string },
+    q: { page: number; pageSize: number; q?: string; status?: string; projectId?: string; leadInstructorId?: string; id?: string; sortBy?: string; sortDirection?: string },
     o?: Ownership,
   ) {
     const page = q.page || 1;
@@ -138,7 +138,7 @@ export class SessionsService {
     if (q.q?.trim()) {
       const like = `%${q.q.trim()}%`;
       const p = param(like);
-      clauses.push(`(s.code LIKE ${p} OR s.name LIKE ${p})`);
+      clauses.push(`(s.code LIKE ${p} OR s.name LIKE ${p} OR p.code LIKE ${p} OR p.name LIKE ${p})`);
     }
     if (q.status) clauses.push(`s.status = ${param(q.status)}`);
     if (q.id) clauses.push(`s.id = ${param(q.id)}`);
@@ -149,27 +149,46 @@ export class SessionsService {
     }
     const where = `WHERE ${clauses.join(' AND ')}`;
     const from = `FROM internship_sessions s
-      OUTER APPLY (SELECT TOP(1) r.projectId, r.templateVersion FROM template_runs r WHERE r.sessionId = s.id ORDER BY r.createdAt DESC) tr
+      OUTER APPLY (SELECT TOP(1) r.projectId, r.templateVersion FROM template_runs r WHERE r.sessionId = s.id ORDER BY r.createdAt DESC, r.id DESC) tr
       LEFT JOIN projects p ON p.id = tr.projectId`;
     const totalRows: Array<{ n: number }> = await this.dataSource.query(
       `SELECT COUNT(*) AS n ${from} ${where}`,
       params,
     );
     const total = Number(totalRows[0]?.n ?? 0);
+    // Only fixed server expressions enter ORDER BY; request values never become SQL.
+    const sortColumns: Record<string, string> = {
+      startDate: 's.startDate', endDate: 's.endDate', name: 's.name',
+      progress: 'COALESCE(CAST(d.taskDone AS float) / NULLIF(d.taskTotal, 0), 0)',
+    };
+    const sortColumn = q.sortBy && Object.hasOwn(sortColumns, q.sortBy) ? sortColumns[q.sortBy] : sortColumns.startDate;
+    const direction = q.sortDirection === 'asc' ? 'ASC' : 'DESC';
     const rows: Array<{
       id: string; code: string; name: string; status: string; startDate: Date; endDate: Date;
       projectId: string | null; projectCode: string | null; projectName: string | null; templateVersion: number | null;
       memberCount: number; sprintCount: number; taskTotal: number; taskDone: number;
+      currentSprintId: string | null; currentSprintCode: string; currentSprintName: string;
+      overdueTasks: number; pendingReview: number; sessionOverdue: number;
     }> = await this.dataSource.query(
       `SELECT s.id AS id, s.code AS code, s.name AS name, s.status AS status,
         s.startDate AS startDate, s.endDate AS endDate,
         tr.projectId AS projectId, p.code AS projectCode, p.name AS projectName, tr.templateVersion AS templateVersion,
         (SELECT COUNT(*) FROM session_members m WHERE m.sessionId = s.id) AS memberCount,
         (SELECT COUNT(*) FROM sprints sp WHERE sp.sessionId = s.id) AS sprintCount,
-        (SELECT COUNT(*) FROM tasks t WHERE t.deletedAt IS NULL AND t.sprintId IN (SELECT sp2.id FROM sprints sp2 WHERE sp2.sessionId = s.id)) AS taskTotal,
-        (SELECT COUNT(*) FROM tasks t2 WHERE t2.deletedAt IS NULL AND t2.status = 'done' AND t2.sprintId IN (SELECT sp3.id FROM sprints sp3 WHERE sp3.sessionId = s.id)) AS taskDone
-       ${from} ${where}
-       ORDER BY s.startDate DESC, s.id OFFSET ${(page - 1) * pageSize} ROWS FETCH NEXT ${pageSize} ROWS ONLY`,
+        d.taskTotal, d.taskDone, d.overdueTasks, d.pendingReview,
+        currentSprint.id AS currentSprintId, currentSprint.code AS currentSprintCode, currentSprint.name AS currentSprintName,
+        CASE WHEN s.status IN ('active', 'ending') AND s.endDate < SYSUTCDATETIME() THEN 1 ELSE 0 END AS sessionOverdue
+       ${from}
+       OUTER APPLY (SELECT COUNT(*) AS taskTotal,
+         COUNT(CASE WHEN t.status = 'done' THEN 1 END) AS taskDone,
+         COUNT(CASE WHEN t.status <> 'done' AND t.dueDate < SYSUTCDATETIME() THEN 1 END) AS overdueTasks,
+         COUNT(CASE WHEN t.status = 'review' THEN 1 END) AS pendingReview
+         FROM tasks t JOIN sprints sp2 ON sp2.id = t.sprintId
+         WHERE t.deletedAt IS NULL AND sp2.sessionId = s.id) d
+       OUTER APPLY (SELECT TOP(1) sp.id, sp.code, sp.name FROM sprints sp
+         WHERE sp.sessionId = s.id AND sp.status = 'active' ORDER BY sp.startDate DESC, sp.id) currentSprint
+       ${where}
+       ORDER BY ${sortColumn} ${direction}, s.id OFFSET ${(page - 1) * pageSize} ROWS FETCH NEXT ${pageSize} ROWS ONLY`,
       params,
     );
     return {
@@ -193,6 +212,8 @@ export class SessionsService {
         taskTotal: Number(r.taskTotal),
         taskDone: Number(r.taskDone),
         taskPercent: Number(r.taskTotal) === 0 ? 0 : Math.round((Number(r.taskDone) / Number(r.taskTotal)) * 100),
+        currentSprint: r.currentSprintId ? { id: r.currentSprintId.toLowerCase(), code: r.currentSprintCode, name: r.currentSprintName } : null,
+        alerts: { overdueTasks: Number(r.overdueTasks), pendingReview: Number(r.pendingReview), sessionOverdue: Boolean(r.sessionOverdue) },
       })),
       total,
     };
