@@ -1,4 +1,5 @@
 import { createDatabaseSql } from '../src/database/create-database-sql';
+import { Sprint } from '../src/sprints/entities/sprint.entity';
 import { createConnection } from 'node:net';
 import { hash } from 'bcryptjs';
 import { INestApplication, ValidationPipe, VersioningType } from '@nestjs/common';
@@ -335,6 +336,10 @@ describe('Phase 3 sprint/task e2e — plan → activate → task → review → 
     expect(res.status).toBe(200);
     expect(res.body.meta.total).toBeGreaterThanOrEqual(1);
     expect(res.body.data.some((t: { id: string }) => t.id === taskId)).toBe(true);
+    const ownTask = res.body.data.find((t: { id: string }) => t.id === taskId);
+    const storedSprint = await dataSource.getRepository(Sprint).findOneByOrFail({ id: ownTask.sprintId });
+    expect(ownTask.sprint).toEqual({ id: storedSprint.id.toLowerCase(), code: storedSprint.code, name: storedSprint.name, status: storedSprint.status });
+    expect(ownTask.repository).toBeNull();
   });
 
   it('intern starts the task (todo→doing) and submits review (doing→review)', async () => {
