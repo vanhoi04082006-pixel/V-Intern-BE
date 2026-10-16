@@ -304,11 +304,14 @@ describe('Phase 5 KPI + virtual salary + certificates e2e (spec 82-87)', () => {
 
   it('KPI source facts: k1 delivery 80 + quality 90 + NO due dates; k3 task rate + timeliness; k2 nothing', async () => {
     // k1: SP 8/10 done (80), no due dates anywhere → timeliness unavailable
-    const k1t1 = await createTask({ title: 'K1-T1', assigneeId: k1Id, storyPoints: 3 });
-    const k1t2 = await createTask({ title: 'K1-T2', assigneeId: k1Id, storyPoints: 5 });
-    await createTask({ title: 'K1-T3', assigneeId: k1Id, storyPoints: 2 }); // stays todo
-    await driveToDone(k1t1);
-    await driveToDone(k1t2);
+    // Independent fixture tasks need no serial HTTP round trips. Keep every
+    // response assertion and each task's ordered lifecycle transitions.
+    const [k1t1, k1t2] = await Promise.all([
+      createTask({ title: 'K1-T1', assigneeId: k1Id, storyPoints: 3 }),
+      createTask({ title: 'K1-T2', assigneeId: k1Id, storyPoints: 5 }),
+      createTask({ title: 'K1-T3', assigneeId: k1Id, storyPoints: 2 }), // stays todo
+    ]);
+    await Promise.all([driveToDone(k1t1), driveToDone(k1t2)]);
     // k1t3 stays todo → completed SP 8 / committed 10 = 80
 
     // k1 quality: finalized evaluation exactly 90 (90/90/90/90)
@@ -324,8 +327,10 @@ describe('Phase 5 KPI + virtual salary + certificates e2e (spec 82-87)', () => {
     expect(pastPlacement.status).toBe(200); expect(pastPlacement.body).toMatchObject({ status: 'unassigned', assignment: null, hasAssignmentHistory: true, focusedTask: null, taskSummary: { total: 0 } });
 
     // k3: task rate 50 (1 of 2 done), timeliness 100 (done met its due date)
-    const k3t1 = await createTask({ title: 'K3-T1', assigneeId: k3Id, dueDate: new Date(Date.now() + 3 * 86_400_000).toISOString() });
-    await createTask({ title: 'K3-T2', assigneeId: k3Id });
+    const [k3t1] = await Promise.all([
+      createTask({ title: 'K3-T1', assigneeId: k3Id, dueDate: new Date(Date.now() + 3 * 86_400_000).toISOString() }),
+      createTask({ title: 'K3-T2', assigneeId: k3Id }),
+    ]);
     await driveToDone(k3t1); // done before due → on-time 1/1
 
     // k2: no tasks, no evaluation at all
