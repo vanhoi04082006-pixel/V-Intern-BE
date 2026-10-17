@@ -471,6 +471,8 @@ describe('Phase 3 sprint/task e2e — plan → activate → task → review → 
     expect(tasks.every((task: { assigneeId: string }) => task.assigneeId === internId)).toBe(true);
     const [count] = await dataSource.query('SELECT COUNT(*) AS n FROM tasks WHERE sprintId=@0 AND assigneeId=@1 AND deletedAt IS NULL', [sprintId, internId]);
     expect(board.body.total).toBe(count.n);
+    const [ownOverdue] = await dataSource.query("SELECT COUNT(*) n FROM tasks WHERE sprintId=@0 AND assigneeId=@1 AND deletedAt IS NULL AND status<>'done' AND dueDate<SYSUTCDATETIME()", [sprintId, internId]);
+    expect(board.body.overdueOpenTaskCount).toBe(ownOverdue.n);
     const forged = await request(apiBase()).get('/api/v1/intern/me/sprint/board?assigneeId=00000000-0000-4000-8000-000000000001').set('Authorization', `Bearer ${intern}`);
     expect(forged.status).toBe(400);
   });
@@ -498,6 +500,9 @@ describe('Phase 3 sprint/task e2e — plan → activate → task → review → 
     expect(board.status).toBe(200);
     expect(board.body.columns.length).toBe(4);
     expect(board.body.total).toBeGreaterThanOrEqual(2);
+    const [overdue] = await dataSource.query("SELECT COUNT(*) n FROM tasks WHERE sprintId=@0 AND deletedAt IS NULL AND status<>'done' AND dueDate<SYSUTCDATETIME()", [sprintId]);
+    expect(board.body.overdueOpenTaskCount).toBe(overdue.n);
+    expect(board.body.sprint.sessionId).toBe(sessionId.toLowerCase());
 
     const completion = await request(apiBase())
       .get(`/api/v1/sprints/${sprintId}/completion`)

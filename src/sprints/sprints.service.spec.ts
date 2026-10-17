@@ -376,6 +376,20 @@ describe('sprints.service — update (spec 19)', () => {
 });
 
 describe('sprints.service — board + completion (spec 22/30)', () => {
+  it('counts overdue open work beyond the returned column page and exposes Sprint context', async () => {
+    const h = buildHarness({ sprint: sprintRow({ goal: 'Ship safely', sessionId: 'SESSION-1' }) });
+    h.taskRepo.createQueryBuilder.mockImplementation(() => {
+      const qb: Record<string, AnyMock> = { where: jest.fn(() => qb), andWhere: jest.fn(() => qb), getMany: jest.fn(async () => [
+        ...Array.from({ length: 101 }, (_, i) => ({ id: `t${i}`, code: `T-${i}`, title: 'Work', status: 'todo', priority: i === 100 ? 'low' : 'high', dueDate: new Date(i === 100 ? '2000-01-01' : '2100-01-01'), createdAt: new Date(i) })),
+        { id: 'done', code: 'DONE', title: 'Done', status: 'done', priority: 'low', dueDate: new Date('2000-01-01'), createdAt: new Date() },
+      ]) };
+      return qb;
+    });
+    const board = await h.service.board('sprint-1', { page: 1, pageSize: 100 });
+    expect(board.columns.find(c => c.status === 'todo')).toMatchObject({ count: 101, tasks: expect.any(Array) });
+    expect(board.columns.find(c => c.status === 'todo')?.tasks).toHaveLength(100);
+    expect(board).toMatchObject({ overdueOpenTaskCount: 1, sprint: { goal: 'Ship safely', sessionId: 'session-1' } });
+  });
   it('uses the same canonical sprint/project UUIDs on a board as sprint detail', async () => {
     const id = 'AABBCCDD-1111-4222-8333-123456789ABC';
     const projectId = 'BBCCDDEE-1111-4222-8333-123456789ABC';
