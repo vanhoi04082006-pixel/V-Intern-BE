@@ -31,10 +31,33 @@ for (const entry of entries) {
     Object.hasOwn(backendSuites, `${entry.templateCode}:${suite.taskId}`)
   )
     throw Error("Duplicate suite or task");
+  if (["__proto__", "constructor", "prototype"].includes(entry.id))
+    throw Error("Reserved suite id");
   catalog[entry.id] = suite;
+  const operator = entry.operator ?? undefined;
+  if (
+    operator !== undefined &&
+    (typeof operator !== "object" ||
+      typeof operator.version !== "string" ||
+      !operator.version.trim() ||
+      typeof operator.reviewer !== "string" ||
+      !operator.reviewer.trim())
+  )
+    throw Error("operator metadata requires non-empty version and reviewer");
   backendSuites[`${entry.templateCode}:${suite.taskId}`] = {
     id: entry.id,
     digest: digestSuite(suite),
+    ...(operator
+      ? {
+          meta: {
+            version: operator.version,
+            reviewer: operator.reviewer,
+            sealedAt: new Date().toISOString(),
+            runtimeImage: suite.runtimeImage,
+            testerImage: suite.testerImage,
+          },
+        }
+      : {}),
   };
   const data = {
     repository: suite.repository,

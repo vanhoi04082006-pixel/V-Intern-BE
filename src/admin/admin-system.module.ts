@@ -1,10 +1,11 @@
-import { Controller, ForbiddenException, Get, Injectable, Module, Query } from '@nestjs/common';
+import { Body, Controller, ForbiddenException, Get, Injectable, Module, Post, Query } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { IsIn, IsOptional, IsString, MaxLength } from 'class-validator';
 import { DataSource } from 'typeorm';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { RequirePermissions } from '../common/decorators/permissions.decorator';
 import { PaginationQueryDto } from '../common/pagination/pagination-query.dto';
+import { ContractDraftDto, parseSealedSuitesText } from './admin-contracts';
 import { PermissionsService } from '../rbac/permissions.service';
 import { RbacModule } from '../rbac/rbac.module';
 import { NotificationsModule } from '../notifications/notifications.module';
@@ -52,6 +53,23 @@ class AdminSystemService {
     ]);
     return { items, total: Number(totals[0]?.total ?? 0), page: q.page, pageSize: q.pageSize };
   }
+  async contracts(actor: string) {
+    await this.authorize(actor);
+    const raw = this.config.get<string>('GRADING_SUITES_JSON', '');
+    const parsed = parseSealedSuitesText(raw);
+    return {
+      checkedAt: new Date(),
+      source: 'GRADING_SUITES_JSON (operator-sealed; immutable per contract version)',
+      valid: parsed.valid,
+      error: parsed.error,
+      contracts: parsed.contracts,
+    };
+  }
+  async validateContracts(actor: string, dto: ContractDraftDto) {
+    await this.authorize(actor);
+    const parsed = parseSealedSuitesText(dto.data);
+    return { checkedAt: new Date(), valid: parsed.valid, error: parsed.error, contracts: parsed.contracts, stored: false };
+  }
 }
 @Controller('admin/system')
 @RequirePermissions('settings.read')
@@ -59,6 +77,8 @@ class AdminSystemController {
   constructor(private readonly system: AdminSystemService) {}
   @Get('status') status(@CurrentUser('userId') actor: string) { return this.system.status(actor); }
   @Get('repositories') repositories(@CurrentUser('userId') actor: string, @Query() q: RepositoryQuery) { return this.system.repositories(actor, q); }
+  @Get('contracts') contracts(@CurrentUser('userId') actor: string) { return this.system.contracts(actor); }
+  @Post('contracts/validate') validate(@CurrentUser('userId') actor: string, @Body() dto: ContractDraftDto) { return this.system.validateContracts(actor, dto); }
 }
 @Module({ imports: [RbacModule, NotificationsModule], controllers: [AdminSystemController], providers: [AdminSystemService] })
 export class AdminSystemModule {}
