@@ -1,3 +1,4 @@
+import { assertCurrentQuestion } from './conversation-policy';
 import {
   ConflictException,
   Injectable,
@@ -6,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectDataSource } from '@nestjs/typeorm';
-import { DataSource, EntityManager } from 'typeorm';
+import { DataSource, EntityManager, In } from 'typeorm';
 import { AuditLog } from '../audit/entities/audit-log.entity';
 import {
   INTERVIEW_ANSWER_MAX_LENGTH,
@@ -27,7 +28,8 @@ import {
   QuestionPoolInsufficientError,
   selectSessionQuestions,
 } from './question-selection';
-import { RecruitmentService, RecruitmentResultResponse } from './recruitment.service';
+import { RecruitmentService, RecruitmentResultResponse, toResultResponse } from './recruitment.service';
+import { RecruitmentResult } from './entities/recruitment-result.entity';
 import {
   RecruitmentProfileStatus,
   canTransitionRecruitmentProfile,
@@ -77,6 +79,31 @@ export class InterviewService {
     private readonly recruitmentService: RecruitmentService,
     @InjectDataSource() private readonly dataSource: DataSource,
   ) {}
+
+  /** The principal is the only scope; neither prompts nor private rubrics leave this API. */
+  async history(userId: string, query: { page: number; pageSize: number }) {
+    const [sessions, total] = await this.dataSource.getRepository(InterviewSession).findAndCount({
+      where: { userId },
+      order: { attemptNumber: 'DESC', id: 'ASC' },
+      skip: (query.page - 1) * query.pageSize,
+      take: query.pageSize,
+    });
+    const results = sessions.length ? await this.dataSource.getRepository(RecruitmentResult).find({
+      where: { sessionId: In(sessions.map(s => s.id)) },
+    }) : [];
+    const resultBySession = new Map(results.map(r => [r.sessionId.toLowerCase(), r]));
+    return {
+      items: sessions.map(s => {
+        const result = resultBySession.get(s.id.toLowerCase());
+        return {
+          id: s.id, roleCode: s.roleCode, status: s.status, attemptNumber: s.attemptNumber,
+          startedAt: s.startedAt, submittedAt: s.submittedAt, evaluatedAt: s.evaluatedAt,
+          questionCount: s.questionCount, result: result ? toResultResponse(result) : null,
+        };
+      }),
+      total,
+    };
+  }
 
   /**
    * POST /recruitment/me/interviews — start (create + activate) a session.
@@ -236,7 +263,7 @@ export class InterviewService {
       });
 
       const questions = await this.loadSanitizedQuestions(em, session, userId);
-      return { session: this.toSessionView(session), questions };
+      return { session: this.toSessionView(session), questions: this.publicQuestions(questions, session) };
     });
   }
 
@@ -253,12 +280,13 @@ export class InterviewService {
   async getQuestions(
     userId: string,
     sessionId: string,
+    internalSnapshots = false,
   ): Promise<{ session: SanitizedSessionView; questions: SanitizedSessionQuestion[] }> {
     await this.expireIfOverdue(sessionId);
     const session = await this.ownSession(userId, sessionId);
     return this.dataSource.transaction(async (em) => ({
       session: this.toSessionView(session),
-      questions: await this.loadSanitizedQuestions(em, session, userId),
+      questions: this.publicQuestions(await this.loadSanitizedQuestions(em, session, userId), session, internalSnapshots),
     }));
   }
 
@@ -306,6 +334,15 @@ export class InterviewService {
       const existing = await em.getRepository(InterviewAnswer).findOne({
         where: { sessionQuestionId: question.id },
       });
+      if (session.questionCount === 10) {
+        if (existing?.answerText === trimmed) return { id: existing.id, sessionQuestionId: question.id, answeredAt: existing.answeredAt };
+        await this.assertNoPendingFollowUp(em, session.id);
+        const questions = await em.getRepository(InterviewSessionQuestion).find({ where: { sessionId: session.id } });
+        const answered = await em.getRepository(InterviewAnswer).find({ where: { sessionId: session.id, userId } });
+        assertCurrentQuestion(questions, new Set(answered.map(a => a.sessionQuestionId.toLowerCase())), question.id);
+        const delivered = await em.query("SELECT questionId FROM interview_conversation_turns WHERE questionId=@0 AND status='ready'", [question.id]);
+        if (!delivered.length) throw conflict('INTERVIEW_QUESTION_NOT_DELIVERED', 'Chờ AI gửi câu hỏi trước khi trả lời.');
+      }
       if (existing) {
         existing.answerText = trimmed;
         existing.answeredAt = new Date();
@@ -362,6 +399,7 @@ export class InterviewService {
             missingAnswers: missing,
           });
         }
+        if (session.questionCount === 10) await this.assertNoPendingFollowUp(em, session.id);
         await this.transitionSession(em, session, 'submitted', new Date());
         const profile = await em.getRepository(RecruitmentProfile).findOne({
           where: { id: session.profileId },
@@ -410,6 +448,11 @@ export class InterviewService {
       result: evaluation.result,
       ...(evaluation.errorCode ? { errorCode: evaluation.errorCode } : {}),
     };
+  }
+
+  private async assertNoPendingFollowUp(em: EntityManager, sessionId: string) {
+    const pending: unknown[] = await em.query("SELECT questionId FROM interview_conversation_turns WHERE sessionId=@0 AND followUpStatus IN ('generating','ready','failed')", [sessionId]);
+    if (pending.length) throw conflict('INTERVIEW_FOLLOW_UP_PENDING', 'Hãy hoàn thành câu hỏi phụ trước khi tiếp tục.');
   }
 
   /**
@@ -555,6 +598,11 @@ export class InterviewService {
         answerText: answer?.answerText ?? null,
       };
     });
+  }
+
+  private publicQuestions(questions: SanitizedSessionQuestion[], session: InterviewSession, internal = false): SanitizedSessionQuestion[] {
+    if (internal || session.questionCount !== 10) return questions;
+    return questions.filter(q => q.answered);
   }
 
   private toSessionView(session: InterviewSession): SanitizedSessionView {

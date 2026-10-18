@@ -19,6 +19,22 @@ const sprint = (overrides: Record<string, unknown> = {}) => ({
 });
 
 describe('validateSprintPlan', () => {
+  it('preserves task outputs, estimates, skills, subtasks and milestone dependencies', () => {
+    const plan = validateSprintPlan({ milestones: [{ key: 'm1', title: 'Ready for demo', dueDate: '2026-11-10', taskKeys: ['api', 'ui'] }], sprints: [sprint({ startDate: '2026-11-01', endDate: '2026-11-14', tasks: [
+      { key: 'api', title: 'API', dueDate: '2026-11-04', expectedOutput: 'Validated endpoint', estimatedHours: 4, skillTags: ['REST'], complexity: 'beginner' },
+      { key: 'ui', title: 'UI', parentKey: 'api', dueDate: '2026-11-08', dependsOn: ['api'] },
+    ] })] });
+    expect(plan.sprints[0].tasks[1]).toMatchObject({ key: 'ui', parentKey: 'api', dependsOn: ['api'] });
+    expect(plan.milestones?.[0].taskKeys).toEqual(['api', 'ui']);
+  });
+  it.each([
+    [{ key: 'a', title: 'A', dependsOn: ['unknown'] }],
+    [{ key: 'a', title: 'A', dependsOn: ['b'] }, { key: 'b', title: 'B', dependsOn: ['a'] }],
+    [{ key: 'a', title: 'A' }, { key: 'a', title: 'Duplicate' }],
+    [{ key: 'a', title: 'A', parentKey: 'a' }],
+  ])('rejects invalid or cyclic task references', (...tasks) => {
+    expect(() => validateSprintPlan({ sprints: [sprint({ tasks })] })).toThrow();
+  });
   it('retains bounded acceptance criteria and rejects malformed criteria', () => {
     const plan = validateSprintPlan({ sprints: [sprint({ tasks: [{ title: 'Task', acceptanceCriteria: [' Tests pass '] }] })] });
     expect(plan.sprints[0].tasks[0]).toMatchObject({ acceptanceCriteria: ['Tests pass'] });

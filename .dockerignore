@@ -1,0 +1,16 @@
+node_modules
+dist
+coverage
+*.log
+.env
+.env.*
+!.env.example
+.gradle
+.aws-sam
+git
+.git
+.github
+manual-runtime
+private
+V-Intern FE
+migrations-journal

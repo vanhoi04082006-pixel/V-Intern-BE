@@ -5,6 +5,9 @@ import { AiRun } from './entities/ai-run.entity';
 import { AiService } from './ai.service';
 import { AiProvider, AI_PROVIDER_TOKEN } from './ai-provider.interface';
 import { GeminiProvider } from './providers/gemini.provider';
+import { RbacModule } from '../rbac/rbac.module';
+import { AiRuntimeService } from './ai-runtime.service';
+import { AiRuntimeController } from './ai-runtime.controller';
 
 /**
  * AI CORE module (Phase 4, spec 21/23/25).
@@ -49,8 +52,9 @@ const AiProviderTokenProvider: Provider = {
 };
 
 @Module({
-  imports: [TypeOrmModule.forFeature([AiRun])],
-  providers: [AiProviderTokenProvider, AiService],
+  imports: [RbacModule, TypeOrmModule.forFeature([AiRun])],
+  controllers: [AiRuntimeController],
+  providers: [AiRuntimeService, AiProviderTokenProvider, AiService],
   exports: [AiService],
 })
 export class AiModule {}

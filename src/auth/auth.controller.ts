@@ -18,6 +18,10 @@ import { clientIp, userAgent } from '../common/types/request-info';
 import { AuthService } from './auth.service';
 import { REFRESH_COOKIE_NAME, REFRESH_COOKIE_PATH } from './auth.constants';
 import { LoginDto } from './dto/login.dto';
+import { RegisterDto } from './dto/register.dto';
+import { RegistrationService } from './registration.service';
+const configuredRegistrationLimit = Number(process.env.THROTTLE_REGISTER_PER_MIN ?? 5);
+const registrationLimit = Number.isSafeInteger(configuredRegistrationLimit) && configuredRegistrationLimit > 0 ? configuredRegistrationLimit : 5;
 
 @ApiTags('auth')
 @Controller('auth')
@@ -25,6 +29,7 @@ export class AuthController {
   constructor(
     private readonly authService: AuthService,
     private readonly config: ConfigService,
+    private readonly registration: RegistrationService,
   ) {}
 
   private cookieOptions(): CookieOptions {
@@ -37,6 +42,14 @@ export class AuthController {
       path: REFRESH_COOKIE_PATH, // cookie only travels to /api/v1/auth/*
       maxAge: ttlDays * 24 * 60 * 60 * 1000,
     };
+  }
+
+  @Public()
+  @Throttle({ default: { limit: registrationLimit, ttl: 60_000 } })
+  @Post('register')
+  @ApiOperation({ summary: 'Create an intern-only account; login separately to start recruitment' })
+  register(@Body() dto: RegisterDto, @Req() req: Request) {
+    return this.registration.register(dto, clientIp(req), userAgent(req));
   }
 
   @Public()

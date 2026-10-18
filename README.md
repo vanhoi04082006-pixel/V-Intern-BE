@@ -1,74 +1,88 @@
-# V-Intern-BE
+# V-INTERN Backend
 
-NestJS backend for V-Intern — **Phase 1: platform core** on Microsoft SQL Server 2019.
+NestJS 11, TypeScript, TypeORM 0.3 và SQL Server. API phục vụ tuyển dụng, thư viện dự án, phiên thực tập, sprint/task, GitHub, AI và các kết quả học tập. Schema chỉ thay đổi qua migrations; synchronize luôn false.
 
-```
-Next.js FE (V-Intern-FE) ──HTTPS /api/v1──▶ NestJS BE (this repo) ──TypeORM/mssql──▶ SQL Server 2019
-```
+## Chạy local
 
-## Stack
+Yêu cầu Node.js 22+, npm, SQL Server 2019 trở lên và một database riêng. Tài khoản migration cần quyền DDL trong database; tài khoản ứng dụng production nên có quyền tối thiểu theo vận hành.
 
-- NestJS 11 (Express), TypeScript 5 (strict)
-- TypeORM 0.3 + `mssql` (tedious) — **`synchronize: false`**, schema = versioned migrations only
-- @nestjs/jwt (HS256, 15-min access), refresh tokens SHA-256-hashed at rest with rotation + family reuse detection
-- class-validator global ValidationPipe (`whitelist` + `forbidNonWhitelisted` + `transform`)
-- Swagger at `/api/docs`, unified error contract, unified pagination contract
-- helmet, CORS allowlist + credentials, @nestjs/throttler (in-memory)
+Trong PowerShell:
 
-## Quick start (dev)
+~~~powershell
+Copy-Item .env.example .env
+# Điền DB_*, JWT_SECRET, BOOTSTRAP_ADMIN_*; database phải tồn tại.
+npm ci
+npm run migration:run
+npm run bootstrap:admin
+npm run seed:library
+npm run start:dev
+~~~
 
-```bash
-cp .env.example .env            # fill DB_* + JWT_SECRET (>= 32 chars)
-npm install
-npm run migration:run           # EMPTY DB → complete platform-core schema
-npm run bootstrap:admin         # idempotent RBAC + initial admin (env-driven)
-npm run seed:dev                # DEV-ONLY demo accounts (refuses in production)
-npm run start:dev               # http://localhost:8080, Swagger /api/docs
-```
+API: http://localhost:8080/api/v1; Swagger: http://localhost:8080/api/docs; health: GET /api/v1/health. Cổng SQL mặc định 1433; máy local hiện tại dùng 1435 nên phải giữ giá trị thực của .env. Không chạy seed:dev nếu cần tài khoản trắng.
 
-## Scripts
+## Lệnh
 
-| Command | Purpose |
-| --- | --- |
-| `npm run build` | Production compile (nest build) |
-| `npm run lint` | ESLint (typescript-eslint strict-ish) |
-| `npm test` | Unit tests (mocked repos — no DB needed) |
-| `npm run test:e2e` | Integration — requires reachable SQL Server **and** explicit `E2E_DB_NAME` (disposable DB). Without it: fail-fast `[E2E BLOCKED]` |
-| `npm run migration:run` / `revert` / `show` / `generate` | Migration deploy / rollback / status / diff |
-| `npm run bootstrap:admin` | Idempotent initial admin (env: `BOOTSTRAP_ADMIN_*`) |
-| `npm run seed:dev` | Dev-only demo users (refuses `NODE_ENV=production`) |
+| Lệnh | Mục đích |
+|---|---|
+| npm run build / npm start | Biên dịch / chạy dist/main.js |
+| npm run lint / npm test | Lint / unit test không dùng provider thật |
+| npm run test:e2e | SQL integration; bắt buộc E2E_DB_NAME là database dùng một lần |
+| npm run migration:run / migration:show | Áp dụng / kiểm tra migrations |
+| npm run migration:revert | Revert migration mới nhất; kiểm tra dữ liệu và down trước |
+| npm run bootstrap:admin | RBAC và admin từ env; chạy lại không đổi mật khẩu tài khoản cũ |
+| npm run seed:library | Sáu blueprint và185câu hỏi; seed chạy lại giữ bản đã sửa/archived và run snapshot |
+| npm run seed:recruitment | Chèn thiếu câu hỏi theo role/sortOrder |
+| npm run seed:dev | Demo local; có tạo dữ liệu/tài khoản, không dùng production |
+| npm run audit:schema | Kiểm tra schema |
 
-## API surface (Phase 1)
+## Cấu hình
 
-- `POST /api/v1/auth/login` · `POST /api/v1/auth/refresh` · `POST /api/v1/auth/logout` (204) · `GET /api/v1/auth/me`
-- `GET|POST /api/v1/users`, `GET|PATCH /api/v1/users/:id`, `PATCH /api/v1/users/:id/status`
-- `GET /api/v1/roles` · `GET /api/v1/permissions`
-- `GET|POST /api/v1/groups`, `PATCH /api/v1/groups/:id`, `GET|POST /api/v1/groups/:id/members`, `DELETE /api/v1/groups/:id/members/:userId`, `PUT /api/v1/groups/:id/roles`
-- `GET|POST /api/v1/catalogs/types|items`, `PATCH /api/v1/catalogs/items/:id`
-- `GET|PATCH /api/v1/settings`
-- `GET /api/v1/audit-logs` · `GET /api/v1/activity-events`
-- `GET /api/v1/notifications` (+ `unread-count`, `preferences`, `:id/read`, `read-all`)
-- `GET /api/v1/health` (real DB check; honest 503)
+- DB_HOST/PORT/NAME/USERNAME/PASSWORD và DB_ENCRYPT/TRUST_SERVER_CERTIFICATE: kết nối SQL. Production dùng TLS và chứng chỉ tin cậy.
+- JWT_SECRET: ít nhất 32 ký tự ngẫu nhiên. Access token ngắn hạn; refresh cookie HttpOnly, rotate và phát hiện reuse theo family.
+- AUTH_PUBLIC_REGISTRATION=true mở đăng ký sinh viên (false/giá trị không hợp lệ đóng); THROTTLE_REGISTER_PER_MIN mặc định5/IP/phút. Signup chỉ tạo intern/not_started trong transaction, không tự login; [hợp đồng đăng ký](docs/architecture/registration.md).
+- CORS_ORIGINS: allowlist chính xác FE; không dùng wildcard với credentials. Rate limits hiện lưu trong memory của từng process.
+- AI_PROVIDER=gemini, AI_API_KEY, AI_MODEL, AI_TIMEOUT_MS, AI_MAX_RETRIES: provider thật. Model cần quyền generateContent và output JSON. Kiểm tra model qua API/provider trước khi đổi; alias có thể thay đổi. Khóa không rời server.
+- GITHUB_CLIENT_ID/SECRET/CALLBACK_URL, GITHUB_TOKEN_ENCRYPTION_KEY, FRONTEND_ORIGIN: [hướng dẫn GitHub](docs/architecture/github-code-review.md).
+- `GITHUB_WEBHOOK_URL` (HTTPS công khai) và `GITHUB_WEBHOOK_SECRET` (ít nhất 32 ký tự): nhận PR/push/CI, phát hiện code đổi sau khi nộp; không tự chấm hoặc duyệt task.
+- GRADING_RUNNER_URL/TOKEN/SIGNING_KEY và GRADING_SUITES_JSON: [hợp đồng runner](docs/architecture/grading-runner.md).
 
-Pagination (every list endpoint): `{ data: [], meta: { page, pageSize, total, totalPages } }`, max pageSize 100.
-Errors: `{ statusCode, code, message, details?, traceId? }` — never leaks SQL/stack/secrets.
+Thiết lập GitHub trên Windows: chạy `./scripts/configure-github.ps1`, nhập OAuth Client ID/Secret trực tiếp trong terminal (secret được ẩn). Script chỉ ghi `.env` đã bị Git ignore và sinh encryption key nếu chưa có; không đổi key liên kết cũ. Không gửi secret trong chat. Đăng ký callback đúng URL rồi restart API và liên kết từng tài khoản trong ứng dụng.
 
-## Auth design
+Source dịch vụ thực thi riêng, Docker images, Notes acceptance checks, công cụ tạo cấu hình theo task và CI smoke nằm trong [grading-runner](grading-runner/README.md). Cần Linux Docker host riêng để nghiệm thu thực thi; backend vẫn từ chối đề xuất đạt khi thiếu suite đúng task/spec.
 
-- Access JWT (sub+email, 15 min) returned in body; stored in FE memory only.
-- Refresh token: 48 random bytes → `base64url`, **SHA-256-hashed** in DB, HttpOnly cookie `vintern_refresh` scoped `Path=/api/v1/auth`, `SameSite=Lax`, `Secure` in production.
-- Rotation: every refresh revokes the old row and sets `replacedById` (transactional), same `familyId`.
-- **Reuse detection**: presenting a revoked token revokes the ENTIRE family and audits `auth.refresh_reuse_detected`.
-- Guards: `JwtAuthGuard` (re-loads user from DB every request; locked/deleted rejected) → `PermissionsGuard` (effective permissions = direct roles ∪ group-inherited roles, resolved from DB per request — revocation is immediate).
-- Login rejects locked/pending/deleted with distinct codes; failures audited with generic 401 (no user enumeration).
+## Cấu trúc
 
-## Known limitations (honest)
+~~~text
+src/auth, users, rbac, audit       Danh tính, quyền và nhật ký
+src/recruitment                   Question bank, hội thoại và chấm tuyển dụng
+src/templates, sessions           Template snapshot, đội hình, lifecycle phiên
+src/ai, ai-generation             Provider, provenance, draft/publish kế hoạch
+src/tasks, sprints, submissions    Công việc và quyết định của giảng viên
+src/github, code-review           OAuth, repo, bằng chứng SHA và AI review
+src/sharing                      Đồng ý chia sẻ theo phiên, chỉ đọc
+src/performance, evaluation       Hiệu suất và đánh giá chính thức
+src/kpi, salary, certificates     Kết quả đã finalize, ledger và chứng nhận
+src/reports                      Báo cáo snapshot, PDF/XLSX
+src/database/migrations          Lịch sử schema có phiên bản
+~~~
 
-- **Throttling is per-process in-memory** (@nestjs/throttler). Behind a single instance this is fine; for multi-instance deployments introduce a distributed store (Redis) before relying on it.
-- **SQL Server integration tests are BLOCKED/NOT VERIFIED** in environments without SQL Server — the e2e suite fails fast with `[E2E BLOCKED]` rather than faking a pass. Unit tests (mocked repos) cover auth rotation/reuse, permission resolution, notification preference filtering and pagination math.
-- Dev seed (`seed:dev`) contains demo accounts — dev-only by explicit guard, never in production.
+Giữ nghiệp vụ trong module của nó; dùng helper quyền chuẩn, DTO validation và truy vấn có tham số. Không gọi AI/GitHub trong transaction kéo dài. Các lease ngắn giúp retry/idempotency; DB vẫn là nguồn quyết định cuối.
 
-## Docs
+## Hợp đồng quan trọng
 
-- `docs/database/SQLSERVER2019_SETUP.md` — full DB provisioning, least-privilege, TLS, backup, troubleshooting
-- `docs/architecture/domain-model.md` — implemented Phase-1 schema + PLANNED (not implemented) domains
+- Giảng viên chỉ quản lý dự án/phiên được giao; quyền đọc được chia sẻ qua snapshot riêng, không cấp quyền ghi hay thay đổi ownership.
+- Mười câu chính và tối đa hai câu phụ thích ứng; câu đã gửi giữ nguyên. Ngân hàng 185 câu cho năm vai trò có Fullstack. Không trả rubric/đáp án mẫu/câu tương lai cho sinh viên. Phiên lịch sử tám câu vẫn đọc theo hợp đồng cũ.
+- Start phiên chỉ tạo draft; Confirm mới ghi sprint/task. Template version và task specification được snapshot.
+- Planner dùng bằng chứng kỹ năng/điểm yếu, có mốc bàn giao, đầu ra, giờ ước lượng, task con và phụ thuộc đã kiểm tra vòng lặp. Task phụ thuộc chỉ bắt đầu khi tiền nhiệm đã được duyệt Done.
+- Task template cần repo đúng phiên và danh tính GitHub liên kết khi nộp. Kết quả AI gắn base/head SHA, không tự xác nhận Done.
+- Source, diff, câu trả lời và nội dung chat là dữ liệu không tin cậy. Không chạy code sinh viên trên host BE. GitHub checks do sinh viên tạo không phải bằng chứng test tin cậy.
+- Thiếu provider/runner/repo không sinh kết quả đạt giả. Giảng viên chấm thủ công cần lý do rõ, ghi audit và kiểm tra SHA.
+- Admin quản trị câu hỏi riêng tư có version, cấu hình model/timeout/retry Gemini cho lời gọi mới và xem thống kê AI/tích hợp. Credential luôn ở server; [hợp đồng quản trị](docs/architecture/admin.md).
+
+## Tài liệu
+
+[Mục lục](docs/README.md) · [SQL Server](docs/database/SQLSERVER2019_SETUP.md) · [Migration](docs/database/MIGRATION_POLICY.md) · [Domain](docs/architecture/domain-model.md) · [API](docs/api/ROUTES.md) · [Bảo mật](docs/SECURITY.md) · [Kiểm thử](docs/TESTING.md).
+
+Các báo cáo phase/handoff cũ được giữ dưới docs/archive để truy vết, không thay thế tài liệu hiện hành. [Nghiệm thu16/10](docs/LIVE-GITHUB.md) đã chạy OAuth hai danh tính, repo/invite/PR, codeload/Docker/Gemini, teacher approval, webhook/redelivery và refresh token thật. Đây là fixture tổng hợp với một task đã seal. NativeSQL2019/remote backend và runner CI đã đạt; [kết quả](docs/VERIFICATION.md). Production deployment chưa chạy.
+
+[Hội thoại và rubric](docs/architecture/recruitment-chat.md) · [Kế hoạch và ngữ cảnh Mentor](docs/architecture/learning-plans.md) · [Vận hành worker](grading-runner/README.md).

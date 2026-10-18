@@ -1,0 +1,19 @@
+# Kiểm chứng backend — 17/10/2026
+
+Source hiện hành:72unit suites/568tests đạt, build đạt, lint0errors/15warning console có sẵn. Registry31migrations; hai runtime và DB nghiệm thu đã migrate, pending=false. Seed runtime giữ185câu/5role,6blueprint, không reset dữ liệu/tài khoản trắng.
+
+Board Sprint hiện trả context phạm vi (sessionId, goal, description) và tổng task overdue toàn sprint (bao gồm item ngoài trang100, loại trừ Done); sprints.service27/27 và sprint/task SQL19/19 gồm assertions mới này. Gate đầy đủ25SQLsuites/231tests đã chạy lại trên VIntern_E2E_StorageFresh_20261016_2318 cho commit này (231/231,247giây, bằng chứng run sạch ngày17/10). Kết quả theo commit tại [PR backend2](https://github.com/vanhoi04082006-pixel/V-Intern-BE/pull/2). Không dùng CI commit cũ làm bằng chứng cho source mới.
+
+Thêm13regression cho tạo database trong thư mục cấu hình trên SQL Server: Windows/POSIX, escape literal và từ chối tên/đường dẫn không hợp lệ. CLI và18suite setup dùng chung DB_FILES_ROOT, giữ nguyên guard disposable. Phần bổ sung MASTER có metadata Kanban và overview sort/current Sprint/alerts; session work/timeline phân trang và role theo phân công. Suite session-overview12/12 và sprint/task19/19 đã chạy trên SQL thật, gồm foreign scope, quyền chỉ xem phiên, sort injection, deleted target và paging.
+
+Baseline ngày15/10: full SQL gate25suites/225tests đạt trong227.359giây trên VIntern_E2E_Release_20261015, chạy lại trên cùng DB sau khi cô lập email/repository ID của fixtures: xem [chứng cứ hệ thống](LIVE-GITHUB.md) và log manual-runtime/private/master-release-e2e.log. Bao gồm auth/signup, recruitment/follow-up/scoring/history, ownership/consent, plan/publish/dependency, raw task-spec export, templates/admin, report scope, KPI/salary/certificates, signed webhook và token rotation.
+
+Regression mới:13SQL tests refresh/callback (encrypted token pair, hai worker, state/version, disconnect/reconnect/locked user, identity/scope/provider errors);12SQL tests submission/review notifications và consent (PASS/FAIL/inconclusive, mute, đúng reviewer, không auto Done, revoke/expiry). GUID case normalization có test tái hiện lỗi trước sửa và sau sửa.
+
+Gemini thật đã chấm evaluatorv3 sáu chiều93.3, lập draft4task/2milestone và trả Mentorv3 sau cập nhật policy. Fixtures ở DB nghiệm thu riêng; AI lỗi không tạo điểm/pass thay thế. Docker thật: NotesUI đúng2/2/lỗi1/2, TasksAPI đúng4/4/lỗi validation3/4/lỗi ownership3/4. CompiledBE xác minh HTTP/HMAC cùng executionTimeMs/score/checks;16runner tests đạt trên Windows và WSL, gồm restrictive-umask regression.
+
+Nghiệm thu ngoài đã dùng hai tài khoản GitHub thật: OAuth, public repo, invite/accept, student PR, codeload SHA, Docker, Gemini và giảng viên duyệt90.5 qua UI. Bản lỗi1/2test, AI57.5/needs_changes; bản sửa2/2, AI98/awaiting_instructor, task chỉ Done sau human approval. Prompt code-review-v2 yêu cầu limitations chỉ chứa thiếu bằng chứng thực sự; không bỏ qua limitation tại backend. Webhook thật và redelivery có chữ ký đạt; hook/tunnel tạm đã đóng sau nghiệm thu. [Chi tiết](LIVE-GITHUB.md).
+
+Catalog có một task QA đã seal; task/framework khác cần contract và image/suite được review. Fixtures tổng hợp kiểm tra tích hợp, không đo độ chính xác AI. [Native SQL Server2019 CI](https://github.com/vanhoi04082006-pixel/V-Intern-BE/pull/2) và [isolated grading runner](https://github.com/vanhoi04082006-pixel/V-Intern-BE/pull/2) chạy theo từng commit của PR nháp này: lint/unit/build, production audit, registry31, seed185/6 chạy lại,25SQLsuites/231tests và historical rollback/reapply. Run của commit hiện hành được liệt kê trong báo cáo root (manual-runtime/ci-verification.json và master-verification) vì HEAD tiến theo commit docs; không dùng run của commit cũ làm bằng chứng cho source mới. Nhánh đã push; chưa merge/deploy.
+
+[Cách chạy test](TESTING.md) · [Bảo mật](SECURITY.md) · [Bằng chứng/artifacts](LIVE-GITHUB.md).

@@ -1,7 +1,5 @@
-# PHASE 3.5 (spec 6-31) — the AUTHORITATIVE integration environment.
-#
-# The sandbox has no Docker/SQL Server, so GitHub Actions is where the
-# backend is PROVEN against a real Microsoft SQL Server 2019:
+# Current backend release gate on a disposable native SQL Server 2019.
+# Local Docker/provider acceptance is recorded separately in docs/VERIFICATION.md.
 #
 #   npm ci -> lint -> unit tests -> build
 #   -> disposable SQL Server 2019 container (runtime-generated, masked SA password)
@@ -11,7 +9,7 @@
 #   -> migration:show -> schema audit (tables/sequences/unique indexes/CHECKs/types)
 #   -> bootstrap admin x2 + idempotency counts
 #   -> boot the real API -> poll /api/v1/health -> /api/docs + /api/docs-json
-#   -> seed:recruitment (idempotent question bank, spec 50)
+#   -> seed:library twice (current blueprint/question bank, idempotent)
 #   -> e2e: platform + academic + sprint/task + recruitment + evaluation/performance
 #          + KPI/virtual-salary/certificates + SQL Server concurrency/rollback
 #          + AI mentor/evaluation-assistance/recommendations (TestAIProvider —
@@ -27,6 +25,9 @@
 # exercises the same domain evaluation path and schema contract.
 
 name: backend-ci
+
+permissions:
+  contents: read
 
 on:
   pull_request:
@@ -49,18 +50,20 @@ jobs:
     timeout-minutes: 20
     env:
       # Disposable test database — never production (spec 8).
-      E2E_DB_NAME: VIntern_E2E
+      E2E_DB_NAME: VIntern_E2E_CI_${{ github.run_id }}_${{ github.run_attempt }}
       DB_HOST: 127.0.0.1
       DB_PORT: '1433'
       DB_ENCRYPT: 'false'
       DB_TRUST_SERVER_CERTIFICATE: 'true'
-      DB_NAME: VIntern_E2E
+      DB_NAME: VIntern_E2E_CI_${{ github.run_id }}_${{ github.run_attempt }}
       DB_USERNAME: vintern_app
       NODE_ENV: test
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Setup Node 22 (npm cache enabled — no DB/env caching)
         uses: actions/setup-node@v4
@@ -79,6 +82,9 @@ jobs:
 
       - name: Build
         run: npm run build
+
+      - name: Production dependency audit (high and critical block release)
+        run: npm audit --omit=dev --audit-level=high
 
       # ── SQL Server 2019 (spec 7/9) ────────────────────────────────────
       - name: Generate ephemeral credentials (masked, never echoed)
@@ -130,7 +136,7 @@ jobs:
         run: npm run db:create:e2e
 
       # ── Fresh-database migration run (spec 12/13) ─────────────────────
-      - name: Apply ALL migrations to the EMPTY database (Phase 1 + 2 + 3 + 4 + 5 + 6)
+      - name: Apply all registered migrations to the empty database
         env:
           DB_PASSWORD: ${{ env.APP_PASSWORD }}
         run: npm run migration:run
@@ -162,7 +168,7 @@ jobs:
           node -e "
             const sql = require('mssql');
             (async () => {
-              const c = new sql.ConnectionPool({ server: '127.0.0.1', port: 1433, database: 'VIntern_E2E', user: 'vintern_app', password: process.env.DB_PASSWORD, options: { encrypt: false, trustServerCertificate: true } });
+            const c = new sql.ConnectionPool({ server: '127.0.0.1', port: 1433, database: process.env.DB_NAME, user: 'vintern_app', password: process.env.DB_PASSWORD, options: { encrypt: false, trustServerCertificate: true } });
               await c.connect();
               const n = async (s) => (await c.request().query(s)).recordset[0].n;
               const counts = {
@@ -193,7 +199,7 @@ jobs:
           node -e "
             const sql = require('mssql');
             (async () => {
-              const c = new sql.ConnectionPool({ server: '127.0.0.1', port: 1433, database: 'VIntern_E2E', user: 'vintern_app', password: process.env.DB_PASSWORD, options: { encrypt: false, trustServerCertificate: true } });
+            const c = new sql.ConnectionPool({ server: '127.0.0.1', port: 1433, database: process.env.DB_NAME, user: 'vintern_app', password: process.env.DB_PASSWORD, options: { encrypt: false, trustServerCertificate: true } });
               await c.connect();
               const n = async (s) => (await c.request().query(s)).recordset[0].n;
               const counts = {
@@ -213,11 +219,29 @@ jobs:
           }
           node -e "const c=require('/tmp/bootstrap-counts-2.json'); if (c.bootstrapAdmin !== 1) { console.error('bootstrap admin must exist exactly once'); process.exit(1); } console.log('bootstrap idempotent — no duplicates');"
 
-      # ── Phase 4 question bank (spec 50) — idempotent product config seed ──
-      - name: Seed recruitment question bank (idempotent)
+      - name: Seed current library twice and verify native SQL version and stable counts
         env:
           DB_PASSWORD: ${{ env.APP_PASSWORD }}
-        run: npm run seed:recruitment
+        run: |
+          set -euo pipefail
+          npm run seed:library
+          npm run seed:library
+          node <<'NODE'
+          const assert = require('node:assert/strict');
+          const db = require('./dist/database/data-source.js').default;
+          (async () => {
+            await db.initialize();
+            try {
+              const [engine] = await db.query("SELECT CAST(SERVERPROPERTY('ProductMajorVersion') AS int) major");
+              assert.equal(engine.major, 15, 'This release gate requires native SQL Server 2019');
+              assert.equal(await db.showMigrations(), false);
+              const [bank] = await db.query('SELECT COUNT(*) total, COUNT(DISTINCT roleCode) roles FROM interview_questions');
+              const [library] = await db.query('SELECT COUNT(*) total FROM project_templates');
+              assert.equal(bank.total, 185); assert.equal(bank.roles, 5); assert.equal(library.total, 6);
+              console.log(JSON.stringify({ nativeSqlMajor: engine.major, questions: bank.total, roles: bank.roles, templates: library.total }));
+            } finally { await db.destroy(); }
+          })().catch(error => { console.error(error.message); process.exitCode = 1; });
+          NODE
 
       # ── Real runtime boot (spec 19/20) ────────────────────────────────
       - name: Boot the real API — poll /api/v1/health, then /api/docs + OpenAPI
@@ -252,7 +276,7 @@ jobs:
         run: npm run test:e2e
 
       # ── Migration rollback verification (spec 16 + Phase 6 §79) ────────
-      # The full current schema has 21 migrations. Reverting its latest row
+      # The full current schema uses the entire migration registry. Reverting its latest row
       # does NOT remove Phase6. Preserve historical rollback gates on a
       # separate, empty six-migration baseline; never truncate product history.
       - name: Create dedicated historical rollback database

@@ -72,11 +72,15 @@ export interface SprintBoardResponse {
     name: string;
     status: string;
     projectId: string;
+    sessionId: string | null;
+    goal: string | null;
+    description: string | null;
     startDate: Date;
     endDate: Date;
   };
   columns: SprintBoardColumn[];
   total: number;
+  overdueOpenTaskCount: number;
 }
 
 export interface SprintCompletionSummary {
@@ -519,6 +523,7 @@ export class SprintsService {
         return { status, count: inColumn.length, tasks: inColumn.slice(start, start + q.pageSize).map(toBoardTask) };
       },
     );
+    const now = Date.now();
     return {
       sprint: {
         id: sprint.id.toLowerCase(),
@@ -526,11 +531,15 @@ export class SprintsService {
         name: sprint.name,
         status: sprint.status,
         projectId: sprint.projectId.toLowerCase(),
+        sessionId: sprint.sessionId?.toLowerCase() ?? null,
+        goal: sprint.goal ?? null,
+        description: sprint.description ?? null,
         startDate: sprint.startDate,
         endDate: sprint.endDate,
       },
       columns,
       total: tasks.length,
+      overdueOpenTaskCount: tasks.filter(task => task.status !== 'done' && task.dueDate !== null && task.dueDate !== undefined && task.dueDate.getTime() < now).length,
     };
   }
 

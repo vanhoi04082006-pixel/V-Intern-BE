@@ -1,3 +1,4 @@
+import { createDatabaseSql } from '../src/database/create-database-sql';
 import { createConnection } from 'node:net';
 import { hash } from 'bcryptjs';
 import { INestApplication, ValidationPipe, VersioningType } from '@nestjs/common';
@@ -67,7 +68,7 @@ beforeAll(async () => {
     options: { useUTC: true, encrypt: (process.env.DB_ENCRYPT ?? 'false') !== 'false', trustServerCertificate: true }, logging: false,
   });
   await adminDs.initialize();
-  await adminDs.query(`IF DB_ID(N'${DB_NAME}') IS NULL CREATE DATABASE [${DB_NAME}];`);
+  await adminDs.query(createDatabaseSql(DB_NAME, process.env.DB_FILES_ROOT));
   await adminDs.destroy();
 
   const migDs = new DataSource({
@@ -261,6 +262,12 @@ describe('Instructor ownership — sessions/projects/sprints/tasks/assignments',
   it('candidate pool stays readable for hiring; admin sees the session', async () => {
     const pool = await request(apiBase()).get('/api/v1/recruitment/candidates').set('Authorization', `Bearer ${instructorB}`);
     expect(pool.status).toBe(200);
-    expect(pool.body.total).toBeGreaterThan(0);
+    const internId = await userIdByEmail(dataSource, `e2e-own-i1-${RUN}@vintern.test`);
+    expect(pool.body.items.some((candidate: { userId: string }) => candidate.userId.toLowerCase() === internId.toLowerCase())).toBe(false);
+    const searched = await request(apiBase()).get(`/api/v1/recruitment/candidates?search=e2e-own-i1-${RUN}`).set('Authorization', `Bearer ${instructorB}`);
+    expect(searched.body.total).toBe(0);
+    await request(apiBase()).get(`/api/v1/recruitment/candidates/${internId}`).set('Authorization', `Bearer ${instructorB}`).expect(403);
+    await request(apiBase()).get(`/api/v1/recruitment/candidates/${internId}`).set('Authorization', `Bearer ${instructorA}`).expect(200);
+    await request(apiBase()).get(`/api/v1/recruitment/candidates/${internId}`).set('Authorization', `Bearer ${admin}`).expect(200);
   });
 });

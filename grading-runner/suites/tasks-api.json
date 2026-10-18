@@ -1,0 +1,35 @@
+[
+  { "name": "Authentication and input validation", "kind": "api", "steps": [
+    { "path": "/api/tasks", "status": 401 },
+    { "method": "POST", "path": "/api/tasks", "body": { "title": "Anonymous" }, "status": 401 },
+    { "method": "POST", "path": "/api/register", "body": { "email": "validation-{{nonce}}@test.invalid", "password": "Acceptance-only-123!" }, "status": 201, "capture": { "token": "token" }, "jsonAbsent": ["password", "passwordHash"] },
+    { "method": "POST", "path": "/api/register", "body": { "email": "validation-{{nonce}}@test.invalid", "password": "Acceptance-only-123!" }, "status": 409 },
+    { "method": "POST", "path": "/api/tasks", "bearer": "{{token}}", "body": { "title": "  " }, "status": 422 }
+  ] },
+  { "name": "Create, read and update the submitted task", "kind": "api", "steps": [
+    { "method": "POST", "path": "/api/register", "body": { "email": "crud-{{nonce}}@test.invalid", "password": "Acceptance-only-123!" }, "status": 201, "capture": { "token": "token" } },
+    { "method": "POST", "path": "/api/tasks", "bearer": "{{token}}", "body": { "title": "Task {{nonce}}" }, "status": 201, "capture": { "taskId": "id" }, "jsonIncludes": { "title": "Task {{nonce}}", "done": false } },
+    { "path": "/api/tasks/{{taskId}}", "bearer": "{{token}}", "status": 200, "jsonIncludes": { "title": "Task {{nonce}}", "done": false } },
+    { "method": "PATCH", "path": "/api/tasks/{{taskId}}", "bearer": "{{token}}", "body": { "done": "yes" }, "status": 422 },
+    { "method": "PATCH", "path": "/api/tasks/{{taskId}}", "bearer": "{{token}}", "body": { "done": true }, "status": 200, "jsonIncludes": { "done": true } },
+    { "path": "/api/tasks/{{taskId}}", "bearer": "{{token}}", "status": 200, "jsonIncludes": { "id": "{{taskId}}", "done": true } },
+    { "path": "/api/tasks", "bearer": "{{token}}", "status": 200, "jsonIncludes": { "total": 1, "items.0.title": "Task {{nonce}}" } }
+  ] },
+  { "name": "A second account cannot read, change or delete another student's task", "kind": "api", "steps": [
+    { "method": "POST", "path": "/api/register", "body": { "email": "owner-{{nonce}}@test.invalid", "password": "Acceptance-only-123!" }, "status": 201, "capture": { "owner": "token" } },
+    { "method": "POST", "path": "/api/tasks", "bearer": "{{owner}}", "body": { "title": "Private {{nonce}}" }, "status": 201, "capture": { "taskId": "id" } },
+    { "method": "POST", "path": "/api/register", "body": { "email": "foreign-{{nonce}}@test.invalid", "password": "Acceptance-only-123!" }, "status": 201, "capture": { "foreign": "token" } },
+    { "path": "/api/tasks", "bearer": "{{foreign}}", "status": 200, "jsonIncludes": { "total": 0 } },
+    { "path": "/api/tasks/{{taskId}}", "bearer": "{{foreign}}", "status": 404 },
+    { "method": "PATCH", "path": "/api/tasks/{{taskId}}", "bearer": "{{foreign}}", "body": { "done": true }, "status": 404 },
+    { "method": "DELETE", "path": "/api/tasks/{{taskId}}", "bearer": "{{foreign}}", "status": 404 },
+    { "path": "/api/tasks/{{taskId}}", "bearer": "{{owner}}", "status": 200, "jsonIncludes": { "title": "Private {{nonce}}", "done": false } }
+  ] },
+  { "name": "Owner deletion is reflected in subsequent API reads", "kind": "api", "steps": [
+    { "method": "POST", "path": "/api/register", "body": { "email": "delete-{{nonce}}@test.invalid", "password": "Acceptance-only-123!" }, "status": 201, "capture": { "token": "token" } },
+    { "method": "POST", "path": "/api/tasks", "bearer": "{{token}}", "body": { "title": "Delete {{nonce}}" }, "status": 201, "capture": { "taskId": "id" } },
+    { "method": "DELETE", "path": "/api/tasks/{{taskId}}", "bearer": "{{token}}", "status": 204 },
+    { "path": "/api/tasks/{{taskId}}", "bearer": "{{token}}", "status": 404 },
+    { "path": "/api/tasks", "bearer": "{{token}}", "status": 200, "jsonIncludes": { "total": 0 } }
+  ] }
+]

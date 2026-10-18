@@ -107,6 +107,40 @@ function buildHarness(opts?: {
 
 const CTX = { actorId: 'admin-1', ip: '127.0.0.1', userAgent: 'jest' };
 
+describe('SessionsService.listOverview — delivery signals and sorting', () => {
+  it('returns active Sprint and scoped alerts using two bounded queries', async () => {
+    const h = buildHarness();
+    const query = h.em.query as jest.Mock;
+    query.mockResolvedValueOnce([{ n: 1 }]).mockResolvedValueOnce([{
+      ...SESSION_ROW, id: 'S-1', memberCount: 2, sprintCount: 1, taskTotal: 4, taskDone: 1,
+      currentSprintId: 'SP-1', currentSprintCode: 'SPRINT-1', currentSprintName: 'Build',
+      overdueTasks: 2, pendingReview: 1, sessionOverdue: 0,
+    }]);
+    const result = await h.service.listOverview({ page: 2, pageSize: 10, q: 'Build' }, { userId: 'teacher-1', isAdmin: false });
+    expect(result.items[0]).toMatchObject({
+      taskPercent: 25, currentSprint: { id: 'sp-1', code: 'SPRINT-1', name: 'Build' },
+      alerts: { overdueTasks: 2, pendingReview: 1, sessionOverdue: false },
+    });
+    expect(query).toHaveBeenCalledTimes(2);
+    expect(query.mock.calls[1][0]).toContain('OFFSET 10 ROWS FETCH NEXT 10 ROWS ONLY');
+    expect(query.mock.calls[1][1]).toEqual(['teacher-1', '%Build%']);
+    expect(query.mock.calls[1][0]).toContain('session_instructors');
+  });
+
+  it.each([
+    ['name', 'asc', 's.name ASC'],
+    ['progress', 'desc', 'COALESCE(CAST(d.taskDone AS float) / NULLIF(d.taskTotal, 0), 0) DESC'],
+    ['endDate', 'asc', 's.endDate ASC'],
+    ['__proto__', 'DESC; DROP TABLE tasks', 's.startDate DESC'],
+  ])('uses a fixed SQL order expression for %s / %s', async (sortBy, sortDirection, order) => {
+    const h = buildHarness();
+    await h.service.listOverview({ page: 1, pageSize: 10, sortBy, sortDirection } as Parameters<SessionsService['listOverview']>[0]);
+    const sql = (h.em.query as jest.Mock).mock.calls[1][0] as string;
+    expect(sql).toContain(`ORDER BY ${order}, s.id`);
+    expect(sql).not.toContain('DROP TABLE');
+  });
+});
+
 describe('SessionsService.update — backend state machine (spec 11/42)', () => {
   it('allows legal transitions and records a status-changed audit with from/to', async () => {
     const h = buildHarness({ sessionRow: { ...SESSION_ROW, status: 'active' } as unknown as InternshipSession });

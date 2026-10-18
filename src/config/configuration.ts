@@ -24,6 +24,7 @@ export interface AppConfig {
     /** Phase 4 (spec 56): stricter AI-cost protection on interview routes. */
     interviewStartPerMin: number;
     interviewSubmitPerMin: number;
+    interviewChatPerMin: number;
     evaluationPerMin: number;
     /** Phase 6 (spec 56): AI mentor messages — strict per-minute bound. */
     aiMentorPerMin: number;
@@ -100,6 +101,7 @@ export function appConfig(env: NodeJS.ProcessEnv): AppConfig {
       authPerMin: Number(env.THROTTLE_AUTH_PER_MIN ?? 10),
       interviewStartPerMin: Number(env.THROTTLE_INTERVIEW_START_PER_MIN ?? 5),
       interviewSubmitPerMin: Number(env.THROTTLE_INTERVIEW_SUBMIT_PER_MIN ?? 6),
+      interviewChatPerMin: Number(env.THROTTLE_INTERVIEW_CHAT_PER_MIN ?? 15),
       evaluationPerMin: Number(env.THROTTLE_EVALUATION_PER_MIN ?? 3),
       aiMentorPerMin: Number(env.THROTTLE_AI_MENTOR_PER_MIN ?? 10),
       aiEvaluationAssistPerMin: Number(env.THROTTLE_AI_EVALUATION_ASSIST_PER_MIN ?? 4),

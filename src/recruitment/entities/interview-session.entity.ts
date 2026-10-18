@@ -50,7 +50,7 @@ export class InterviewSession {
   @Column({ type: 'int', name: 'attemptNumber' })
   attemptNumber!: number;
 
-  /** Always 8 for valid sessions (approved distribution — spec 14). */
+  /** Legacy interviews have 8 questions; current conversations have 10 main questions. */
   @Column({ type: 'int', name: 'questionCount' })
   questionCount!: number;
 

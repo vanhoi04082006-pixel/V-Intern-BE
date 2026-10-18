@@ -1,3 +1,4 @@
+import { createDatabaseSql } from '../src/database/create-database-sql';
 import { createConnection } from 'node:net';
 import { hash } from 'bcryptjs';
 import { randomUUID } from 'crypto';
@@ -58,6 +59,11 @@ function definition(code: string) {
     description: 'E-commerce template with enough detail for the library.',
     difficulty: 'intermediate',
     category: 'web',
+    slug: 'ecommerce-library', estimatedDurationDays: 14, recommendedTeamSize: 3,
+    businessRules: ['Server determines prices; order creation is atomic.'],
+    architecture: { overview: 'React REST client, NestJS service and SQL Server transaction.', entities: ['Product', 'Order'], apiSuggestions: ['POST /orders'], frontendPages: ['/products', '/checkout'] },
+    milestones: [{ title: 'Foundation demo', day: 14, taskKeys: ['auth-api'], acceptance: 'Login API passes integration tests.' }],
+    expectedOutcome: 'A shop with tested order and authentication flows.',
     techStack: ['React', 'NestJS', 'SQL Server'],
     roles: ['frontend', 'backend'],
     roleDetails: [
@@ -72,7 +78,7 @@ function definition(code: string) {
     sprints: [
       {
         name: 'Foundation', goal: 'Setup and auth', durationDays: 14,
-        tasks: [{ title: 'Auth API', requirements: 'JWT login with refresh cookies', dod: ['Login works'], role: 'backend', storyPoints: 5 }],
+        tasks: [{ key: 'auth-api', dependsOn: [] as string[], estimatedHours: 12, complexity: 'medium', priority: 'high', recommendedOrder: 1, skillTags: ['REST', 'auth'], title: 'Auth API', requirements: 'JWT login with refresh cookies', dod: ['Login works'], role: 'backend', storyPoints: 5 }],
       },
     ],
     dod: ['Main flows work', 'Demo succeeds'],
@@ -96,7 +102,7 @@ beforeAll(async () => {
     options: { useUTC: true, encrypt: (process.env.DB_ENCRYPT ?? 'false') !== 'false', trustServerCertificate: true }, logging: false,
   });
   await adminDs.initialize();
-  await adminDs.query(`IF DB_ID(N'${DB_NAME}') IS NULL CREATE DATABASE [${DB_NAME}];`);
+  await adminDs.query(createDatabaseSql(DB_NAME, process.env.DB_FILES_ROOT));
   await adminDs.destroy();
 
   const migDs = new DataSource({
@@ -200,6 +206,8 @@ describe('M2 Project Template Library', () => {
     expect(detail.status).toBe(200);
     expect(detail.body.definition.objectives.business).toBe('Sell goods online');
     expect(detail.body.definition.roleDetails).toHaveLength(2);
+    expect(detail.body.definition.architecture.apiSuggestions).toContain('POST /orders');
+    expect(detail.body.definition.milestones[0].taskKeys).toEqual(['auth-api']);
     expect(detail.body.definition.acceptance.definitionOfDone).toContain('DoD item one');
     expect(detail.body.runs).toEqual([]);
   });
@@ -253,6 +261,7 @@ describe('M2 Project Template Library', () => {
     const ctx = await request(apiBase()).get(`/api/v1/projects/${started.body.projectId}/template-context`).set('Authorization', `Bearer ${token}`);
     expect(ctx.body.templateVersion).toBe(2);
     expect(ctx.body.definition.techStack).toContain('Redis');
+    expect(ctx.body.definition.sprints[0].tasks[0]).toMatchObject({ key: 'auth-api', estimatedHours: 12 });
 
     // Idempotent replay: same requestId returns the same run, no new entities.
     const sessionsBefore = await request(apiBase()).get('/api/v1/sessions?page=1&pageSize=100').set('Authorization', `Bearer ${token}`);
@@ -268,6 +277,7 @@ describe('M2 Project Template Library', () => {
   it('keeps the run snapshot immutable after later template edits', async () => {
     const def = definition(templateCode);
     def.modules.push('Reports');
+    def.businessRules.push('New future policy');
     const updated = await request(apiBase()).patch(`/api/v1/project-templates/${templateId}`).set('Authorization', `Bearer ${token}`).send({ definition: def });
     expect(updated.body.version).toBe(3);
 
@@ -278,6 +288,15 @@ describe('M2 Project Template Library', () => {
     const ctx = await request(apiBase()).get(`/api/v1/projects/${projectId}/template-context`).set('Authorization', `Bearer ${token}`);
     expect(ctx.body.templateVersion).toBe(2);
     expect(ctx.body.definition.modules).not.toContain('Reports');
+    expect(ctx.body.definition.businessRules).not.toContain('New future policy');
+  });
+
+  it('rejects invalid dependency graphs before creating a template', async () => {
+    const invalid = definition(`INVALID-${RUN}`);
+    invalid.sprints[0].tasks[0].dependsOn = ['missing-task'];
+    const response = await request(apiBase()).post('/api/v1/project-templates').set('Authorization', `Bearer ${token}`).send(invalid);
+    expect(response.status).toBe(400); expect(response.body.code).toBe('INVALID_BLUEPRINT');
+    expect(await dataSource.query('SELECT id FROM project_templates WHERE code=@0', [invalid.code])).toHaveLength(0);
   });
 
   it('starts a second independent session from the same template', async () => {
@@ -329,6 +348,29 @@ describe('M2 Project Template Library', () => {
     expect(persisted.status).toBe('proposed');
     expect(persisted.taskId).toBeNull();
     expect((await request(apiBase()).post(`/api/v1/project-changes/${change.body.id}/apply`).set('Authorization', `Bearer ${other}`)).status).toBe(201);
+  });
+
+  it('keeps summary metadata and future definitions consistent and rejects concurrent stale editors', async () => {
+    const current = await request(apiBase()).get(`/api/v1/project-templates/${templateId}`).set('Authorization', `Bearer ${token}`);
+    const expectedVersion = current.body.version;
+    const changedName = `Reviewed metadata ${RUN}`;
+    const changes = await Promise.all([changedName, 'Stale overwrite'].map(name => request(apiBase()).patch(`/api/v1/project-templates/${templateId}`).set('Authorization', `Bearer ${token}`).send({ name, expectedVersion })));
+    expect(changes.map(r => r.status).sort()).toEqual([200, 409]);
+    expect(changes.find(r => r.status === 409)?.body.code).toBe('TEMPLATE_VERSION_CONFLICT');
+    const fresh = await request(apiBase()).get(`/api/v1/project-templates/${templateId}`).set('Authorization', `Bearer ${token}`);
+    expect(fresh.body.name).toBe(fresh.body.definition.name);
+    expect(fresh.body.version).toBe(expectedVersion + 1);
+    const run = fresh.body.runs[0];
+    const pinned = await request(apiBase()).get(`/api/v1/projects/${run.projectId}/template-context`).set('Authorization', `Bearer ${token}`);
+    expect(pinned.body.definition.name).not.toBe(fresh.body.name);
+  });
+  it('starts templates with a maximum-length code without overflowing session or project identifiers', async () => {
+    const longCode = (`${'LONG'.repeat(12)}-${RUN}`).padEnd(64, 'X').slice(0, 64);
+    const created = await request(apiBase()).post('/api/v1/project-templates').set('Authorization', `Bearer ${token}`).send(definition(longCode)).expect(201);
+    const run = await request(apiBase()).post(`/api/v1/project-templates/${created.body.id}/start`).set('Authorization', `Bearer ${token}`).send({ name: 'Long code session', startDate: '2026-11-01', endDate: '2026-12-31', requestId: randomUUID() }).expect(201);
+    const [session] = await dataSource.query('SELECT code FROM internship_sessions WHERE id=@0', [run.body.sessionId]);
+    const [project] = await dataSource.query('SELECT code FROM projects WHERE id=@0', [run.body.projectId]);
+    expect(session.code.length).toBeLessThanOrEqual(64); expect(project.code.length).toBeLessThanOrEqual(64);
   });
 
 });

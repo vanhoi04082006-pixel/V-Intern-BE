@@ -268,6 +268,7 @@ export class KpiService {
       .createQueryBuilder('r')
       .where('r.periodId = :periodId', { periodId })
       .orderBy('r.finalScore', 'DESC')
+        .addOrderBy('r.id', 'ASC')
       .skip((q.page - 1) * q.pageSize)
       .take(q.pageSize);
     const [items, total] = await qb.getManyAndCount();

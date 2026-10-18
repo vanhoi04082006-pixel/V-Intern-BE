@@ -6,7 +6,7 @@ import { InterviewCategory } from '../question-selection';
  *
  * SECURITY: rubricJson holds expected-answer guidance + internal scoring
  * criteria. It is NEVER returned by any intern-facing API (spec 10/11/42)
- * and there is NO endpoint that dumps the bank (spec 11).
+ * Administrator-only bank APIs require permission plus effective admin role.
  */
 @Entity({ name: 'interview_questions' })
 @Index('IX_interview_questions_role_active', ['roleCode', 'isActive', 'sortOrder'])

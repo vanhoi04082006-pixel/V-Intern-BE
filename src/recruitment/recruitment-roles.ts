@@ -15,6 +15,7 @@ export interface RecruitmentRoleDef {
 export const RECRUITMENT_ROLES: readonly RecruitmentRoleDef[] = [
   { code: 'frontend', label: 'Frontend Developer' },
   { code: 'backend', label: 'Backend Developer' },
+  { code: 'fullstack', label: 'Fullstack Developer' },
   { code: 'qa', label: 'QA Tester' },
   { code: 'business_analyst', label: 'Business Analyst' },
 ] as const;

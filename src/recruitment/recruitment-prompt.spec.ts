@@ -10,7 +10,7 @@ import {
  */
 describe('recruitment prompt security (spec 31/32/71)', () => {
   it('uses a stable explicit prompt version (spec 71)', () => {
-    expect(RECRUITMENT_EVALUATION_PROMPT_VERSION).toBe('recruitment-evaluation-v1');
+    expect(RECRUITMENT_EVALUATION_PROMPT_VERSION).toBe('recruitment-evaluation-v3');
   });
 
   it('system prompt separates rubric from candidate content and forbids decisions', () => {
@@ -56,5 +56,10 @@ describe('recruitment prompt security (spec 31/32/71)', () => {
       answers: [{ position: 1, answerText: '' }],
     });
     expect((input.answers as Array<{ answerText: string }>)[0].answerText).toBe('');
+  });
+  it('includes the exact delivered question and internal bank scoring reference for evaluation only', () => {
+    const input = buildRecruitmentEvaluationInput({ sessionId: 's', roleCode: 'frontend', questions: [{ position: 1, category: 'technical', prompt: 'Actual delivered wording', clarification: 'Actual clarification', rubric: { expected: 'Internal expected reasoning', keywords: ['state'], scoringGuide: 'Concrete evidence', phase: 'technical' } }], answers: [{ position: 1, answerText: 'Candidate answer' }] });
+    expect(input.questions).toEqual([{ position: 1, category: 'technical', prompt: 'Actual delivered wording', clarification: 'Actual clarification', rubric: { expected: 'Internal expected reasoning', keywords: ['state'], scoringGuide: 'Concrete evidence', phase: 'technical' } }]);
+    expect(buildRecruitmentSystemPrompt('frontend')).toContain('expected');
   });
 });

@@ -1,3 +1,6 @@
+import { GithubModule } from './github/github.module';
+import { AdminSystemModule } from './admin/admin-system.module';
+import { SharingModule } from './sharing/sharing.module';
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { SubmissionsModule } from './submissions/submissions.module';
 import { TemplatesModule } from './templates/templates.module';
@@ -43,6 +46,7 @@ import { ReportsModule } from './reports/reports.module';
 
 @Module({
   imports: [
+    AdminSystemModule,
     ConfigModule.forRoot({ isGlobal: true, load: [() => appConfig(process.env)] }),
     ThrottlerModule.forRootAsync({
       inject: [ConfigService],
@@ -103,6 +107,8 @@ import { ReportsModule } from './reports/reports.module';
     EvaluationModule,
     PerformanceModule,
     ReportsModule,
+    SharingModule,
+    GithubModule,
     KpiModule,
     VirtualSalaryModule,
     CertificatesModule,

@@ -51,6 +51,12 @@ function makeService(overrides: {
 }
 
 describe('NotificationsService', () => {
+  it('matches UUID ownership and muted preferences regardless of SQL UUID casing', async () => {
+    const { service, inserted } = makeService({ prefs: [{ userId: 'ABCD', enabled: false }], notifications: [{ id: 'n-1', userId: 'EFAB' }] });
+    expect(await service.notifyUsers(['abcd', 'ABCD', 'efab', 'EFAB'], { type: 'task', title: 'Reviewed' })).toEqual({ sent: 1, skipped: 1 });
+    expect(inserted.map(row => row.userId)).toEqual(['efab']);
+    await expect(service.markRead('efab', 'n-1')).resolves.toBeUndefined();
+  });
   it('notifyUsers: missing preference row = enabled; disabled category = skipped', async () => {
     const { service, inserted } = makeService({
       prefs: [{ userId: 'u-off', category: 'system', enabled: false }],

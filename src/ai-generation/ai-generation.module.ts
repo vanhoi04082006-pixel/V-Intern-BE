@@ -1,4 +1,7 @@
 import { Module } from '@nestjs/common';
+import { Notification } from '../notifications/entities/notification.entity';
+import { NotificationPreference } from '../notifications/entities/notification-preference.entity';
+import { SessionMilestone } from '../sessions/entities/session-milestone.entity';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AiModule } from '../ai/ai.module';
 import { AuditModule } from '../audit/audit.module';
@@ -32,6 +35,9 @@ import { AiGenerationService } from './ai-generation.service';
       Task,
       User,
       AiGenerationBatch,
+      Notification,
+      NotificationPreference,
+      SessionMilestone,
     ]),
   ],
   controllers: [AiGenerationController],

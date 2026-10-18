@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Runner acceptance fixture</title>
+  </head>
+  <body>
+    <!-- Owned test fixture, never installed into a student's repository. -->
+    <button data-testid="note-new" id="new">New note</button>
+    <form id="form">
+      <label>Title<input id="title" data-testid="note-title" /></label>
+      <label
+        >Content<textarea id="content" data-testid="note-content"></textarea>
+      </label>
+      <button data-testid="note-save">Save</button>
+      <p data-testid="note-error" id="error"></p>
+    </form>
+    <main id="list"></main>
+    <script>
+      const validate = true;
+      let notes = JSON.parse(localStorage.getItem("notes") || "[]"),
+        selected = null;
+      const title = document.querySelector("#title"),
+        content = document.querySelector("#content");
+      function render() {
+        const list = document.querySelector("#list");
+        list.replaceChildren();
+        for (const note of notes) {
+          const article = document.createElement("article");
+          article.dataset.testid = "note-card";
+          const label = document.createElement("p");
+          label.textContent = note.title;
+          const edit = document.createElement("button");
+          edit.dataset.testid = "note-edit";
+          edit.textContent = "Edit";
+          edit.onclick = () => {
+            selected = note.id;
+            title.value = note.title;
+            content.value = note.content;
+          };
+          article.append(label, edit);
+          list.append(article);
+        }
+      }
+      document.querySelector("#new").onclick = () => {
+        selected = null;
+        title.value = "";
+        content.value = "";
+      };
+      document.querySelector("#form").onsubmit = (event) => {
+        event.preventDefault();
+        if (validate && !title.value.trim()) {
+          document.querySelector("#error").textContent = "A title is required";
+          return;
+        }
+        document.querySelector("#error").textContent = "";
+        const note = {
+          id: selected || crypto.randomUUID(),
+          title: title.value,
+          content: content.value,
+        };
+        notes = selected
+          ? notes.map((n) => (n.id === selected ? note : n))
+          : [...notes, note];
+        localStorage.setItem("notes", JSON.stringify(notes));
+        selected = note.id;
+        render();
+      };
+      render();
+    </script>
+  </body>
+</html>

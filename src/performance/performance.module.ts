@@ -12,6 +12,8 @@ import { TaskStatusHistory } from '../tasks/entities/task-status-history.entity'
 import { User } from '../users/entities/user.entity';
 import { PerformanceController, PerformanceInternController } from './performance.controller';
 import { PerformanceService } from './performance.service';
+import { PerformanceDirectoryService } from './performance-directory.service';
+import { StudentDetailService } from './student-detail.service';
 
 /** Phase 5 — Performance read model (spec 16-21): deterministic, DB-facts only. */
 @Module({
@@ -30,7 +32,7 @@ import { PerformanceService } from './performance.service';
     ]),
   ],
   controllers: [PerformanceController, PerformanceInternController],
-  providers: [PerformanceService],
+  providers: [PerformanceService, PerformanceDirectoryService, StudentDetailService],
   exports: [PerformanceService],
 })
 export class PerformanceModule {}

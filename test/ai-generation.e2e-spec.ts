@@ -1,3 +1,4 @@
+import { createDatabaseSql } from '../src/database/create-database-sql';
 import { createConnection } from 'node:net';
 import { randomUUID } from 'node:crypto';
 import { hash } from 'bcryptjs';
@@ -98,7 +99,7 @@ beforeAll(async () => {
     options: { useUTC: true, encrypt: (process.env.DB_ENCRYPT ?? 'false') !== 'false', trustServerCertificate: true }, logging: false,
   });
   await adminDs.initialize();
-  await adminDs.query(`IF DB_ID(N'${DB_NAME}') IS NULL CREATE DATABASE [${DB_NAME}];`);
+  await adminDs.query(createDatabaseSql(DB_NAME, process.env.DB_FILES_ROOT));
   await adminDs.destroy();
 
   const migDs = new DataSource({
@@ -258,10 +259,14 @@ describe('AI sprint/task generation', () => {
   it('confirms a reviewed draft, retries idempotently, rejects tampered drafts and strangers', async () => {
     const requestId = randomUUID();
     const draft = {
+      milestones: [{ key: 'demo', title: 'Integration demo', dueDate: '2026-11-10', taskKeys: ['api', 'ui'] }],
       sprints: [{
         name: 'Confirmed Sprint', goal: 'Ship it',
         startDate: '2026-11-01T00:00:00.000Z', endDate: '2026-11-14T00:00:00.000Z',
-        tasks: [{ title: 'Confirmed task', priority: 'medium', storyPoints: 2, suggestedRole: 'frontend', assigneeId: feId }],
+        tasks: [
+          { key: 'api', title: 'Confirmed task', priority: 'medium', storyPoints: 2, suggestedRole: 'frontend', assigneeId: feId, dueDate: '2026-11-04', expectedOutput: 'Validated endpoint', estimatedHours: 4, skillTags: ['REST'], acceptanceCriteria: ['Reject invalid input'] },
+          { key: 'ui', title: 'Dependent task', priority: 'medium', storyPoints: 3, suggestedRole: 'frontend', assigneeId: feId, dueDate: '2026-11-08', dependsOn: ['api'], expectedOutput: 'Working form', estimatedHours: 6, skillTags: ['React'], acceptanceCriteria: ['Submit valid form'] },
+        ],
       }],
     };
     const first = await request(apiBase()).post('/api/v1/ai-generations/sprint-plan/confirm').set('Authorization', `Bearer ${instructorA}`).send({
@@ -269,14 +274,32 @@ describe('AI sprint/task generation', () => {
     });
     expect(first.status).toBe(201);
     expect(first.body.sprintCount).toBe(1);
-    expect(first.body.taskCount).toBe(1);
+    expect(first.body.taskCount).toBe(2);
     expect(first.body.deduped).toBe(false);
+    const milestoneRows = await dataSource.query('SELECT title,status FROM session_milestones WHERE sessionId=@0', [sessionA]);
+    expect(milestoneRows).toEqual([{ title: 'Integration demo', status: 'pending' }]);
+    const storedSpecs = await dataSource.query('SELECT specJson FROM task_specs WHERE taskId=@0', [first.body.taskIds[1]]);
+    expect(JSON.parse(storedSpecs[0].specJson)).toMatchObject({ expectedOutput: 'Working form', estimatedHours: 6, skillTags: ['React'], dependencies: [{ key: 'api', taskId: first.body.taskIds[0] }], milestones: [{ key: 'demo' }] });
+    const sourcePath = `/api/v1/tasks/${first.body.taskIds[1]}/spec/source`;
+    const sourceSpec = await request(apiBase()).get(sourcePath).set('Authorization', `Bearer ${instructorA}`).expect(200);
+    expect(JSON.stringify(sourceSpec.body)).toBe(JSON.stringify(JSON.parse(storedSpecs[0].specJson)));
+    await request(apiBase()).get(sourcePath).set('Authorization', `Bearer ${instructorB}`).expect(403);
+    const blocked = await request(apiBase()).patch(`/api/v1/tasks/${first.body.taskIds[1]}`).set('Authorization', `Bearer ${instructorA}`).send({ status: 'doing' });
+    expect(blocked.status).toBe(409);
+    expect(blocked.body.code).toBe('TASK_DEPENDENCIES_PENDING');
+    for (const status of ['doing', 'review', 'done']) await request(apiBase()).patch(`/api/v1/tasks/${first.body.taskIds[0]}`).set('Authorization', `Bearer ${instructorA}`).send({ status }).expect(200);
+    const unchangedSource = await request(apiBase()).get(sourcePath).set('Authorization', `Bearer ${instructorA}`).expect(200);
+    expect(JSON.stringify(unchangedSource.body)).toBe(JSON.stringify(sourceSpec.body));
+    await request(apiBase()).patch(`/api/v1/tasks/${first.body.taskIds[1]}`).set('Authorization', `Bearer ${instructorA}`).send({ status: 'doing' }).expect(200);
     const replay = await request(apiBase()).post('/api/v1/ai-generations/sprint-plan/confirm').set('Authorization', `Bearer ${instructorA}`).send({
       projectId: projectA, sessionId: sessionA, draft, requestId,
     });
     expect(replay.status).toBe(201);
     expect(replay.body.deduped).toBe(true);
     expect(replay.body.sprintCount).toBe(1);
+    const notices = await dataSource.query("SELECT type,linkUrl FROM notifications WHERE userId=@0 AND type='session.plan_published'", [feId]);
+    expect(notices).toHaveLength(1);
+    expect(notices[0].linkUrl).toBe('/intern/work');
     const tampered = await request(apiBase()).post('/api/v1/ai-generations/sprint-plan/confirm').set('Authorization', `Bearer ${instructorA}`).send({
       projectId: projectA, sessionId: sessionA, draft: { sprints: [] }, requestId: randomUUID(),
     });

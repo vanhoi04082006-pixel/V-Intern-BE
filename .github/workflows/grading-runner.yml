@@ -1,0 +1,28 @@
+name: isolated-grading-runner
+on:
+  pull_request:
+    paths:
+      [
+        "grading-runner/**",
+        "src/code-review/**",
+        ".github/workflows/grading-runner.yml",
+      ]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  acceptance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Runner policy, HTTP and cleanup tests
+        working-directory: grading-runner
+        run: npm test
+      - name: Build pinned images and run valid/broken submissions in restricted containers
+        run: sh grading-runner/build-and-smoke.sh

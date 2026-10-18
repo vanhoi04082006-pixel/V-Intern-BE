@@ -185,7 +185,7 @@ function buildHarness(opts?: {
     create: jest.fn((_entity: unknown, x: unknown) => ({ id: 'task-new', ...(x as object) })),
     query: jest.fn(async (sql: string) => sql.includes('NEXT VALUE') ? [{ v: 100 }] : []),
   };
-  const dataSource = { transaction: jest.fn(async (cb: (m: unknown) => Promise<unknown>) => cb(em)) };
+  const dataSource = { query: jest.fn<Promise<Record<string, unknown>[]>, [string, unknown[]]>().mockResolvedValue([]), transaction: jest.fn(async (cb: (m: unknown) => Promise<unknown>) => cb(em)) };
 
   const service = new TasksService(
     tasksRepo as unknown as never,
@@ -271,6 +271,25 @@ describe('task code + focus helpers (spec 11/23)', () => {
 });
 
 describe('tasks.service — list scoping (spec 21/33)', () => {
+  it('loads sprint and repository display data once for only the authorized task page', async () => {
+    const h = buildHarness({ codes: ['tasks.view.own'] });
+    h.dataSource.query.mockResolvedValue([{ taskId: 'TASK-1', sprintId: 'SPRINT-1', sprintCode: 'SP-1', sprintName: 'Foundation', sprintStatus: 'active', repositoryStatus: 'ready', ownerLogin: 'teacher', repoName: 'vintern-foundation' }]);
+    const page = await h.service.list({ page: 1, pageSize: 8, mine: true }, PRINCIPAL);
+    expect(page.items[0]).toMatchObject({ sprint: { id: 'sprint-1', code: 'SP-1', name: 'Foundation', status: 'active' }, repository: { status: 'ready', fullName: 'teacher/vintern-foundation' } });
+    expect(h.dataSource.query).toHaveBeenCalledTimes(1);
+    expect(h.dataSource.query.mock.calls[0][1]).toEqual(['task-1']);
+    expect(JSON.stringify(page.items)).not.toMatch(/accessToken|refreshToken|leaseId/);
+  });
+
+  it('does not load delivery metadata when the authorized task page is empty', async () => {
+    const h = buildHarness({ codes: ['tasks.view.own'] });
+    const qb = h.tasksRepo.createQueryBuilder();
+    qb.getManyAndCount.mockResolvedValue([[], 0]);
+    h.tasksRepo.createQueryBuilder.mockReturnValue(qb);
+    expect((await h.service.list({ page: 1, pageSize: 8 }, PRINCIPAL)).items).toEqual([]);
+    expect(h.dataSource.query).not.toHaveBeenCalled();
+  });
+
   it('broad caller (tasks.view) is NOT force-scoped; explicit assigneeId filter passes through', async () => {
     const h = buildHarness({ codes: ['tasks.view'] });
     await h.service.list({ page: 1, pageSize: 20, assigneeId: 'intern-2' } as never, PRINCIPAL);

@@ -84,7 +84,7 @@ export class AiMentorController {
     @Body() dto: SendAiMentorMessageDto,
     @Req() req: Request,
   ) {
-    return this.aiMentorService.sendMessage(userId, id, dto.content, this.ctx(req, userId));
+    return this.aiMentorService.sendMessage(userId, id, dto.content, this.ctx(req, userId), dto.taskId);
   }
 
   @Post('conversations/:id/archive')

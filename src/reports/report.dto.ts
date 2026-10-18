@@ -8,6 +8,8 @@ export class CreateReportDto {
   @IsIn(REPORT_KINDS) kind!: ReportKind;
   @IsUUID() projectId!: string;
   @IsOptional() @IsUUID() sessionId?: string;
+  @IsOptional() @IsUUID() sprintId?: string;
+  @IsOptional() @IsUUID() studentId?: string;
   @IsOptional() @IsDateString() from?: string;
   @IsOptional() @IsDateString() to?: string;
 }

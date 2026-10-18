@@ -15,7 +15,7 @@ function question(id: string, category: 'technical' | 'soft'): SelectableQuestio
     category,
     difficulty: 'medium',
     prompt: `prompt-${id}`,
-    rubricJson: `{"secret":"${id}"}`,
+    rubricJson: JSON.stringify({ secret: id, phase: id.startsWith("s1") || id.startsWith("s2") ? "introduction" : "english" }),
   };
 }
 
@@ -28,30 +28,38 @@ function fullPool(): SelectableQuestion[] {
 
 /** Question selection policy (Phase 4 spec 14/15). */
 describe('question selection (spec 14/15)', () => {
-  it('approved distribution: exactly 8 = 5 technical + 3 soft', () => {
-    expect(INTERVIEW_QUESTION_COUNT).toBe(8);
-    expect(TECHNICAL_QUESTION_COUNT).toBe(5);
-    expect(SOFT_QUESTION_COUNT).toBe(3);
+  it('approved distribution: exactly 10 = 6 technical + 4 communication', () => {
+    expect(INTERVIEW_QUESTION_COUNT).toBe(10);
+    expect(TECHNICAL_QUESTION_COUNT).toBe(6);
+    expect(SOFT_QUESTION_COUNT).toBe(4);
   });
 
-  it('selects exactly 8 with 5 technical then 3 soft (documented composition)', () => {
+  it('selects 2 introductions, 6 technical, then 2 English questions', () => {
     const selected = selectSessionQuestions('frontend', fullPool());
-    expect(selected).toHaveLength(8);
-    expect(selected.filter((q) => q.category === 'technical')).toHaveLength(5);
-    expect(selected.filter((q) => q.category === 'soft')).toHaveLength(3);
+    expect(selected).toHaveLength(10);
+    expect(selected.filter((q) => q.category === 'technical')).toHaveLength(6);
+    expect(selected.filter((q) => q.category === 'soft')).toHaveLength(4);
     // positions are 1..8, unique
-    expect(selected.map((q) => q.position)).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
+    expect(selected.map((q) => q.position)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
     // composition order: technical first, then soft
-    expect(selected.slice(0, 5).every((q) => q.category === 'technical')).toBe(true);
-    expect(selected.slice(5).every((q) => q.category === 'soft')).toBe(true);
+    expect(selected.slice(2, 8).every((q) => q.category === 'technical')).toBe(true);
+    expect([...selected.slice(0, 2), ...selected.slice(8)].every((q) => q.category === 'soft')).toBe(true);
   });
 
   it('never selects duplicates', () => {
     for (let run = 0; run < 20; run += 1) {
       const selected = selectSessionQuestions('backend', fullPool());
       const ids = selected.map((q) => q.questionId);
-      expect(new Set(ids).size).toBe(8);
+      expect(new Set(ids).size).toBe(10);
     }
+  });
+  it('balances technical difficulty when the role bank has enough questions at every level', () => {
+    const pool = fullPool().filter(q => q.category === 'soft');
+    for (const difficulty of ['easy', 'medium', 'hard']) {
+      for (let n = 0; n < 6; n++) pool.push({ ...question(`${difficulty}-${n}`, 'technical'), difficulty });
+    }
+    const selected = selectSessionQuestions('frontend', pool).filter(q => q.category === 'technical');
+    expect(selected.map(q => q.difficulty)).toEqual(['easy', 'easy', 'medium', 'medium', 'medium', 'hard']);
   });
 
   it('samples different compositions across runs (retake variety, spec 51)', () => {

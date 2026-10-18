@@ -1,0 +1,12 @@
+{
+  "name": "vintern-isolated-grading-runner",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "start": "node server.mjs"
+  }
+}

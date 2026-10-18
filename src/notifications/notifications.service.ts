@@ -61,7 +61,7 @@ export class NotificationsService {
         message: 'Notification not found.',
       });
     }
-    if (notification.userId !== userId) {
+    if (notification.userId.toLowerCase() !== userId.toLowerCase()) {
       throw new ForbiddenException({
         statusCode: 403,
         code: 'NOTIFICATION_FORBIDDEN',
@@ -109,12 +109,12 @@ export class NotificationsService {
     userIds: string[],
     payload: NotifyUsersInput,
   ): Promise<{ sent: number; skipped: number }> {
-    const unique = [...new Set(userIds)].filter((id) => id.length > 0);
+    const unique = [...new Set(userIds.filter(Boolean).map(id => id.toLowerCase()))];
     if (unique.length === 0) return { sent: 0, skipped: 0 };
 
     const category = payload.category ?? payload.type;
     const rows = await this.prefs.find({ where: { userId: In(unique), category } });
-    const disabled = new Set(rows.filter((r) => !r.enabled).map((r) => r.userId));
+    const disabled = new Set(rows.filter((r) => !r.enabled).map((r) => r.userId.toLowerCase()));
     const allowed = unique.filter((id) => !disabled.has(id));
     const skipped = unique.length - allowed.length;
 

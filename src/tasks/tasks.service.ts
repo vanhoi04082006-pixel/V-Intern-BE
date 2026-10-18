@@ -1,3 +1,4 @@
+import { assertTaskDependencies } from './task-dependencies';
 import {
   ConflictException,
   ForbiddenException,
@@ -78,6 +79,7 @@ export interface TaskResponse {
   updatedAt: Date;
   project?: { id: string; code: string; name: string; status: string };
   sprint?: { id: string; code: string; name: string; status: string };
+  repository?: { status: string; fullName: string } | null;
   assignee?: { id: string; displayName: string; email: string };
 }
 
@@ -289,7 +291,29 @@ export class TasksService {
     qb.addOrderBy('t.createdAt', 'DESC');
     qb.skip((q.page - 1) * q.pageSize).take(q.pageSize);
     const [items, total] = await qb.getManyAndCount();
-    return { items: items.map((t) => toTaskResponse(t)), total };
+    return { items: await this.listDelivery(items), total };
+  }
+
+  /** Enrich only this already authorized page; never fetch GitHub per card. */
+  private async listDelivery(tasks: Task[]): Promise<TaskResponse[]> {
+    if (!tasks.length) return [];
+    const rows: Array<{ taskId: string; sprintId: string | null; sprintCode: string; sprintName: string; sprintStatus: string; repositoryStatus: string | null; ownerLogin: string; repoName: string }> = await this.dataSource.query(
+      `SELECT t.id AS taskId,sp.id AS sprintId,sp.code AS sprintCode,sp.name AS sprintName,sp.status AS sprintStatus,
+        r.status AS repositoryStatus,r.ownerLogin,r.repoName
+       FROM tasks t LEFT JOIN sprints sp ON sp.id=t.sprintId
+       LEFT JOIN session_repositories r ON r.sessionId=sp.sessionId
+       WHERE t.deletedAt IS NULL AND t.id IN (${tasks.map((_, i) => `@${i}`).join(',')})`,
+      tasks.map(task => task.id),
+    );
+    const byTask = new Map(rows.map(row => [row.taskId.toLowerCase(), row]));
+    return tasks.map(task => {
+      const row = byTask.get(task.id.toLowerCase());
+      return {
+        ...toTaskResponse(task),
+        ...(row?.sprintId ? { sprint: { id: row.sprintId.toLowerCase(), code: row.sprintCode, name: row.sprintName, status: row.sprintStatus } } : {}),
+        repository: row?.repositoryStatus ? { status: row.repositoryStatus, fullName: `${row.ownerLogin}/${row.repoName}` } : null,
+      };
+    });
   }
 
   // ── detail (spec 33: assignee or tasks.view/manage holders) ─────────────
@@ -581,6 +605,8 @@ export class TasksService {
         fields.push('dueDate');
       }
 
+      await this.assertCodeWorkflowTransition(em, task, patch.status);
+      if (patch.status && patch.status !== task.status && patch.status !== 'todo') await assertTaskDependencies(em, task);
       const statusResult = this.validateAndApplyStatus(task, patch.status, { internSelf: false });
 
       await this.saveOrConflict(em, task);
@@ -664,6 +690,8 @@ export class TasksService {
       }
 
       this.assertExpectedVersion(task, patch.expectedVersion);
+      await this.assertCodeWorkflowTransition(em, task, patch.status);
+      if (patch.status && patch.status !== task.status && patch.status !== 'todo') await assertTaskDependencies(em, task);
       const statusResult = this.validateAndApplyStatus(task, patch.status, { internSelf: true });
       const doneOverride = statusResult.changed && statusResult.to === 'done';
       if (patch.progress !== undefined && !doneOverride) {
@@ -940,6 +968,12 @@ export class TasksService {
       }
       throw err;
     }
+  }
+
+  private async assertCodeWorkflowTransition(em: EntityManager, task: Task, target?: TaskStatus): Promise<void> {
+    if (!target || target === task.status || !['review', 'done'].includes(target) || !task.sprintId) return;
+    const workflow = await em.query('SELECT TOP(1) tr.id FROM template_runs tr JOIN sprints sp ON sp.sessionId=tr.sessionId AND sp.projectId=tr.projectId WHERE sp.id=@0', [task.sprintId]);
+    if (workflow.length) throw new ConflictException({ code: 'CODE_SUBMISSION_REQUIRED', message: 'Task của phiên dự án phải được nộp code và giảng viên xác nhận qua mục Bài nộp; không chuyển sang review/done trực tiếp.' });
   }
 
   private async assertNoPendingSubmission(em: EntityManager, taskId: string): Promise<void> {

@@ -1,9 +1,19 @@
+import { AddInterviewFollowUps1761945600000 } from './migrations/1761945600000-AddInterviewFollowUps';
+import { SnapshotCertificateCompletion1762377600000 } from './migrations/1762377600000-SnapshotCertificateCompletion';
+import { AddGithubTokenRotation1762464000000 } from './migrations/1762464000000-AddGithubTokenRotation';
+import { BackfillQuestionMetadata1762032000000 } from './migrations/1762032000000-BackfillQuestionMetadata';
+import { AddGithubWebhooks1762118400000 } from './migrations/1762118400000-AddGithubWebhooks';
+import { CreateGithubDelivery1761859200000 } from './migrations/1761859200000-CreateGithubDelivery';
+import { CreateInterviewConversation1761772800000 } from './migrations/1761772800000-CreateInterviewConversation';
+import { CreateSessionSharing1761686400000 } from './migrations/1761686400000-CreateSessionSharing';
 import 'reflect-metadata';
 import 'dotenv/config';
 import { CreateClassLessons1761081600000 } from './migrations/1761081600000-CreateClassLessons';
 import { CreateImportedReviews1760995200000 } from './migrations/1760995200000-CreateImportedReviews';
 import { AddRoleManagement1760908800000 } from './migrations/1760908800000-AddRoleManagement';
 import { DataSource } from 'typeorm';
+import { AddQuestionVersions1762204800000 } from './migrations/1762204800000-AddQuestionVersions';
+import { CreateLearningAlertDispatches1762291200000 } from './migrations/1762291200000-CreateLearningAlertDispatches';
 import { CreateReportSnapshots1761168000000 } from './migrations/1761168000000-CreateReportSnapshots';
 import { CreateProjectRoleSlots1761254400000 } from './migrations/1761254400000-CreateProjectRoleSlots';
 import { CreateAiGenerationBatches1761340800000 } from './migrations/1761340800000-CreateAiGenerationBatches';
@@ -67,5 +77,15 @@ export default new DataSource({
     AddTemplateLibraryColumns1761427200000,
     AddTemplateRunRequest1761513600000,
     AddAiPlanLifecycle1761600000000,
+    CreateSessionSharing1761686400000,
+    CreateInterviewConversation1761772800000,
+    CreateGithubDelivery1761859200000,
+    AddInterviewFollowUps1761945600000,
+    BackfillQuestionMetadata1762032000000,
+    AddGithubWebhooks1762118400000,
+    AddQuestionVersions1762204800000,
+    CreateLearningAlertDispatches1762291200000,
+    SnapshotCertificateCompletion1762377600000,
+    AddGithubTokenRotation1762464000000,
   ],
 });

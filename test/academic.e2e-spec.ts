@@ -1,3 +1,4 @@
+import { createDatabaseSql } from '../src/database/create-database-sql';
 import { createConnection } from 'node:net';
 import { hash } from 'bcryptjs';
 import { INestApplication, ValidationPipe, VersioningType } from '@nestjs/common';
@@ -74,7 +75,7 @@ beforeAll(async () => {
     logging: false,
   });
   await adminDs.initialize();
-  await adminDs.query(`IF DB_ID(N'${DB_NAME}') IS NULL CREATE DATABASE [${DB_NAME}];`);
+  await adminDs.query(createDatabaseSql(DB_NAME, process.env.DB_FILES_ROOT));
   await adminDs.destroy();
 
   // 2) Apply REAL migrations (Phase 1 + Phase 2) — migrations are the only schema mechanism.
@@ -200,6 +201,7 @@ describe('Phase 2 academic core e2e — Waiting → Active (spec 30)', () => {
     // (documented in the Phase 3 contract docs) — the unassigned shape is:
     expect(res.body).toEqual({
       status: 'unassigned',
+      hasAssignmentHistory: (await dataSource.query('SELECT COUNT(*) n FROM assignments WHERE internId=(SELECT id FROM users WHERE email=@0)', ['e2e-intern@vintern.test']))[0].n > 0,
       // Phase 4 (spec 46/47): the workspace contract now ALWAYS carries the
       // authoritative recruitment lifecycle block (fixture-seeded PASSED).
       recruitment: {
@@ -383,6 +385,7 @@ describe('Phase 2 academic core e2e — Waiting → Active (spec 30)', () => {
     // Documented Phase 2 contract: workspace reflects ACTIVE assignment state;
     // a completed assignment returns the intern to unassigned (available again).
     expect(workspace.body.status).toBe('unassigned');
+    expect(workspace.body.hasAssignmentHistory).toBe(true);
 
     // Double completion is an illegal transition → 409:
     const again = await request(apiBase())

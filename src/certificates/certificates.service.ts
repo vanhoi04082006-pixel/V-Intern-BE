@@ -97,29 +97,28 @@ export class CertificatesService {
     });
     if (!policy) throw conflict('CERTIFICATE_POLICY_MISSING', 'The certificate policy is not configured.');
 
-    const facts = await this.loadFacts(input.userId);
-    const eligibility = evaluateCertificateEligibility(
-      {
-        recruitmentPassed: facts.recruitmentPassed,
-        hasCompletedAssignment: facts.hasCompletedAssignment,
-        latestFinalizedEvaluationScore: facts.latestFinalizedEvaluationScore,
-        latestFinalizedKpiScore: facts.latestFinalizedKpiScore,
-      },
-      {
-        minEvaluationScore: Number(policy.minEvaluationScore),
-        minKpiScore: Number(policy.minKpiScore),
-        requireRecruitmentPassed: policy.requireRecruitmentPassed,
-        requireCompletedAssignment: policy.requireCompletedAssignment,
-      },
-    );
-    if (!eligibility.eligible) {
-      throw conflict('CERTIFICATE_NOT_ELIGIBLE', 'The intern does not satisfy the certificate policy.', {
-        reasons: eligibility.reasons.filter((r) => !r.satisfied),
-      });
-    }
-
     try {
       return await this.dataSource.transaction(async (em) => {
+        const facts = await this.loadFacts(input.userId, em);
+        const eligibility = evaluateCertificateEligibility(
+          {
+            recruitmentPassed: facts.recruitmentPassed,
+            hasCompletedAssignment: facts.hasCompletedAssignment,
+            latestFinalizedEvaluationScore: facts.latestFinalizedEvaluationScore,
+            latestFinalizedKpiScore: facts.latestFinalizedKpiScore,
+          },
+          {
+            minEvaluationScore: Number(policy.minEvaluationScore),
+            minKpiScore: Number(policy.minKpiScore),
+            requireRecruitmentPassed: policy.requireRecruitmentPassed,
+            requireCompletedAssignment: policy.requireCompletedAssignment,
+          },
+        );
+        if (!eligibility.eligible) {
+          throw conflict('CERTIFICATE_NOT_ELIGIBLE', 'The intern does not satisfy the certificate policy.', {
+            reasons: eligibility.reasons.filter((r) => !r.satisfied),
+          });
+        }
         const duplicate = await em.getRepository(Certificate).findOne({
           where: { userId: input.userId, policyCode: policy.code, policyVersion: policy.version },
         });
@@ -136,8 +135,8 @@ export class CertificatesService {
             certificateNumber,
             verificationCode,
             userId: input.userId,
-            projectId: facts.latestAssignment?.projectId ?? null,
-            sessionId: facts.latestAssignment?.sessionId ?? null,
+            projectId: facts.completedAssignment?.projectId ?? null,
+            sessionId: facts.completedAssignment?.sessionId ?? null,
             assignmentId: facts.completedAssignment?.id ?? null,
             evaluationId: facts.latestEvaluation?.id ?? null,
             kpiResultId: facts.latestKpiResult?.id ?? null,
@@ -145,6 +144,11 @@ export class CertificatesService {
             policyVersion: policy.version,
             status: 'issued',
             issuedAt,
+            completedAt: facts.completedAssignment?.completedAt ?? null,
+            holderNameSnapshot: (await em.getRepository(User).findOneBy({ id: input.userId }))?.displayName ?? null,
+            roleLabelSnapshot: facts.profile?.selectedRole ? recruitmentRoleLabel(facts.profile.selectedRole) : null,
+            projectNameSnapshot: facts.completedAssignment?.projectId ? (await em.getRepository(Project).findOneBy({ id: facts.completedAssignment.projectId }))?.name ?? null : null,
+            sessionNameSnapshot: facts.completedAssignment?.sessionId ? (await em.getRepository(InternshipSession).findOneBy({ id: facts.completedAssignment.sessionId }))?.name ?? null : null,
             issuedById: actorId,
           }),
         );
@@ -245,18 +249,13 @@ export class CertificatesService {
     holderName: string | null;
     role: string | null;
     projectName: string | null;
+    sessionName: string | null;
+    completedAt: Date | null;
     issuedAt: Date;
     revokedAt?: Date;
   } | null> {
     const certificate = await this.certificates.findOne({ where: { verificationCode: code } });
     if (!certificate) return null;
-    const [user, profile] = await Promise.all([
-      this.dataSource.getRepository(User).findOne({ where: { id: certificate.userId } }),
-      this.dataSource.getRepository(RecruitmentProfile).findOne({ where: { userId: certificate.userId } }),
-    ]);
-    const project = certificate.projectId
-      ? await this.dataSource.getRepository(Project).findOne({ where: { id: certificate.projectId } })
-      : null;
     if (certificate.status === 'revoked') {
       return {
         valid: false,
@@ -265,6 +264,8 @@ export class CertificatesService {
         holderName: null,
         role: null,
         projectName: null,
+        sessionName: null,
+        completedAt: null,
         issuedAt: certificate.issuedAt,
         revokedAt: certificate.revokedAt ?? undefined,
       };
@@ -273,9 +274,11 @@ export class CertificatesService {
       valid: true,
       status: 'issued',
       certificateNumber: certificate.certificateNumber,
-      holderName: user?.displayName ?? null,
-      role: profile?.selectedRole ? recruitmentRoleLabel(profile.selectedRole) : null,
-      projectName: project?.name ?? null,
+      holderName: certificate.holderNameSnapshot,
+      role: certificate.roleLabelSnapshot,
+      projectName: certificate.projectNameSnapshot,
+      sessionName: certificate.sessionNameSnapshot,
+      completedAt: certificate.completedAt,
       issuedAt: certificate.issuedAt,
     };
   }
@@ -323,23 +326,14 @@ export class CertificatesService {
         revokedAt: certificate.revokedAt,
       });
     }
-    const [user, profile] = await Promise.all([
-      this.dataSource.getRepository(User).findOne({ where: { id: certificate.userId } }),
-      this.dataSource.getRepository(RecruitmentProfile).findOne({ where: { userId: certificate.userId } }),
-    ]);
-    const project = certificate.projectId
-      ? await this.dataSource.getRepository(Project).findOne({ where: { id: certificate.projectId } })
-      : null;
-    const session = certificate.sessionId
-      ? await this.dataSource.getRepository(InternshipSession).findOne({ where: { id: certificate.sessionId } })
-      : null;
     const buffer = await this.pdfService.render({
       certificateNumber: certificate.certificateNumber,
       verificationCode: certificate.verificationCode,
-      holderName: user?.displayName ?? 'Người thực tập',
-      roleLabel: profile?.selectedRole ? recruitmentRoleLabel(profile.selectedRole) : null,
-      projectName: project?.name ?? null,
-      sessionName: session?.name ?? null,
+      holderName: certificate.holderNameSnapshot ?? 'Người thực tập',
+      roleLabel: certificate.roleLabelSnapshot,
+      projectName: certificate.projectNameSnapshot,
+      sessionName: certificate.sessionNameSnapshot,
+      completedAt: certificate.completedAt,
       policyCode: certificate.policyCode,
       policyVersion: certificate.policyVersion,
       issuedAt: certificate.issuedAt,
@@ -390,22 +384,16 @@ export class CertificatesService {
   }
 
   /** All persisted FACTS eligibility needs (spec 42) — no invented values. */
-  private async loadFacts(userId: string) {
-    const profile = await this.dataSource.getRepository(RecruitmentProfile).findOne({ where: { userId } });
-    const completedAssignment = await this.dataSource
+  private async loadFacts(userId: string, em: EntityManager = this.dataSource.manager) {
+    const profile = await em.getRepository(RecruitmentProfile).findOne({ where: { userId } });
+    const completedAssignment = await em
       .getRepository(Assignment)
       .createQueryBuilder('a')
       .where('a.internId = :userId', { userId })
       .andWhere('a.status = :status', { status: 'completed' })
       .orderBy('a.completedAt', 'DESC')
       .getOne();
-    const latestAssignment = await this.dataSource
-      .getRepository(Assignment)
-      .createQueryBuilder('a')
-      .where('a.internId = :userId', { userId })
-      .orderBy('a.assignedAt', 'DESC')
-      .getOne();
-    const latestEvaluation = await this.dataSource
+    const latestEvaluation = await em
       .getRepository(Evaluation)
       .createQueryBuilder('e')
       .where('e.internId = :userId', { userId })
@@ -414,7 +402,7 @@ export class CertificatesService {
       .getOne();
     // Finalized KPI = result of a FINALIZED period (spec 42) — latest by
     // calculation time; insufficient_data rows never qualify (null score).
-    const latestKpiResult = await this.dataSource
+    const latestKpiResult = await em
       .getRepository(KpiResult)
       .createQueryBuilder('r')
       .innerJoin(KpiPeriod, 'p', 'p.id = r.periodId')
@@ -427,7 +415,7 @@ export class CertificatesService {
       recruitmentPassed: profile ? profile.status === 'passed' : null,
       hasCompletedAssignment: Boolean(completedAssignment),
       completedAssignment,
-      latestAssignment,
+      profile,
       latestEvaluation,
       latestEvaluationScore: latestEvaluation ? Number(latestEvaluation.overallScore) : null,
       latestKpiResult,

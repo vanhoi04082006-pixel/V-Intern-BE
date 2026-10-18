@@ -2,10 +2,18 @@ import { Type } from 'class-transformer';
 import { ArrayMaxSize, ArrayMinSize, ArrayUnique, IsArray, IsDateString, IsIn, IsInt, IsOptional, IsString, IsUUID, Length, Max, MaxLength, Min, ValidateNested } from 'class-validator';
 import { PaginationQueryDto } from '../common/pagination/pagination-query.dto';
 export class TemplateTaskDto {
+  @IsOptional() @IsString() @Length(1, 64) key?: string;
+  @IsOptional() @IsArray() @ArrayMaxSize(20) @ArrayUnique() @IsString({ each: true }) @MaxLength(64, { each: true }) dependsOn?: string[];
+  @IsOptional() @IsIn(['low', 'medium', 'high', 'urgent']) priority?: string;
+  @IsOptional() @IsIn(['easy', 'medium', 'hard']) complexity?: string;
+  @IsOptional() @IsInt() @Min(1) @Max(160) estimatedHours?: number;
+  @IsOptional() @IsInt() @Min(1) @Max(540) recommendedOrder?: number;
+  @IsOptional() @IsArray() @ArrayMaxSize(20) @IsString({ each: true }) @MaxLength(64, { each: true }) skillTags?: string[];
+  @IsOptional() @IsString() @MaxLength(1000) expectedOutput?: string;
   @IsString() @Length(1, 256) title!: string;
   @IsString() @Length(10, 4000) requirements!: string;
   @IsArray() @ArrayMinSize(1) @ArrayMaxSize(20) @IsString({ each: true }) @MaxLength(256, { each: true }) dod!: string[];
-  @IsIn(['frontend','backend','qa','business_analyst','devops']) role!: string;
+  @IsIn(['frontend','backend','fullstack','qa','business_analyst','devops']) role!: string;
   @IsInt() @Min(1) @Max(100) storyPoints!: number;
 }
 export class TemplateSprintDto {
@@ -27,6 +35,19 @@ export class TemplateRoleDto {
   @IsOptional() @IsArray() @ArrayMaxSize(30) @IsString({ each: true }) @MaxLength(128, { each: true }) requiredSkills?: string[];
   @IsOptional() @IsArray() @ArrayMaxSize(30) @IsString({ each: true }) @MaxLength(128, { each: true }) recommendedSkills?: string[];
   @IsOptional() @IsIn(['junior', 'middle', 'senior', 'any']) level?: string;
+  @IsOptional() @IsArray() @ArrayMaxSize(20) @IsString({ each: true }) @MaxLength(512, { each: true }) responsibilities?: string[];
+}
+export class TemplateArchitectureDto {
+  @IsString() @Length(10, 2000) overview!: string;
+  @IsArray() @ArrayMaxSize(30) @IsString({ each: true }) @MaxLength(512, { each: true }) entities!: string[];
+  @IsArray() @ArrayMaxSize(40) @IsString({ each: true }) @MaxLength(512, { each: true }) apiSuggestions!: string[];
+  @IsArray() @ArrayMinSize(1) @ArrayMaxSize(30) @IsString({ each: true }) @MaxLength(512, { each: true }) frontendPages!: string[];
+}
+export class TemplateMilestoneDto {
+  @IsString() @Length(1, 128) title!: string;
+  @IsInt() @Min(1) @Max(1620) day!: number;
+  @IsArray() @ArrayMinSize(1) @ArrayMaxSize(60) @ArrayUnique() @IsString({ each: true }) @MaxLength(64, { each: true }) taskKeys!: string[];
+  @IsString() @Length(10, 1000) acceptance!: string;
 }
 export class TemplateOutputsDto {
   @IsOptional() @IsArray() @ArrayMaxSize(30) @IsString({ each: true }) @MaxLength(512, { each: true }) deliverables?: string[];
@@ -37,11 +58,18 @@ export class TemplateAcceptanceDto {
   @IsOptional() @IsArray() @ArrayMaxSize(20) @IsString({ each: true }) @MaxLength(512, { each: true }) qualityGates?: string[];
 }
 export class CreateTemplateDto {
+  @IsOptional() @IsString() @Length(2, 128) slug?: string;
+  @IsOptional() @IsInt() @Min(1) @Max(1620) estimatedDurationDays?: number;
+  @IsOptional() @IsInt() @Min(1) @Max(50) recommendedTeamSize?: number;
+  @IsOptional() @IsArray() @ArrayMaxSize(30) @IsString({ each: true }) @MaxLength(1000, { each: true }) businessRules?: string[];
+  @IsOptional() @ValidateNested() @Type(() => TemplateArchitectureDto) architecture?: TemplateArchitectureDto;
+  @IsOptional() @IsArray() @ArrayMaxSize(30) @ValidateNested({ each: true }) @Type(() => TemplateMilestoneDto) milestones?: TemplateMilestoneDto[];
+  @IsOptional() @IsString() @Length(10, 2000) expectedOutcome?: string;
   @IsString() @Length(2, 256) name!: string;
   @IsString() @Length(10, 4000) description!: string;
   @IsIn(['beginner','intermediate','advanced']) difficulty!: 'beginner' | 'intermediate' | 'advanced';
   @IsArray() @ArrayMinSize(1) @ArrayMaxSize(20) @ArrayUnique() @IsString({ each: true }) @MaxLength(64, { each: true }) techStack!: string[];
-  @IsArray() @ArrayMinSize(1) @ArrayMaxSize(5) @ArrayUnique() @IsIn(['frontend','backend','qa','business_analyst','devops'], { each: true }) roles!: string[];
+  @IsArray() @ArrayMinSize(1) @ArrayMaxSize(6) @ArrayUnique() @IsIn(['frontend','backend','fullstack','qa','business_analyst','devops'], { each: true }) roles!: string[];
   @IsArray() @ArrayMinSize(1) @ArrayMaxSize(30) @IsString({ each: true }) @MaxLength(256, { each: true }) modules!: string[];
   @IsArray() @ArrayMinSize(1) @ArrayMaxSize(18) @ValidateNested({ each: true }) @Type(() => TemplateSprintDto) sprints!: TemplateSprintDto[];
   @IsArray() @ArrayMinSize(1) @ArrayMaxSize(20) @IsString({ each: true }) @MaxLength(256, { each: true }) dod!: string[];
@@ -56,7 +84,7 @@ export class CreateTemplateDto {
   @IsOptional() @IsArray() @ArrayMaxSize(20) @IsString({ each: true }) @MaxLength(512, { each: true }) scopeOut?: string[];
   @IsOptional() @IsArray() @ArrayMaxSize(40) @IsString({ each: true }) @MaxLength(1000, { each: true }) functionalRequirements?: string[];
   @IsOptional() @IsArray() @ArrayMaxSize(20) @IsString({ each: true }) @MaxLength(1000, { each: true }) nonFunctionalRequirements?: string[];
-  @IsOptional() @IsArray() @ArrayMaxSize(5) @ValidateNested({ each: true }) @Type(() => TemplateRoleDto) roleDetails?: TemplateRoleDto[];
+  @IsOptional() @IsArray() @ArrayMaxSize(6) @ValidateNested({ each: true }) @Type(() => TemplateRoleDto) roleDetails?: TemplateRoleDto[];
   @IsOptional() @ValidateNested() @Type(() => TemplateOutputsDto) expectedOutputs?: TemplateOutputsDto;
   @IsOptional() @ValidateNested() @Type(() => TemplateAcceptanceDto) acceptance?: TemplateAcceptanceDto;
 }
@@ -74,6 +102,7 @@ export class QueryTemplatesDto extends PaginationQueryDto {
   @IsOptional() @IsIn(['createdAt', 'name', 'code']) sort?: string;
 }
 export class UpdateTemplateDto {
+  @IsOptional() @IsInt() @Min(1) expectedVersion?: number;
   @IsOptional() @IsString() @Length(2, 256) name?: string;
   @IsOptional() @IsString() @MaxLength(64) category?: string;
   @IsOptional() @IsIn(['beginner', 'intermediate', 'advanced']) difficulty?: string;

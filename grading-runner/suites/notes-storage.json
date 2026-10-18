@@ -1,0 +1,32 @@
+[
+  {
+    "name": "Persist note across reload",
+    "kind": "browser",
+    "steps": [
+      { "action": "click", "testId": "note-new" },
+      {
+        "action": "fill",
+        "testId": "note-title",
+        "value": "Persisted note {{nonce}}"
+      },
+      {
+        "action": "fill",
+        "testId": "note-content",
+        "value": "Reload must retain this note"
+      },
+      { "action": "click", "testId": "note-save" },
+      { "action": "reload" },
+      {
+        "action": "text",
+        "testId": "note-card",
+        "value": "Persisted note {{nonce}}"
+      },
+      { "action": "click", "testId": "note-edit" },
+      {
+        "action": "value",
+        "testId": "note-content",
+        "value": "Reload must retain this note"
+      }
+    ]
+  }
+]

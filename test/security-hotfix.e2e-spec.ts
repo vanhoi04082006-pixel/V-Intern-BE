@@ -1,3 +1,4 @@
+import { createDatabaseSql } from '../src/database/create-database-sql';
 import { createConnection } from 'node:net';
 import { hash } from 'bcryptjs';
 import { INestApplication, ValidationPipe, VersioningType } from '@nestjs/common';
@@ -26,7 +27,7 @@ import { ensureRecruitedProfile, userIdByEmail } from './recruitment-fixtures';
  * - Role-grant policy: non-admin holders of users.create/groups.manage cannot
  *   convey permissions they do not hold (403 ROLE_GRANT_FORBIDDEN).
  * - Submission review is scoped to the managing mentor + owned session (403
- *   SUBMISSION_SCOPE_FORBIDDEN cross-scope).
+ *   TASK_ACCESS_DENIED cross-scope before review processing).
  * - Project mentorId cannot be reassigned by non-admins (403 PROJECT_MENTOR_FORBIDDEN).
  * - AI generation draft endpoint throttles bursts (429) while staying usable.
  *
@@ -88,7 +89,7 @@ beforeAll(async () => {
     options: { useUTC: true, encrypt: (process.env.DB_ENCRYPT ?? 'false') !== 'false', trustServerCertificate: true }, logging: false,
   });
   await adminDs.initialize();
-  await adminDs.query(`IF DB_ID(N'${DB_NAME}') IS NULL CREATE DATABASE [${DB_NAME}];`);
+  await adminDs.query(createDatabaseSql(DB_NAME, process.env.DB_FILES_ROOT));
   await adminDs.destroy();
 
   const migDs = new DataSource({
@@ -300,7 +301,7 @@ describe('P0 security hotfix', () => {
       rubric, feedback: 'Trying to review a foreign submission.', taskVersion,
     });
     expect(foreign.status).toBe(403);
-    expect(foreign.body.code).toBe('SUBMISSION_SCOPE_FORBIDDEN');
+    expect(foreign.body.code).toBe('TASK_ACCESS_DENIED');
 
     const self = await request(apiBase()).post(`/api/v1/submissions/${submissionId}/review`).set('Authorization', `Bearer ${intern1}`).send({
       rubric, feedback: 'Self review attempt by the submitter.', taskVersion,

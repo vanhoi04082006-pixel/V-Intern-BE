@@ -1,3 +1,5 @@
+import { InterviewConversationService } from './interview-conversation.service';
+import { InterviewFollowUpService } from './interview-follow-up.service';
 import { Body, Controller, Get, HttpCode, Param, ParseUUIDPipe, Patch, Post, Put, Query, Req, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
@@ -12,6 +14,7 @@ import {
 import { RecruitmentService } from './recruitment.service';
 import { RecruitmentEvaluationService } from './recruitment-evaluation.service';
 import { SaveAnswerDto, SelectRoleDto, QueryCandidatesDto } from './dto/recruitment.dto';
+import { PaginationQueryDto } from '../common/pagination/pagination-query.dto';
 
 /**
  * Phase 4 recruitment APIs (spec 41-45).
@@ -34,6 +37,8 @@ export class RecruitmentController {
     private readonly recruitmentService: RecruitmentService,
     private readonly interviewService: InterviewService,
     private readonly evaluationService: RecruitmentEvaluationService,
+    private readonly conversation: InterviewConversationService,
+    private readonly followUps: InterviewFollowUpService,
   ) {}
 
   private ctx(req: Request, actorId: string) {
@@ -45,6 +50,13 @@ export class RecruitmentController {
   @ApiOperation({ summary: 'My recruitment profile: status, attempts, cooldown, latest result (spec 41)' })
   async me(@CurrentUser('userId') userId: string) {
     return this.recruitmentService.me(userId);
+  }
+
+  @Get('me/interviews')
+  @RequirePermissions('recruitment.view.own')
+  @ApiOperation({ summary: 'My interview attempts and persisted results, newest attempt first' })
+  history(@CurrentUser('userId') userId: string, @Query() query: PaginationQueryDto) {
+    return this.interviewService.history(userId, query);
   }
 
   @Patch('me/role')
@@ -63,7 +75,7 @@ export class RecruitmentController {
   @RequirePermissions('recruitment.start.own')
   @ApiOperation({
     summary:
-      'Start an interview session: 8 sanitized questions (5 technical + 3 soft), backend timer, attempt+cooldown enforced',
+      'Start an interview session: 10 sequential questions (2 introduction + 6 technical + 2 English), backend timer, attempt+cooldown enforced',
   })
   async startInterview(@CurrentUser('userId') userId: string, @Req() req: Request) {
     return this.interviewService.start(userId, this.ctx(req, userId));
@@ -86,6 +98,20 @@ export class RecruitmentController {
     return this.interviewService.getQuestions(userId, id);
   }
 
+  @Get('me/interviews/:id/conversation')
+  @RequirePermissions('recruitment.view.own')
+  conversationView(@CurrentUser('userId') userId: string, @Param('id', ParseUUIDPipe) id: string) { return this.conversation.view(userId, id); }
+
+  @Post('me/interviews/:id/conversation/clarify')
+  @RecruitmentRateLimit('interview-chat')
+  @RequirePermissions('recruitment.answer.own')
+  clarifyConversation(@CurrentUser('userId') userId: string, @Param('id', ParseUUIDPipe) id: string) { return this.conversation.clarify(userId, id); }
+
+  @Post('me/interviews/:id/conversation/next')
+  @RecruitmentRateLimit('interview-chat')
+  @RequirePermissions('recruitment.answer.own')
+  nextConversation(@CurrentUser('userId') userId: string, @Param('id', ParseUUIDPipe) id: string) { return this.conversation.next(userId, id); }
+
   @Put('me/interviews/:id/answers/:questionId')
   @RequirePermissions('recruitment.answer.own')
   @ApiOperation({
@@ -99,6 +125,13 @@ export class RecruitmentController {
     @Body() dto: SaveAnswerDto,
   ) {
     return this.interviewService.saveAnswer(userId, id, questionId, dto.answerText);
+  }
+
+  @Put('me/interviews/:id/follow-ups/:questionId')
+  @RequirePermissions('recruitment.answer.own')
+  answerFollowUp(@CurrentUser('userId') userId: string, @Param('id', ParseUUIDPipe) id: string,
+    @Param('questionId', ParseUUIDPipe) questionId: string, @Body() dto: SaveAnswerDto) {
+    return this.followUps.answer(userId, id, questionId, dto.answerText);
   }
 
   @Post('me/interviews/:id/submit')
@@ -155,8 +188,8 @@ export class RecruitmentController {
   @Get('candidates')
   @RequirePermissions('recruitment.view')
   @ApiOperation({ summary: 'Candidate recruitment status list (instructor/admin read-only)' })
-  async candidates(@Query() query: QueryCandidatesDto) {
-    return this.recruitmentService.listCandidates({
+  async candidates(@CurrentUser('userId') actor: string, @Query() query: QueryCandidatesDto) {
+    return this.recruitmentService.listCandidates(actor, {
       page: query.page,
       pageSize: query.pageSize,
       search: query.search,
@@ -170,7 +203,7 @@ export class RecruitmentController {
   @Get('candidates/:userId')
   @RequirePermissions('recruitment.view')
   @ApiOperation({ summary: 'One candidate recruitment status (read-only)' })
-  async candidate(@Param('userId', ParseUUIDPipe) userId: string) {
-    return this.recruitmentService.getCandidateProfile(userId);
+  async candidate(@Param('userId', ParseUUIDPipe) userId: string, @CurrentUser('userId') actor: string) {
+    return this.recruitmentService.getCandidateProfile(userId, actor);
   }
 }

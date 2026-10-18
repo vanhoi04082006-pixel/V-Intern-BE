@@ -1,22 +1,22 @@
 import { DataSource, In } from 'typeorm';
 import { InterviewQuestion } from './entities/interview-question.entity';
 import { RECRUITMENT_ROLE_CODES } from './recruitment-roles';
+import { ADDITIONAL_TECHNICAL } from './question-enrichment';
 
 /**
  * Phase 4 question-bank seed (spec 50/51) — PRODUCT CONFIGURATION, not
  * demo data: real role-specific prompts (never "Question 1"/lorem ipsum).
  *
- * POOL SIZING (spec 51): each role ships 8 technical + 5 soft = 13 active
- * questions while a session draws 5 technical + 3 soft — retakes sample
- * different 8-of-13 compositions, never identical by design.
+ * Each role has 20 technical, 5 legacy soft, 6 introduction and 6 English
+ * questions. New sessions select 2 introduction + 6 technical + 2 English;
+ * legacy sessions keep their immutable eight-question snapshots.
  *
  * IDEMPOTENCE (spec 50): rows are keyed by (roleCode, sortOrder) — reruns
  * insert ONLY missing rows and never rewrite existing ones. Admin question
- * CRUD is deferred (spec 52): Phase 4 manages the bank through this seed,
- * documented in the final report (no fake admin buttons).
+ * management preserves edited questions and existing session snapshots.
  *
  * SECURITY: rubric JSON below is INTERNAL ONLY — it is snapshotted into
- * interview_session_questions and NEVER returned by any API (spec 10/42).
+ * interview_session_questions and NEVER returned by student/instructor APIs.
  */
 
 interface SeedQuestion {
@@ -24,7 +24,7 @@ interface SeedQuestion {
   category: 'technical' | 'soft';
   difficulty: 'easy' | 'medium' | 'hard';
   prompt: string;
-  rubric: { expected: string; keywords: string[]; scoringGuide: string };
+  rubric: { expected: string; keywords: string[]; scoringGuide: string; phase?: string };
 }
 
 const technical = (
@@ -450,7 +450,36 @@ const BANK: Record<string, SeedQuestion[]> = {
   backend: BACKEND,
   qa: QA,
   business_analyst: BUSINESS_ANALYST,
+  fullstack: [
+    ...[...FRONTEND.slice(0, 4), ...BACKEND.slice(0, 4)].map((q, i) => ({ ...q, sortOrder: i + 1 })),
+    ...FRONTEND.slice(8, 13).map(q => ({ ...q })),
+  ],
 };
+
+// New rows have stable sort orders; existing bank edits remain untouched.
+for (const [role, questions] of Object.entries(BANK)) {
+  const communication: Array<[string, string, string]> = [
+    ['introduction', 'Chào bạn! Bạn có thể giới thiệu ngắn về việc học và một sản phẩm hoặc bài tập mà bạn đã làm không?', 'Nêu trải nghiệm có thật, vai trò của bản thân, kết quả và điều đã học; không chấm dựa vào tên trường hoặc thông tin cá nhân nhạy cảm.'],
+    ['introduction', `Vì sao bạn chọn vai trò ${role}, và bạn muốn học điều gì trong kỳ thực tập này?`, 'Mục tiêu thực tế, hiểu trách nhiệm vai trò, biết điểm cần cải thiện và có kế hoạch học tập.'],
+    ['english', `Please describe, in English, how you would ask a teammate for help with a difficult ${role} task.`, 'Clear description of the problem, attempted solutions and a specific respectful request. Assess understandable English, not accent or personal background.'],
+    ['english', 'Please give a short progress update in English: what you finished, what you will do next and what is blocking you.', 'Understandable concise English covering completed work, next action and an explicit blocker or no blocker.'],
+  ];
+  communication.forEach(([phase, prompt, expected], i) => questions.push({ sortOrder: 14 + i, category: 'soft', difficulty: 'easy', prompt, rubric: { phase, expected, keywords: [], scoringGuide: '0-40: absent or off-topic; 41-70: partly clear; 71-85: relevant and concrete; 86-100: clear, specific and reflective. Do not infer protected or personal attributes.' } }));
+  const moreCommunication: Array<[string, string, string]> = [
+    ['introduction', `Bạn đã từng gặp khó khăn nào khi học ${role}? Bạn đã thử cách gì và học được điều gì?`, 'Một tình huống cụ thể, hành động của bản thân, kết quả và giới hạn nhận thức; không yêu cầu thành tích hoặc kinh nghiệm đi làm.'],
+    ['introduction', 'Hãy kể về một lần bạn nhận phản hồi và thay đổi cách làm trong bài tập hoặc dự án nhóm.', 'Phản hồi cụ thể, thái độ tiếp nhận, thay đổi có thể quan sát và điều còn cần cải thiện.'],
+    ['introduction', `Nếu được giao một nhiệm vụ ${role} chưa biết cách làm, bạn sẽ bắt đầu tìm hiểu từ đâu?`, 'Chia nhỏ mục tiêu, đọc nguồn phù hợp, thử nghiệm nhỏ, xác minh và hỏi hỗ trợ kèm điều đã thử.'],
+    ['introduction', 'Bạn sẽ trao đổi thế nào với nhóm nếu phát hiện mình khó hoàn thành đúng hạn?', 'Báo sớm với bằng chứng, nêu phạm vi đã xong/chưa xong, đề xuất giảm scope hoặc hỗ trợ và thống nhất mốc cập nhật.'],
+    ['english', `Explain in English one ${role} concept you recently learned to a teammate who is new to it.`, 'Understandable explanation, relevant example and a clear distinction between what is known and what needs verification.'],
+    ['english', 'In English, describe a bug or misunderstanding you encountered and how you investigated it.', 'Clear context, observed versus expected behavior, investigation and outcome. Assess comprehensibility, not native fluency.'],
+    ['english', 'Please ask a teammate, in English, to clarify an acceptance criterion that you do not understand.', 'Specific respectful question, current understanding, example and an explicit request for clarification.'],
+    ['english', 'Give a short English handover message for an unfinished task before you take a day off.', 'Explain current state, remaining work, relevant evidence and blockers; clear English without requiring polished vocabulary.'],
+  ];
+  moreCommunication.forEach(([phase, prompt, expected], i) => questions.push({ sortOrder: 18 + i, category: 'soft', difficulty: 'medium', prompt, rubric: { phase, expected, keywords: [], scoringGuide: 'Assess relevant evidence, communication and self-awareness fairly from 0 to 100. Clear specific examples score higher than vague claims. Do not infer personal or protected attributes.' } }));
+  ADDITIONAL_TECHNICAL[role].forEach(([prompt, expected, keywords], i) => questions.push(
+    technical(100 + i, i < 4 ? 'easy' : i < 10 ? 'medium' : 'hard', prompt, expected, keywords),
+  ));
+}
 
 export const QUESTION_BANK_TOTAL = Object.values(BANK).reduce((n, rows) => n + rows.length, 0);
 
@@ -485,7 +514,14 @@ export async function ensureRecruitmentQuestions(ds: DataSource): Promise<Ensure
           category: q.category,
           difficulty: q.difficulty,
           prompt: q.prompt,
-          rubricJson: JSON.stringify(q.rubric),
+          rubricJson: JSON.stringify({ ...q.rubric,
+            language: q.rubric.phase === 'english' || (q.sortOrder < 14 && q.category === 'technical') || (q.sortOrder >= 9 && q.sortOrder <= 13) ? 'en' : 'vi',
+            expectedConcepts: q.rubric.keywords,
+            exampleAnswer: q.rubric.expected,
+            scoringRubric: q.rubric.scoringGuide,
+            followUpHints: q.rubric.keywords.length ? q.rubric.keywords.map(k => `Ask for a concrete example or clarification of the candidate's claim about ${k}, without supplying the answer.`) : ['Ask for one specific example supporting the candidate’s own answer.'],
+            tags: [roleCode, q.category, q.difficulty, q.rubric.phase ?? 'technical', ...q.rubric.keywords],
+          }),
           isActive: true,
           sortOrder: q.sortOrder,
         }),

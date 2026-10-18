@@ -1,6 +1,6 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { AiMentorService } from './ai-mentor.service';
-import { AiProviderTimeoutError } from '../ai-errors';
+import { AiProviderTimeoutError, AiInvalidResponseError } from '../ai-errors';
 
 /**
  * AiMentorService unit tests (Phase 6, spec 11/12/14/15/45/58):
@@ -222,6 +222,15 @@ describe('AiMentorService', () => {
     expect(h.conversations[0].title).toBe('What should I work on next?');
     expect(h.conversations[0].lastMessageAt).not.toBeNull();
     expect(h.auditService.record).not.toHaveBeenCalledWith(expect.objectContaining({ action: 'ai_mentor.message_sent' }));
+  });
+  it('retries malformed JSON once without duplicating the saved user message', async () => {
+    const conv = newConversation(OWN), h = buildHarness({ conversation: conv });
+    h.aiService.generateStructuredWithRun.mockRejectedValueOnce(new AiInvalidResponseError('completion is not valid JSON'));
+    const out = await h.service.sendMessage(OWN, conv.id, 'How can I test this task?', CTX);
+    expect(out.assistantMessage.role).toBe('assistant');
+    expect(h.messages.map(m => m.role)).toEqual(['user', 'assistant']);
+    expect(h.aiService.generateStructuredWithRun).toHaveBeenCalledTimes(2);
+    expect(h.aiService.generateStructuredWithRun.mock.calls[1]?.[0]).toMatchObject({ promptVersion: 'ai-mentor-v3-repair1' });
   });
 
   it('FAILURE CONTRACT: provider failure keeps ONLY the user message, no fake assistant row, controlled 503 (spec 14/15/45)', async () => {

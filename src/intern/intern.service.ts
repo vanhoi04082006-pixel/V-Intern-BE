@@ -53,6 +53,7 @@ export interface InternWorkspaceV2
     InternTaskWorkspaceData {
   status: InternWorkspaceStatus;
   recruitment: RecruitmentLifecycleInfo | null;
+  hasAssignmentHistory: boolean;
 }
 
 const EMPTY_SUMMARY: InternTaskWorkspaceData['taskSummary'] = {
@@ -107,6 +108,7 @@ export class InternService {
             : 'recruitment_required';
       return {
         status,
+        hasAssignmentHistory: false,
         assignment: null,
         recruitment: {
           status: recruitmentStatus,
@@ -122,6 +124,7 @@ export class InternService {
 
     // ── Passed: Phase 2/3 semantics apply (unassigned/active) ────────────
     const base = await this.assignmentsService.workspace(userId);
+    const hasAssignmentHistory = base.status === 'active' || await this.assignmentsService.hasAssignmentHistory(userId);
     const recruitment: RecruitmentLifecycleInfo = {
       status: recruitmentStatus,
       selectedRole: profile?.selectedRole ?? null,
@@ -132,6 +135,7 @@ export class InternService {
       return {
         ...base,
         status: 'unassigned',
+        hasAssignmentHistory,
         recruitment,
         currentSprint: null,
         taskSummary: EMPTY_SUMMARY,
@@ -142,7 +146,7 @@ export class InternService {
       userId,
       base.assignment.project.id,
     );
-    return { ...base, status: 'active', recruitment, ...extension };
+    return { ...base, status: 'active', recruitment, hasAssignmentHistory, ...extension };
   }
 
   /** Exposed for tests/debug: effective permission codes (DB-resolved). */

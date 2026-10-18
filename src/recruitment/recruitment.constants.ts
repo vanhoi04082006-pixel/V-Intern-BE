@@ -3,9 +3,9 @@
  * config, services, tests and documentation all reference (spec 14/18/19).
  */
 /** Approved per-session composition (preserved from the raw product). */
-export const INTERVIEW_QUESTION_TOTAL = 8;
-export const INTERVIEW_TECHNICAL_COUNT = 5;
-export const INTERVIEW_SOFT_COUNT = 3;
+export const INTERVIEW_QUESTION_TOTAL = 10;
+export const INTERVIEW_TECHNICAL_COUNT = 6;
+export const INTERVIEW_SOFT_COUNT = 4;
 
 /** Documented defaults (spec 18/19) — env-overridable via configuration. */
 export const RECRUITMENT_INTERVIEW_DURATION_MINUTES_DEFAULT = 30;

@@ -22,6 +22,8 @@ export class TemplatesController {
   start(@Param('id',ParseUUIDPipe) id: string,@Body() dto: StartTemplateDto,@CurrentUser('userId') actor: string) { return this.service.start(id,dto,actor); }
   @Get('tasks/:id/spec')
   spec(@Param('id',ParseUUIDPipe) id: string,@CurrentUser() principal: RequestPrincipal) { return this.service.taskSpec(id,principal); }
+  @Get('tasks/:id/spec/source')
+  sourceSpec(@Param('id',ParseUUIDPipe) id: string,@CurrentUser() principal: RequestPrincipal) { return this.service.taskSpec(id,principal,'source'); }
   @Get('projects/:id/template-context') @RequirePermissions('projects.manage')
   context(@Param('id',ParseUUIDPipe) id: string,@CurrentUser('userId') actor: string) { return this.service.projectContext(id,actor); }
   @Get('projects/:id/changes') @RequirePermissions('projects.manage')

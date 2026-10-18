@@ -1,3 +1,4 @@
+import { createDatabaseSql } from '../src/database/create-database-sql';
 import { createConnection } from 'node:net';
 import { hash } from 'bcryptjs';
 import { INestApplication, ValidationPipe, VersioningType } from '@nestjs/common';
@@ -159,7 +160,7 @@ beforeAll(async () => {
     options: { useUTC: true, encrypt: (process.env.DB_ENCRYPT ?? 'false') !== 'false', trustServerCertificate: true }, logging: false,
   });
   await adminDs.initialize();
-  await adminDs.query(`IF DB_ID(N'${DB_NAME}') IS NULL CREATE DATABASE [${DB_NAME}];`);
+  await adminDs.query(createDatabaseSql(DB_NAME, process.env.DB_FILES_ROOT));
   await adminDs.destroy();
 
   dataSource = new DataSource({
@@ -455,7 +456,7 @@ describe('AI mentor', () => {
       `SELECT feature, promptVersion, status FROM ai_runs WHERE id = ?`,
       [sent.body.assistantMessage.aiRunId],
     );
-    expect(runs[0]).toMatchObject({ feature: 'ai-mentor', promptVersion: 'ai-mentor-v1', status: 'succeeded' });
+    expect(runs[0]).toMatchObject({ feature: 'ai-mentor', promptVersion: 'ai-mentor-v3', status: 'succeeded' });
 
     // Reload: exactly two messages, user first, ordered.
     const reloaded = await request(apiBase())
@@ -672,7 +673,7 @@ describe('AI mentor', () => {
       provider: 'test',
       model: 'test-model-1',
       status: 'succeeded',
-      promptVersion: 'ai-mentor-v1',
+      promptVersion: 'ai-mentor-v3',
       userId: ids.a,
       resourceType: 'ai_mentor_conversation',
       resourceId: created.body.id,

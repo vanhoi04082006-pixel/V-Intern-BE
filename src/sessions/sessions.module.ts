@@ -1,3 +1,4 @@
+import { GithubModule } from '../github/github.module';
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuditModule } from '../audit/audit.module';
@@ -10,6 +11,8 @@ import { SessionMember } from './entities/session-member.entity';
 import { SessionMilestone } from './entities/session-milestone.entity';
 import { SessionsController } from './sessions.controller';
 import { SessionsService } from './sessions.service';
+import { SessionWorkService } from './session-work.service';
+import { TasksModule } from '../tasks/tasks.module';
 
 @Module({
   imports: [
@@ -17,9 +20,11 @@ import { SessionsService } from './sessions.service';
     AuditModule,
     RbacModule,
     AiGenerationModule,
+    GithubModule,
+    TasksModule,
   ],
   controllers: [SessionsController],
-  providers: [SessionsService],
+  providers: [SessionsService, SessionWorkService],
   exports: [SessionsService],
 })
 export class SessionsModule {}

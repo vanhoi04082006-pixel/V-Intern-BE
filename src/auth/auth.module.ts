@@ -7,6 +7,7 @@ import { RbacModule } from '../rbac/rbac.module';
 import { UsersModule } from '../users/users.module';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
+import { RegistrationService } from './registration.service';
 import { RefreshToken } from './entities/refresh-token.entity';
 
 @Module({
@@ -27,7 +28,7 @@ import { RefreshToken } from './entities/refresh-token.entity';
     ConfigModule,
   ],
   controllers: [AuthController],
-  providers: [AuthService],
+  providers: [AuthService, RegistrationService],
   exports: [AuthService],
 })
 export class AuthModule {}

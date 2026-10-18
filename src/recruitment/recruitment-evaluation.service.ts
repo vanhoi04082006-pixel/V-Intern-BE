@@ -6,6 +6,7 @@ import { AiInvalidResponseError } from '../ai/ai-errors';
 import { aiErrorCode } from '../ai/ai-errors';
 import {
   validateRecruitmentEvaluation,
+  validateDetailedRecruitmentEvaluation,
   RecruitmentEvaluationData,
 } from '../ai/evaluation-schema';
 import { ActivityEvent } from '../audit/entities/activity-event.entity';
@@ -118,14 +119,23 @@ export class RecruitmentEvaluationService {
       .getRepository(InterviewAnswer)
       .find({ where: { sessionId: session.id } });
     const answerByQuestion = new Map(answers.map((a) => [a.sessionQuestionId, a]));
+    const turns: Array<{ questionId: string; prompt: string; clarificationPrompt: string | null; followUpStatus?: string; followUpPrompt?: string; followUpAnswer?: string }> = session.questionCount === 10
+      ? await this.dataSource.query("SELECT questionId,prompt,clarificationPrompt,followUpStatus,followUpPrompt,followUpAnswer FROM interview_conversation_turns WHERE sessionId=@0 AND status='ready'", [session.id]) : [];
+    const turnByQuestion = new Map(turns.map(t => [t.questionId.toLowerCase(), t]));
     const payloadQuestions = questions.map((q) => ({
       position: q.position,
       category: q.category,
-      prompt: q.promptSnapshot,
+      prompt: turnByQuestion.get(q.id.toLowerCase())?.prompt ?? q.promptSnapshot,
+      clarification: turnByQuestion.get(q.id.toLowerCase())?.clarificationPrompt,
+      rubric: JSON.parse(q.rubricSnapshot) as { expected: string; keywords: string[]; scoringGuide: string; phase?: string },
     }));
     const payloadAnswers = questions.map((q) => ({
       position: q.position,
       answerText: answerByQuestion.get(q.id)?.answerText ?? '',
+      ...(turnByQuestion.get(q.id.toLowerCase())?.followUpStatus === 'answered' ? { followUp: {
+        question: turnByQuestion.get(q.id.toLowerCase())!.followUpPrompt!,
+        answer: turnByQuestion.get(q.id.toLowerCase())!.followUpAnswer!,
+      } } : {}),
     }));
 
     const input = buildRecruitmentEvaluationInput({
@@ -140,6 +150,7 @@ export class RecruitmentEvaluationService {
     let runId: string | null = null;
     let model: string;
     try {
+      if (session.questionCount === 10 && questions.some(q => !turnByQuestion.get(q.id.toLowerCase())?.prompt)) throw new AiInvalidResponseError('Missing delivered interview evidence.');
       const aiResult = await this.aiService.generateStructuredWithRun<RecruitmentEvaluationData>({
         feature: RECRUITMENT_EVALUATION_TASK,
         userId: session.userId,
@@ -151,7 +162,7 @@ export class RecruitmentEvaluationService {
           systemPrompt: buildRecruitmentSystemPrompt(session.roleCode),
           input,
           schemaName: 'RecruitmentEvaluation',
-          validate: validateRecruitmentEvaluation,
+          validate: session.questionCount === 10 ? validateDetailedRecruitmentEvaluation : validateRecruitmentEvaluation,
           modelOptions: { temperature: 0.2, maxOutputTokens: 4096 },
         },
       });

@@ -16,6 +16,7 @@ import { isUniqueViolation } from '../common/utils/db-errors';
 import { Ownership } from '../rbac/ownership';
 import { PermissionsService } from '../rbac/permissions.service';
 import { ChangeRequestDto, CreateTemplateDto, QueryTemplatesDto, StartTemplateDto, UpdateTemplateDto } from './template.dto';
+import { validateBlueprint } from './blueprint-validation';
 interface TemplateRow { id: string; code: string; name: string; category: string | null; difficulty: string; status: string; version: number; definitionJson: string; createdAt: Date; archivedAt: Date | null; }
 @Injectable()
 export class TemplatesService {
@@ -65,6 +66,8 @@ export class TemplatesService {
   }
 
   private validateDefinition(definition: CreateTemplateDto): void {
+    if (definition.name.trim().length < 2 || definition.description.trim().length < 10) throw new BadRequestException('Template name and description must contain meaningful text.');
+    validateBlueprint(definition);
     if (definition.roleDetails) {
       const codes = new Set(definition.roles ?? []);
       const bad = definition.roleDetails.filter((r) => !codes.has(r.code));
@@ -152,18 +155,20 @@ export class TemplatesService {
       const rows: TemplateRow[] = await em.query('SELECT * FROM project_templates WITH(UPDLOCK,HOLDLOCK) WHERE id=@0', [id]);
       if (!rows.length) throw new NotFoundException('Template not found.');
       const current = rows[0];
+      if (dto.expectedVersion !== undefined && dto.expectedVersion !== current.version) throw new ConflictException({ code: 'TEMPLATE_VERSION_CONFLICT', message: 'Template đã thay đổi. Hãy tải lại trước khi lưu.' });
       const sets: string[] = [];
       const params: unknown[] = [];
-      if (dto.name !== undefined) { params.push(dto.name); sets.push(`name=@${params.length - 1}`); }
-      if (dto.category !== undefined) { params.push(dto.category?.trim() || null); sets.push(`category=@${params.length - 1}`); }
-      if (dto.difficulty !== undefined) { params.push(dto.difficulty); sets.push(`difficulty=@${params.length - 1}`); }
       let version = current.version;
-      if (dto.definition !== undefined) {
-        if (dto.definition.sprints.some(s => s.tasks.some(t => !dto.definition!.roles.includes(t.role)))) {
+      if (dto.definition !== undefined || dto.name !== undefined || dto.category !== undefined || dto.difficulty !== undefined) {
+        const definition: CreateTemplateDto = { ...(dto.definition ?? this.parseDefinition(current)),
+          ...(dto.name !== undefined ? { name: dto.name } : {}), ...(dto.category !== undefined ? { category: dto.category } : {}), ...(dto.difficulty !== undefined ? { difficulty: dto.difficulty as CreateTemplateDto['difficulty'] } : {}) };
+        if (definition.code && definition.code !== current.code) throw new BadRequestException('Template code cannot be changed.');
+        if (definition.sprints.some(s => s.tasks.some(t => !definition.roles.includes(t.role)))) {
           throw new BadRequestException('Task role must belong to template roles.');
         }
-        this.validateDefinition(dto.definition);
-        params.push(JSON.stringify(dto.definition));
+        this.validateDefinition(definition);
+        for (const [column, value] of [['name', definition.name], ['category', definition.category?.trim() || null], ['difficulty', definition.difficulty]] as const) { params.push(value); sets.push(`${column}=@${params.length - 1}`); }
+        params.push(JSON.stringify(definition));
         sets.push(`definitionJson=@${params.length - 1}`);
         version = current.version + 1;
         sets.push(`version=${version}`);
@@ -226,7 +231,7 @@ export class TemplatesService {
       const definition = this.parseDefinition(template);
       const existing: { n: number }[] = await em.query('SELECT COUNT(*) AS n FROM template_runs WHERE templateId=@0', [id]);
       const seq = Number(existing[0]?.n ?? 0) + 1;
-      const base = template.code || 'TPL';
+      const base = (template.code || 'TPL').slice(0, 48);
       let sessionCode = `${base}-S${seq}`;
       let projectCode = `${base}-P${seq}`;
       const session = await em.save(InternshipSession, em.create(InternshipSession, {
@@ -262,10 +267,17 @@ export class TemplatesService {
       return { id: runId, projectId: String(project.id).toLowerCase(), sessionId: String(session.id).toLowerCase(), templateVersion: template.version, deduped: false };
     });
   }
-  async taskSpec(id: string, principal: RequestPrincipal) {
-    await this.tasks.getOneDetailed(id,principal);
+  async taskSpec(id: string, principal: RequestPrincipal, view: 'display' | 'source' = 'display') {
+    const task = await this.tasks.getOneDetailed(id,principal);
     const rows: { specJson: string }[] = await this.db.query('SELECT specJson FROM task_specs WHERE taskId=@0',[id]);
-    return rows.length ? JSON.parse(rows[0].specJson) as object : null;
+    if (!rows.length) return null;
+    const spec = JSON.parse(rows[0].specJson) as Record<string, unknown>;
+    // Grading binds the persisted snapshot, never display-only dependency status.
+    if (view === 'source') return spec;
+    const dependencies = Array.isArray(spec.dependencies) ? spec.dependencies as Array<{ taskId?: unknown; key?: unknown }> : [];
+    const ids = dependencies.map(d => d.taskId).filter((value): value is string => typeof value === 'string' && /^[0-9a-f-]{36}$/i.test(value)).slice(0, 20);
+    const tasks: Array<{ id: string; code: string; title: string; status: string }> = ids.length ? await this.db.query(`SELECT id,code,title,status FROM tasks WHERE projectId=@0 AND deletedAt IS NULL AND id IN (${ids.map((_, i) => `@${i + 1}`).join(',')})`, [task.projectId, ...ids]) : [];
+    return { ...spec, dependencies: tasks.map(t => ({ taskId: t.id, code: t.code, title: t.title, status: t.status })), blocked: tasks.length !== ids.length || tasks.some(t => t.status !== 'done') };
   }
   async projectContext(projectId: string, actor?: string) {
     // Internal AI calls already enforce project/session management. HTTP

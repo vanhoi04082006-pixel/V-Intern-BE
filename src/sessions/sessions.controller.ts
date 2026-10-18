@@ -1,3 +1,4 @@
+import { GithubRepositoriesService } from '../github/github-repositories.service';
 import { Body, Controller, Delete, Get, Logger, Param, ParseUUIDPipe, Patch, Post, Query, Req } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
@@ -13,6 +14,7 @@ import {
   CreateMilestoneDto,
   CreateSessionDto,
   QuerySessionsDto,
+  QuerySessionOverviewDto,
   UpdateMilestoneDto,
   UpdateSessionDto,
   QueryInstructorOptionsDto,
@@ -21,6 +23,10 @@ import {
 import { SessionsService } from './sessions.service';
 import { PermissionsService } from '../rbac/permissions.service';
 import { resolveOwnership } from '../rbac/ownership';
+import { SessionWorkService } from './session-work.service';
+import { QueryTasksDto } from '../tasks/dto/task.dtos';
+import { RequestPrincipal } from '../common/types/request-principal';
+import { PaginationQueryDto } from '../common/pagination/pagination-query.dto';
 
 @ApiTags('sessions')
 @ApiBearerAuth()
@@ -30,6 +36,8 @@ export class SessionsController {
     private readonly sessionsService: SessionsService,
     private readonly permissionsService: PermissionsService,
     private readonly generations: AiGenerationService,
+    private readonly repositories: GithubRepositoriesService,
+    private readonly work: SessionWorkService,
   ) {}
 
   private readonly logger = new Logger(SessionsController.name);
@@ -63,7 +71,7 @@ export class SessionsController {
     summary:
       'Session management overview (sessions.view; bounded aggregate queries; scoped; no N+1)',
   })
-  async overview(@Query() query: QuerySessionsDto, @CurrentUser('userId') userId: string) {
+  async overview(@Query() query: QuerySessionOverviewDto, @CurrentUser('userId') userId: string) {
     const { items, total } = await this.sessionsService.listOverview({
       page: query.page,
       pageSize: query.pageSize,
@@ -71,6 +79,8 @@ export class SessionsController {
       status: query.status,
       projectId: query.projectId,
       leadInstructorId: query.leadInstructorId,
+      sortBy: query.sortBy,
+      sortDirection: query.sortDirection,
     }, await this.ownership(userId));
     return toPaginated(items, query.page, query.pageSize, total);
   }
@@ -108,6 +118,21 @@ export class SessionsController {
     return this.sessionsService.detail(id, await this.ownership(userId));
   }
 
+  @Get(':id/work')
+  @RequirePermissions('sessions.view', 'tasks.view')
+  @ApiOperation({ summary: 'Session work page with dependency, latest submission and AI/human review facts; managed task scope' })
+  async delivery(@Param('id', ParseUUIDPipe) id: string, @Query() query: QueryTasksDto, @CurrentUser() principal: RequestPrincipal) {
+    const result = await this.work.list(id, query, principal);
+    return toPaginated(result.items, query.page, query.pageSize, result.total);
+  }
+
+  @Get(':id/timeline')
+  @RequirePermissions('sessions.view', 'tasks.view')
+  async timeline(@Param('id', ParseUUIDPipe) id: string, @Query() query: PaginationQueryDto, @CurrentUser() principal: RequestPrincipal) {
+    const result = await this.work.timeline(id, query, principal);
+    return toPaginated(result.items, query.page, query.pageSize, result.total);
+  }
+
   @Patch(':id')
   @RequirePermissions('sessions.manage')
   @ApiOperation({
@@ -125,6 +150,9 @@ export class SessionsController {
     // generatePlan skips when a usable plan already exists for the session).
     if (dto.status === 'active' && updated.status === 'active') {
       this.triggerPlanning(updated.id, actorId, req);
+      void this.repositories.provision(updated.id, actorId).catch(() => {
+        this.logger.warn(`GitHub repository for session ${updated.id} requires connection/configuration or retry.`);
+      });
     }
     return updated;
   }

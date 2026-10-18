@@ -1,96 +1,19 @@
-# Certificates — Phase 5 domain policies
+# Chứng nhận
 
-> Status: ACTIVE (Phase 5). Deterministic eligibility (NO AI), real
-> issuance/revocation flows, public verification and real server-side PDF.
+Cập nhật theo implementation ngày14/10/2026.
 
-## 1. Policy V-INTERN-COMPLETE v1 (spec 42/43)
+Policy V-INTERN-COMPLETE v1 xét tuyển dụng đạt, assignment đã hoàn thành, evaluation và KPI đã finalize đạt ngưỡng cấu hình. Backend trả lý do cụ thể khi chưa đủ điều kiện; AI không cấp chứng nhận.
 
-Eligible when ALL of (persisted facts only):
+Issue lưu certificate/code/snapshot; verify dùng code kiểm tra trạng thái phát hành/thu hồi; PDF dùng dữ liệu certificate đã lưu. Sinh viên tải của mình, quyền quản lý kiểm tra ở API.
 
-1. Recruitment `passed` (`recruitment_profiles.status = 'passed'`).
-2. At least one COMPLETED internship assignment.
-3. Latest finalized instructor evaluation `overallScore >= 70` (by
-   `finalizedAt DESC`); none → ineligible.
-4. Latest KPI result of a FINALIZED period with `status='calculated'` and
-   `finalScore >= 70`; none → ineligible.
+Migration30 bổ sung completedAt và snapshot tên người/role/dự án/phiên. Chứng nhận mới lấy projectId/sessionId/assignmentId/ngày hoàn thành từ cùng assignment completed gần nhất, không lấy dự án đang hoạt động mới hơn. Điều kiện và snapshot đọc trong transaction cấp. Sửa tên hồ sơ, project hoặc session sau khi cấp không làm đổi verify hoặc byte PDF; thu hồi vẫn giữ record và chặn PDF. Verify issued trả sessionName/completedAt, revoked không công khai các trường này.
 
-Thresholds are inclusive. Every reason is structured — the API answers
-`409 CERTIFICATE_NOT_ELIGIBLE` with
-`details.reasons: [{requirement, satisfied, detail}]`. Issuance stamps
-`(policyCode, policyVersion)` onto the certificate: future threshold
-changes ship as version 2 and NEVER retroactively mutate old
-certificates. The policy row is idempotently upserted
-(`certificate_policies`, UNIQUE `(code, version)`).
+Với chứng nhận cũ, migration chỉ chụp tên hiện tại và ngày hoàn thành đã có trên assignment gốc; không khẳng định đây là tên tại thời điểm phát hành, không tự đổi project/session identity hoặc revoke metadata. Không có ngày hoàn thành gốc thì để null, UI nói chưa ghi nhận. Certificate number, verification code và policy không đổi.
 
-## 2. Identity fields (spec 46/47)
+SQL E2E gồm cấp cạnh tranh một201/một409, assignment mới không thay context completed cũ, sửa tên không đổi verify/PDF, IDOR, điều kiện chưa đạt và revoke; KPI/salary vẫn kiểm chứng công thức và số tiền chính xác. List KPI dùng score +id làm thứ tự ổn định để không mất/lặp dòng khi phân trang qua các điểm bằng nhau.
 
-- `certificateNumber`: `VINT-<UTC year>-<8-digit sequence>` from the SQL
-  Server SEQUENCE `certificate_number_seq` — concurrency-safe by the
-  engine, never `count()+1`.
-- `verificationCode`: 24 random bytes, base64url — unguessable and
-  distinct from the DB id.
+Workspace vẫn trả unassigned khi không còn phân công active; `hasAssignmentHistory` phản ánh EXISTS assignment của principal (active/completed/cancelled), false trước khi pass tuyển dụng. FE mở read-only own evaluations/performance/KPI/salary/certificates khi có lịch sử, cả sau khi kết thúc phân công. Task/sprint/project/Mentor và AI recommendations vẫn cần assignment active. Flag chỉ điều khiển giao diện, backend vẫn kiểm tra identity/permission của từng API; không cấp quyền đọc người khác và không tạo task giả.
 
-Uniqueness (DB-enforced): certificateNumber, verificationCode, and
-`(userId, policyCode, policyVersion)` — a double issue (even concurrent)
-yields exactly one certificate; the loser gets
-`409 CERTIFICATE_ALREADY_ISSUED` (spec 70).
+Revoke ghi audit, verification phải phản ánh revoked. Không diễn giải chứng nhận nền tảng như chứng chỉ pháp lý/nghề nghiệp của tổ chức khác.
 
-## 3. Status + revocation (spec 45/50)
-
-`issued | revoked` only; issued certificates are NEVER physically
-deleted. Revoke (admin, `certificates.manage`) requires a reason,
-preserves the record + issue metadata, adds revoke metadata, writes audit
-+ activity, notifies the intern. A second revoke is deterministic:
-`409 CERTIFICATE_ALREADY_REVOKED`.
-
-## 4. Public verification (spec 47/48)
-
-`GET /api/v1/certificates/verify/:verificationCode` — PUBLIC (no auth).
-
-Issued:
-```json
-{ "valid": true, "status": "issued", "certificateNumber": "VINT-2026-00000001",
-  "holderName": "…", "role": "Backend Developer", "projectName": "…", "issuedAt": "…" }
-```
-
-Revoked: `{ "valid": false, "status": "revoked", "certificateNumber": "…", "issuedAt": "…", "revokedAt": "…" }`
-(holder/role/project withheld). Unknown code → `404
-CERTIFICATE_VERIFICATION_NOT_FOUND`. NEVER exposed: email, userId,
-evaluation comments, KPI internals.
-
-## 5. PDF (spec 51-53)
-
-`GET /certificates/:id/pdf` (certificates.view) and
-`GET /intern/me/certificates/:id/pdf` (owner). REAL server-side
-generation with **pdfkit** — never a screenshot:
-
-- Deterministic: content derives ONLY from persisted data and
-  CreationDate/ModDate are pinned to `issuedAt` → identical bytes for the
-  same certificate.
-- Vietnamese-safe: DejaVu Sans (bundled `dejavu-fonts-ttf`).
-- Identity fields are also carried in the Info dictionary (Title =
-  certificate number, Keywords include the verification code) — pdfkit
-  subsets all fonts to glyph-ID streams, so the Info dict is the
-  machine-verifiable representation.
-- Contains: V-Intern branding, certificate number, holder name,
-  role/project/session context, issue date, policy code+version,
-  verification code and the verification URL from
-  `CERTIFICATE_VERIFY_BASE_URL` (no hardcoded host), plus an explicit
-  "VIRTUAL — no payroll value" note.
-- Served for ISSUED certificates only; revoked → `409
-  CERTIFICATE_ALREADY_REVOKED` (the public verify endpoint communicates
-  revocation). Generated on request from the DB — no object storage; the
-  database remains the single source of truth.
-
-## 6. API surface
-
-Admin/management: `GET /certificates`, `POST /certificates/issue`,
-`GET /certificates/:id`, `POST /certificates/:id/revoke`,
-`GET /certificates/:id/pdf`, plus the PUBLIC
-`GET /certificates/verify/:code`.
-Intern: `GET /intern/me/certificates(?:id)` and
-`GET /intern/me/certificates/:id/pdf`.
-
-Permissions: `certificates.view|manage|view.own|verify`
-(manage = admin policy). Notification category: `certificate`
-(`certificate.issued`, `certificate.revoked`).
+Xem [mục lục](../README.md), controller/DTO tương ứng và tests trước khi thay đổi contract.

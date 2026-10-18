@@ -1,3 +1,5 @@
+import { createDatabaseSql } from '../src/database/create-database-sql';
+import { Sprint } from '../src/sprints/entities/sprint.entity';
 import { createConnection } from 'node:net';
 import { hash } from 'bcryptjs';
 import { INestApplication, ValidationPipe, VersioningType } from '@nestjs/common';
@@ -82,7 +84,7 @@ beforeAll(async () => {
     logging: false,
   });
   await adminDs.initialize();
-  await adminDs.query(`IF DB_ID(N'${DB_NAME}') IS NULL CREATE DATABASE [${DB_NAME}];`);
+  await adminDs.query(createDatabaseSql(DB_NAME, process.env.DB_FILES_ROOT));
   await adminDs.destroy();
 
   const migDs = new DataSource({
@@ -334,6 +336,10 @@ describe('Phase 3 sprint/task e2e — plan → activate → task → review → 
     expect(res.status).toBe(200);
     expect(res.body.meta.total).toBeGreaterThanOrEqual(1);
     expect(res.body.data.some((t: { id: string }) => t.id === taskId)).toBe(true);
+    const ownTask = res.body.data.find((t: { id: string }) => t.id === taskId);
+    const storedSprint = await dataSource.getRepository(Sprint).findOneByOrFail({ id: ownTask.sprintId });
+    expect(ownTask.sprint).toEqual({ id: storedSprint.id.toLowerCase(), code: storedSprint.code, name: storedSprint.name, status: storedSprint.status });
+    expect(ownTask.repository).toBeNull();
   });
 
   it('intern starts the task (todo→doing) and submits review (doing→review)', async () => {
@@ -465,6 +471,8 @@ describe('Phase 3 sprint/task e2e — plan → activate → task → review → 
     expect(tasks.every((task: { assigneeId: string }) => task.assigneeId === internId)).toBe(true);
     const [count] = await dataSource.query('SELECT COUNT(*) AS n FROM tasks WHERE sprintId=@0 AND assigneeId=@1 AND deletedAt IS NULL', [sprintId, internId]);
     expect(board.body.total).toBe(count.n);
+    const [ownOverdue] = await dataSource.query("SELECT COUNT(*) n FROM tasks WHERE sprintId=@0 AND assigneeId=@1 AND deletedAt IS NULL AND status<>'done' AND dueDate<SYSUTCDATETIME()", [sprintId, internId]);
+    expect(board.body.overdueOpenTaskCount).toBe(ownOverdue.n);
     const forged = await request(apiBase()).get('/api/v1/intern/me/sprint/board?assigneeId=00000000-0000-4000-8000-000000000001').set('Authorization', `Bearer ${intern}`);
     expect(forged.status).toBe(400);
   });
@@ -492,6 +500,9 @@ describe('Phase 3 sprint/task e2e — plan → activate → task → review → 
     expect(board.status).toBe(200);
     expect(board.body.columns.length).toBe(4);
     expect(board.body.total).toBeGreaterThanOrEqual(2);
+    const [overdue] = await dataSource.query("SELECT COUNT(*) n FROM tasks WHERE sprintId=@0 AND deletedAt IS NULL AND status<>'done' AND dueDate<SYSUTCDATETIME()", [sprintId]);
+    expect(board.body.overdueOpenTaskCount).toBe(overdue.n);
+    expect(board.body.sprint.sessionId).toBe(sessionId.toLowerCase());
 
     const completion = await request(apiBase())
       .get(`/api/v1/sprints/${sprintId}/completion`)

@@ -6,5 +6,6 @@ import { ReportsController } from './reports.controller';
 import { ReportsService } from './reports.service';
 import { ReportPdfService } from './report-pdf.service';
 import { ReportExcelService } from './report-excel.service';
-@Module({imports:[PerformanceModule,RbacModule,AuditModule],controllers:[ReportsController],providers:[ReportsService,ReportPdfService,ReportExcelService]})
+import { ReportFactsService } from './report-facts.service';
+@Module({imports:[PerformanceModule,RbacModule,AuditModule],controllers:[ReportsController],providers:[ReportsService,ReportPdfService,ReportExcelService,ReportFactsService]})
 export class ReportsModule {}

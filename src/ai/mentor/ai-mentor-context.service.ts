@@ -1,3 +1,4 @@
+import { NotFoundException } from '@nestjs/common';
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull, In } from 'typeorm';
@@ -18,6 +19,9 @@ import { KpiPeriod } from '../../kpi/entities/kpi-period.entity';
 import { PerformanceService } from '../../performance/performance.service';
 import { VirtualSalaryService } from '../../salary/virtual-salary.service';
 import { CertificatesService } from '../../certificates/certificates.service';
+import { RecruitmentResult } from '../../recruitment/entities/recruitment-result.entity';
+import { learningAssessment } from '../../recruitment/learning-assessment';
+import { GithubEvidenceService, SubmissionSnapshot } from '../../github/github-evidence.service';
 
 /**
  * AiMentorContextService (Phase 6, spec 7/8/9) — builds the ONLY data the
@@ -36,6 +40,10 @@ import { CertificatesService } from '../../certificates/certificates.service';
  */
 export interface MentorWorkspaceFacts {
   generatedAt: string;
+  interviewAssessment?: ReturnType<typeof learningAssessment> | null;
+  selectedTask?: { code: string; title: string; description: string | null; specification: unknown; latestCodeFeedback: unknown;
+    codeContext: { status: 'available' | 'unavailable' | 'none'; headSha?: string; complete?: boolean; files?: Array<{ path: string; content: string }>; warnings?: string[] };
+  } | null;
   intern: {
     displayName: string;
     username: string;
@@ -130,6 +138,8 @@ export class AiMentorContextService {
     private readonly performanceService: PerformanceService,
     private readonly salaryService: VirtualSalaryService,
     private readonly certificatesService: CertificatesService,
+    @InjectRepository(RecruitmentResult) private readonly recruitmentResults: Repository<RecruitmentResult>,
+    private readonly githubEvidence: GithubEvidenceService,
   ) {}
 
   /**
@@ -137,7 +147,7 @@ export class AiMentorContextService {
    * scoped by `userId` = the authenticated principal. Absent facts stay
    * null — never zero, never invented (spec 43).
    */
-  async buildContext(userId: string): Promise<MentorWorkspaceFacts> {
+  async buildContext(userId: string, selectedTaskId?: string): Promise<MentorWorkspaceFacts> {
     const [user, profile, assignment] = await Promise.all([
       this.users.findOne({ where: { id: userId } }),
       this.recruitmentProfiles.findOne({ where: { userId } }),
@@ -149,6 +159,8 @@ export class AiMentorContextService {
 
     const facts: MentorWorkspaceFacts = {
       generatedAt: new Date().toISOString(),
+      selectedTask: null,
+      interviewAssessment: null,
       intern: {
         displayName: user?.displayName ?? '',
         username: user?.username ?? '',
@@ -166,6 +178,10 @@ export class AiMentorContextService {
       certificateEligibility: null,
       virtualSalary: null,
     };
+    if (profile) {
+      const result = await this.recruitmentResults.findOne({ where: { profileId: profile.id }, order: { evaluatedAt: 'DESC', id: 'ASC' } });
+      if (result) facts.interviewAssessment = learningAssessment(result);
+    }
 
     let projectId: string | null = null;
     if (assignment) {
@@ -325,6 +341,38 @@ export class AiMentorContextService {
       facts.virtualSalary = { unit: balance.unit, balance: Number(balance.balance) };
     } catch {
       facts.virtualSalary = null;
+    }
+
+    if (selectedTaskId) {
+      const task = await this.tasks.findOne({ where: { id: selectedTaskId, assigneeId: userId, deletedAt: IsNull() } });
+      if (!task || !assignment || task.projectId.toLowerCase() !== assignment.projectId.toLowerCase()) throw new NotFoundException('Task không thuộc phân công hiện tại của bạn.');
+      if (task.sprintId && assignment.sessionId) {
+        const sprint = await this.sprints.findOne({ where: { id: task.sprintId, sessionId: assignment.sessionId } });
+        if (!sprint) throw new NotFoundException('Task không thuộc phiên của bạn.');
+      }
+      const specs: Array<{ specJson: string }> = await this.tasks.query('SELECT specJson FROM task_specs WHERE taskId=@0', [task.id]);
+      const feedback: Array<{ resultJson: string | null; status: string }> = await this.tasks.query(`SELECT TOP(1) r.resultJson,r.status FROM submission_code_reviews r
+        JOIN task_submissions s ON s.id=r.submissionId WHERE s.taskId=@0 AND s.internId=@1 AND r.status<>'running' ORDER BY r.createdAt DESC,r.id DESC`, [task.id, userId]);
+      const codeContext: NonNullable<MentorWorkspaceFacts['selectedTask']>['codeContext'] = { status: 'none' };
+      const sources: SubmissionSnapshot[] = await this.tasks.query(`SELECT TOP(1) s.headSha,s.baseSha,s.repositoryId,s.sourceKind,s.sourceRef,s.pullNumber FROM task_submissions s
+        WHERE s.taskId=@0 AND s.internId=@1 AND s.headSha IS NOT NULL AND s.status<>'withdrawn' ORDER BY s.submittedAt DESC,s.id DESC`, [task.id, userId]);
+      if (sources[0]) {
+        try {
+          const evidence = await this.githubEvidence.collect(task.id, sources[0]);
+          let remaining = 18000;
+          const files = evidence.files.slice(0, 6).map(file => {
+            const content = file.content.slice(0, Math.min(5000, remaining));
+            remaining -= content.length;
+            return { path: file.path, content };
+          }).filter(file => file.content.length > 0);
+          const truncated = files.length !== evidence.files.length || evidence.files.some((f, i) => f.content !== files[i]?.content);
+          Object.assign(codeContext, { status: 'available', headSha: evidence.headSha, complete: evidence.complete && !truncated, files,
+            warnings: [...evidence.warnings, ...(truncated ? ['Chỉ cung cấp một phần source trong giới hạn ngữ cảnh.'] : [])] });
+        } catch {
+          codeContext.status = 'unavailable';
+        }
+      }
+      facts.selectedTask = { code: task.code, title: task.title, description: task.description, specification: specs[0] ? JSON.parse(specs[0].specJson) as unknown : null, latestCodeFeedback: feedback[0]?.resultJson ? { status: feedback[0].status, review: JSON.parse(feedback[0].resultJson) as unknown } : null, codeContext };
     }
 
     return facts;

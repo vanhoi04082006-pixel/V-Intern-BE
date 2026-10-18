@@ -1,0 +1,33 @@
+[Unit]
+Description=V-INTERN isolated code grading worker
+After=docker.service network-online.target
+Requires=docker.service
+
+[Service]
+Type=simple
+User=vintern-grader
+Group=vintern-grader
+SupplementaryGroups=docker
+WorkingDirectory=/opt/vintern-grading
+EnvironmentFile=/etc/vintern-grader.env
+Environment=TMPDIR=/var/lib/vintern-grader/tmp
+Environment=HOME=/var/lib/vintern-grader
+ExecStartPre=/usr/local/bin/node /opt/vintern-grading/cleanup-workers.mjs
+ExecStart=/usr/local/bin/node /opt/vintern-grading/server.mjs
+ExecStopPost=/usr/local/bin/node /opt/vintern-grading/cleanup-workers.mjs
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=40
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+ReadWritePaths=/var/lib/vintern-grader/tmp
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target
