@@ -110,7 +110,7 @@ describe("consent and OAuth persistence on the current SQL schema", () => {
         if (capturedRepositoryAccount) {
           await db.transaction(async em => {
             await em.query('DELETE FROM github_repository_account WHERE id=1');
-            if (priorRepositoryAccount) await em.query('INSERT INTO github_repository_account(id,userId,githubUserId,configuredBy,updatedAt) VALUES(1,@0,@1,@2,@3)', [priorRepositoryAccount.userId, priorRepositoryAccount.githubUserId, priorRepositoryAccount.configuredBy, priorRepositoryAccount.updatedAt]);
+            if (priorRepositoryAccount) await em.query('INSERT INTO github_repository_account(id,userId,githubUserId,configuredBy,updatedAt) VALUES(1,@0,@1,@2,CONVERT(datetime2,@3,127))', [priorRepositoryAccount.userId, priorRepositoryAccount.githubUserId, priorRepositoryAccount.configuredBy, priorRepositoryAccount.updatedAt.toISOString()]);
           });
           expect(await db.query('SELECT * FROM github_repository_account WHERE id=1')).toEqual(priorRepositoryAccount ? [priorRepositoryAccount] : []);
         }
