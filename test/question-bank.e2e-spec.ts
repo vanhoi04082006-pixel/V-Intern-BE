@@ -43,11 +43,16 @@ describe('private administrator question bank', () => {
     const created = await api(admin).post(base).send(content).expect(201); questionId = created.body.id;
     expect(created.body).toMatchObject({ version: 1, exampleAnswer: content.exampleAnswer });
     expect(created.body.sortOrder).toBeGreaterThanOrEqual(1000);
-    const result = await api(admin).get(base + '?roleCode=backend&phase=technical&status=active&pageSize=1&search=' + encodeURIComponent('bảo vệ một transaction')).expect(200);
+    const [result, updated] = await Promise.all([
+      api(admin).get(base + '?roleCode=backend&phase=technical&status=active&pageSize=1&search=' + encodeURIComponent('bảo vệ một transaction')).expect(200),
+      api(admin).put(`${base}/${questionId}`).send({ ...content, prompt: content.prompt + ' Nêu cách retry.', version }).expect(200),
+    ]);
     expect(result.body.items).toHaveLength(1); expect(result.body.items[0].id).toBe(questionId); expect(result.body.coverage.length).toBeGreaterThan(0);
-    const updated = await api(admin).put(`${base}/${questionId}`).send({ ...content, prompt: content.prompt + ' Nêu cách retry.', version }).expect(200); version = updated.body.version; expect(version).toBe(2);
-    await api(admin).put(`${base}/${questionId}`).send({ ...content, version: 1 }).expect(409);
-    await api(admin).put(`${base}/${questionId}`).send({ ...content, roleCode: 'frontend', version }).expect(400);
+    version = updated.body.version; expect(version).toBe(2);
+    await Promise.all([
+      api(admin).put(`${base}/${questionId}`).send({ ...content, version: 1 }).expect(409),
+      api(admin).put(`${base}/${questionId}`).send({ ...content, roleCode: 'frontend', version }).expect(400),
+    ]);
     const audits = await db.query("SELECT detail FROM audit_logs WHERE targetId=@0 AND targetType='interview_question'", [questionId]);
     expect(audits).toHaveLength(2); expect(JSON.stringify(audits)).not.toContain('PRIVATE-BANK-MARKER');
   });

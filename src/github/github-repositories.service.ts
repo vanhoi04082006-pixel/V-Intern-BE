@@ -258,9 +258,9 @@ export class GithubRepositoriesService {
     return this.status(sessionId, actorId);
   }
   async configureWebhook(sessionId: string, actorId: string) {
-    await this.access(sessionId, actorId, true);
+    const session = await this.access(sessionId, actorId, true);
     const repo = await this.read(sessionId);
-    if (!repo || !(repo.ownerUserId.toLowerCase() === actorId.toLowerCase() || await this.permissions.hasRole(repo.ownerUserId, 'admin')))
+    if (!repo || !(repo.ownerUserId.toLowerCase() === session.leadInstructorId?.toLowerCase() || await this.permissions.hasRole(repo.ownerUserId, 'admin')))
       throw new ForbiddenException('Chủ repository không còn được ủy quyền.');
     await this.webhooks.register(sessionId, repo.ownerUserId, true);
     return this.status(sessionId, actorId);

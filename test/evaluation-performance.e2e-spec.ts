@@ -168,13 +168,10 @@ describe('Phase 5 evaluation + performance e2e (spec 80/81)', () => {
   let i2UserId: string;
 
   it('setup: logins + session/project/assignments', async () => {
-    admin = await login(EMAILS.admin);
-    si = await login(EMAILS.si);
-    ix = await login(EMAILS.ix);
-    i1 = await login(EMAILS.i1);
-    i2 = await login(EMAILS.i2);
-    i1UserId = await userIdByEmail(EMAILS.i1);
-    i2UserId = await userIdByEmail(EMAILS.i2);
+    [admin, si, ix, i1, i2] = await Promise.all([
+      login(EMAILS.admin), login(EMAILS.si), login(EMAILS.ix), login(EMAILS.i1), login(EMAILS.i2),
+    ]);
+    [i1UserId, i2UserId] = await Promise.all([userIdByEmail(EMAILS.i1), userIdByEmail(EMAILS.i2)]);
 
     const session = await request(apiBase()).post('/api/v1/sessions').set('Authorization', `Bearer ${admin}`).send({
       code: `E2E-E5-S-${RUN}`, name: 'Phase 5 session', startDate: '2026-01-01T00:00:00.000Z', endDate: '2026-12-31T00:00:00.000Z',
@@ -192,16 +189,15 @@ describe('Phase 5 evaluation + performance e2e (spec 80/81)', () => {
 
     // Phase 4 lifecycle (spec 46): assignment REQUIRES a passed recruitment
     // profile — the suites seed it directly (same pattern as Phase 2/3 e2e).
-    await ensureRecruitedProfile(dataSource, i1UserId);
-    await ensureRecruitedProfile(dataSource, i2UserId);
-    for (const internUserId of [i1UserId, i2UserId]) {
+    await Promise.all([ensureRecruitedProfile(dataSource, i1UserId), ensureRecruitedProfile(dataSource, i2UserId)]);
+    await Promise.all([i1UserId, i2UserId].map(async internUserId => {
       const created = await request(apiBase()).post('/api/v1/assignments').set('Authorization', `Bearer ${admin}`).send({
         internId: internUserId,
         projectId,
         sessionId,
       });
       expect(created.status).toBe(201);
-    }
+    }));
 
     // si becomes session instructor (evaluations.view/manage scoping)
     await query(

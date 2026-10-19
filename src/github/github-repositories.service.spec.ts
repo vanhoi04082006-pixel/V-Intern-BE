@@ -28,6 +28,7 @@ function fixture(
     resolvedMemberId?: number;
     centralOwner?: string;
     newRepository?: boolean;
+    adminActor?: string;
   } = {},
 ) {
   const repository = {
@@ -171,7 +172,7 @@ function fixture(
     db as unknown as DataSource,
     auth as unknown as GithubAuthService,
     client as unknown as GithubClient,
-    { hasRole: jest.fn(async (userId: string) => userId === options.centralOwner) } as unknown as PermissionsService,
+    { hasRole: jest.fn(async (userId: string) => userId === options.centralOwner || userId === options.adminActor) } as unknown as PermissionsService,
     { register: jest.fn() } as unknown as GithubWebhookService,
     { credentials: jest.fn(async () => ({ userId: options.centralOwner ?? OWNER, token: 'fixture-token', connection })) } as unknown as GithubRepositoryAccountService,
   );
@@ -179,6 +180,10 @@ function fixture(
 }
 
 describe("GitHub repository invitation trust boundaries", () => {
+  it('lets Admin configure a legacy repository webhook through the recorded teacher owner', async () => {
+    const f = fixture({ adminActor: 'admin' });
+    await expect(f.service.configureWebhook(SESSION, 'admin')).resolves.toMatchObject({ repository: { status: 'ready' } });
+  });
   it('creates a new repository under the Admin credential without requiring teacher OAuth', async () => {
     const f = fixture({ centralOwner: 'platform-admin', newRepository: true, remoteMissing: true });
     await f.service.provision(SESSION, OWNER);

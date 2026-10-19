@@ -285,16 +285,12 @@ describe('Phase 5 KPI + virtual salary + certificates e2e (spec 82-87)', () => {
     expect(opened.status).toBe(201); // Nest POST default
 
     // Recruitment PASSED fixtures (k1/k2/k3); i2 stays NOT recruited.
-    await ensureRecruitedProfile(dataSource, k1Id);
-    await ensureRecruitedProfile(dataSource, k2Id);
-    await ensureRecruitedProfile(dataSource, k3Id);
+    await Promise.all([k1Id, k2Id, k3Id].map(id => ensureRecruitedProfile(dataSource, id)));
 
     const beforePlacement = await request(apiBase()).get('/api/v1/intern/me/workspace').set('Authorization', `Bearer ${k1}`);
     expect(beforePlacement.status).toBe(200); expect(beforePlacement.body).toMatchObject({ status: 'unassigned', hasAssignmentHistory: false });
 
-    k1AssignmentId = await assignIntern(k1Id);
-    await assignIntern(k2Id);
-    await assignIntern(k3Id);
+    [k1AssignmentId] = await Promise.all([assignIntern(k1Id), assignIntern(k2Id), assignIntern(k3Id)]);
     // i2 is deliberately NEVER recruited and NEVER assigned: KPI eligibility
     // filters recruitment FIRST, so a non-recruited account must not even be
     // calculable — and the assignment precondition (409 INTERN_NOT_RECRUITED)
