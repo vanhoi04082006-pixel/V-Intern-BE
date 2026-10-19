@@ -4,6 +4,8 @@
 
 Accepted,14/10/2026; theo yêu cầu người dùng đã duyệt.
 
+Phần ownership repository dưới đây là quyết định lịch sử, được thay bởi [ADR0002](0002-admin-repository-account.md) ngày19/10/2026: Admin cung cấp tài khoản chung để tạo repo. Các ràng buộc AI/evidence/giảng viên duyệt vẫn áp dụng.
+
 ## Bối cảnh
 
 Sinh viên nộp code/PR và trò chuyện với AI. Model/source/checks đều có thể sai hoặc bị thao túng. Repository phải thuộc GitHub của giảng viên; việc tạo dưới một service account chung làm sai ownership. Chạy code sinh viên trong BE làm lộ DB/API keys và host.

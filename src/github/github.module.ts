@@ -7,10 +7,14 @@ import { GithubAuthService } from "./github-auth.service";
 import { GithubClient } from "./github-client";
 import { GithubController } from "./github.controller";
 import { GithubRepositoriesService } from "./github-repositories.service";
+import { GithubRepositoryAccountService } from './github-repository-account.service';
+import { GithubRepositorySyncService } from './github-repository-sync.service';
 @Module({
   imports: [RbacModule],
   controllers: [GithubController, GithubWebhookController],
   providers: [
+    GithubRepositorySyncService,
+    GithubRepositoryAccountService,
     GithubEvidenceService,
     GithubAuthService,
     GithubClient,
@@ -18,6 +22,7 @@ import { GithubRepositoriesService } from "./github-repositories.service";
     GithubWebhookService,
   ],
   exports: [
+    GithubRepositoryAccountService,
     GithubEvidenceService,
     GithubAuthService,
     GithubClient,

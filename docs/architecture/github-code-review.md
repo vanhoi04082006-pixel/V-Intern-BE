@@ -4,7 +4,7 @@
 
 Tạo GitHub OAuth App với callback của BE, ví dụ http://localhost:8080/api/v1/github/callback. Cấu hình GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET, GITHUB_CALLBACK_URL, FRONTEND_ORIGIN và khóa base64 32bytes GITHUB_TOKEN_ENCRYPTION_KEY trong .env server. Có thể tạo khóa bằng node crypto.randomBytes(32).toString('base64'); không gửi khóa trong chat.
 
-Giảng viên mở /instructor/github; scope read:user public_repo để tạo public repo dưới GitHub của họ. Sinh viên mở /intern/github, scope read:user để chứng minh danh tính khi nộp/invite. Gmail chỉ là email; người dùng cần GitHub account riêng. OAuth state dùng một lần10phút, cookie HttpOnly và PKCE S256; callback revalidate user active + GitHub numericID. Token AES256GCM có AAD userId, không trả/log raw token. Một GitHub numericID chỉ gắn một user ứng dụng.
+Admin mở /admin/settings, kết nối GitHub với scope read:user public_repo rồi chọn làm tài khoản tạo repo chung. Giảng viên mở /instructor/github và sinh viên mở /intern/github với scope read:user để nhận lời mời/chứng minh danh tính; không cần tự tạo repo hoặc cấp quyền tạo repo. Gmail chỉ là email; người dùng cần GitHub account riêng. OAuth state dùng một lần10phút, cookie HttpOnly và PKCE S256; callback revalidate user active + GitHub numericID. Token AES256GCM có AAD userId, không trả/log raw token. Một GitHub numericID chỉ gắn một user ứng dụng. Chi tiết tài khoản chung, naming, lời mời theo email GitHub và giữ repo cũ tại [ADR0002](../decisions/0002-admin-repository-account.md).
 
 ### Token có thời hạn
 

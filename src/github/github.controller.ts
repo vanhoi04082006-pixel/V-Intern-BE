@@ -21,6 +21,7 @@ import { GithubAuthService } from "./github-auth.service";
 import { GithubRepositoriesService } from "./github-repositories.service";
 import { GithubWebhookService } from './github-webhook.service';
 import { PaginationQueryDto } from '../common/pagination/pagination-query.dto';
+import { GithubRepositoryAccountService } from './github-repository-account.service';
 
 const COOKIE = "vintern_github_state";
 @ApiTags("github")
@@ -32,6 +33,7 @@ export class GithubController {
     private readonly repos: GithubRepositoriesService,
     private readonly config: ConfigService,
     private readonly webhooks: GithubWebhookService,
+    private readonly repositoryAccount: GithubRepositoryAccountService,
   ) {}
   private cookieOptions() {
     return {
@@ -45,6 +47,14 @@ export class GithubController {
   @Get("github/me") status(@CurrentUser("userId") userId: string) {
     return this.auth.status(userId);
   }
+  @Get('github/repository-account')
+  @RequirePermissions('settings.read')
+  repositoryAccountStatus() { return this.repositoryAccount.status(); }
+
+  @Post('github/repository-account')
+  @RequirePermissions('settings.update')
+  @Throttle({ default: { limit: 3, ttl: 60000 } })
+  selectRepositoryAccount(@CurrentUser('userId') userId: string) { return this.repositoryAccount.select(userId); }
   @Post("github/connect")
   @Throttle({ default: { limit: 5, ttl: 60000 } })
   async connect(

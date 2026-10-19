@@ -81,7 +81,7 @@ export class GithubEvidenceService {
       throw new ConflictException({
         code: "SESSION_REPOSITORY_REQUIRED",
         message:
-          "Repository của phiên chưa sẵn sàng. Giảng viên cần kết nối GitHub và tạo repo.",
+          "Repository của phiên chưa sẵn sàng. Admin cần kiểm tra tài khoản tạo repository chung.",
       });
     return repo;
   }

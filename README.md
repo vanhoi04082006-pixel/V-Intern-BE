@@ -2,6 +2,8 @@
 
 NestJS 11, TypeScript, TypeORM 0.3 và SQL Server. API phục vụ tuyển dụng, thư viện dự án, phiên thực tập, sprint/task, GitHub, AI và các kết quả học tập. Schema chỉ thay đổi qua migrations; synchronize luôn false.
 
+Repository mới được tạo tự động bằng tài khoản GitHub chung do Admin kết nối/chọn tại Cài đặt, rồi mời giảng viên và sinh viên đã liên kết danh tính GitHub. Không lưu mật khẩu GitHub. Repo cũ giữ nguyên chủ sở hữu/URL; xem [quyết định ownership và quy tắc tên](docs/decisions/0002-admin-repository-account.md).
+
 ## Chạy local
 
 Yêu cầu Node.js 22+, npm, SQL Server 2019 trở lên và một database riêng. Tài khoản migration cần quyền DDL trong database; tài khoản ứng dụng production nên có quyền tối thiểu theo vận hành.

@@ -4,6 +4,7 @@ import { GithubAuthService } from "./github-auth.service";
 import { GithubApiError, GithubClient } from "./github-client";
 import { GithubRepositoriesService } from "./github-repositories.service";
 import { GithubWebhookService } from './github-webhook.service';
+import { GithubRepositoryAccountService } from './github-repository-account.service';
 
 const SESSION = "11111111-1111-4111-8111-111111111111";
 const OWNER = "22222222-2222-4222-8222-222222222222";
@@ -25,6 +26,8 @@ function fixture(
     remotePrivate?: boolean;
     remoteMissing?: boolean;
     resolvedMemberId?: number;
+    centralOwner?: string;
+    newRepository?: boolean;
   } = {},
 ) {
   const repository = {
@@ -46,6 +49,7 @@ function fixture(
     { userId: "student", login: "old-student", githubUserId: 202 },
   ];
   const savedMembers = new Map<string, string>();
+  let exists = !options.newRepository;
   const connectionId = options.connectionId ?? 101;
   const connection = {
     userId: OWNER,
@@ -66,9 +70,10 @@ function fixture(
   };
   const writes: Array<{ path: string; method: string; body?: object }> = [];
   const reads: string[] = [];
+  let remoteCreated = false;
   const query = jest.fn(
     async (sql: string, params: unknown[] = []): Promise<unknown[]> => {
-      if (/SELECT.*FROM internship_sessions/is.test(sql))
+      if (sql.includes('SELECT se.id,se.code'))
         return [
           {
             id: SESSION,
@@ -78,8 +83,15 @@ function fixture(
           },
         ];
       if (/SELECT.*FROM session_repositories/is.test(sql))
-        return [{ ...repository }];
-      if (/SELECT.*FROM session_members\s+m/is.test(sql)) {
+        return exists ? [{ ...repository }] : [];
+      if (sql.startsWith('INSERT INTO session_repositories')) {
+        exists = true;
+        Object.assign(repository, { ownerUserId: params[1], repoName: params[3], githubOwnerId: params[5], status: 'provisioning' });
+        remote.name = repository.repoName;
+        return [];
+      }
+      if (sql.includes("SET status='ready'")) { repository.status = 'ready'; return []; }
+      if (sql.includes('FROM session_members WHERE')) {
         let limit = members.length;
         const literal = sql.match(/TOP\s*\(?\s*(\d+)\s*\)?/i);
         const parameter = sql.match(/TOP\s*\(?\s*@(\d+)\s*\)?/i);
@@ -129,6 +141,7 @@ function fixture(
       async (path: string, _token: string, method = "GET", body?: object) => {
         if (method !== "GET") {
           writes.push({ path, method, body });
+          if (method === 'POST') remoteCreated = true;
           return method === "POST" ? remote : undefined;
         }
         reads.push(path);
@@ -147,7 +160,7 @@ function fixture(
         if (path.startsWith("/users/"))
           return { id: 999, login: "old-student" };
         if (path.startsWith("/repos/")) {
-          if (options.remoteMissing) throw new GithubApiError(404);
+          if (options.remoteMissing && !remoteCreated) throw new GithubApiError(404);
           return remote;
         }
         throw new Error(`Unexpected GitHub request: ${path}`);
@@ -158,13 +171,25 @@ function fixture(
     db as unknown as DataSource,
     auth as unknown as GithubAuthService,
     client as unknown as GithubClient,
-    {} as PermissionsService,
+    { hasRole: jest.fn(async (userId: string) => userId === options.centralOwner) } as unknown as PermissionsService,
     { register: jest.fn() } as unknown as GithubWebhookService,
+    { credentials: jest.fn(async () => ({ userId: options.centralOwner ?? OWNER, token: 'fixture-token', connection })) } as unknown as GithubRepositoryAccountService,
   );
   return { service, writes, reads, savedMembers, repository };
 }
 
 describe("GitHub repository invitation trust boundaries", () => {
+  it('creates a new repository under the Admin credential without requiring teacher OAuth', async () => {
+    const f = fixture({ centralOwner: 'platform-admin', newRepository: true, remoteMissing: true });
+    await f.service.provision(SESSION, OWNER);
+    expect(f.repository.ownerUserId).toBe('platform-admin');
+    expect(f.writes.find(write => write.path === '/user/repos')?.body).toMatchObject({ name: 'vintern-project-course-session-11111111', private: false });
+  });
+  it('allows the session lead to invite using a separately authorized Admin repository owner', async () => {
+    const f = fixture({ centralOwner: 'platform-admin', repository: { ownerUserId: 'platform-admin' } });
+    await f.service.invite(SESSION, OWNER);
+    expect(f.writes).toHaveLength(1);
+  });
   it("invites the current username belonging to the linked immutable GitHub ID", async () => {
     const f = fixture();
     await f.service.invite(SESSION, OWNER);

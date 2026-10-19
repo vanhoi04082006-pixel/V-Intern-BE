@@ -9,6 +9,7 @@ import { GithubClient } from './github-client';
 import { GITHUB_WEBHOOK_EVENTS, githubEventSummary, verifyGithubDelivery } from './github-webhook-policy';
 
 interface HookRepository {
+  leadInstructorId?: string | null;
   sessionId: string; ownerUserId: string; githubOwnerId: number | string; repoId: number | string;
   ownerLogin: string; repoName: string; status: string; webhookStatus?: string;
   webhookConfigHash?: string; webhookUpdatedAt?: Date | null;
@@ -85,11 +86,14 @@ export class GithubWebhookService {
         if (receipts[0].payloadHash !== hash || receipts[0].eventType !== event) throw new ConflictException('Delivery ID đã dùng cho nội dung khác.');
         return { status: receipts[0].status, deduped: true };
       }
-      const repositories: HookRepository[] = await em.query(`SELECT r.* FROM session_repositories r WITH(UPDLOCK,HOLDLOCK)
+      const repositories: HookRepository[] = await em.query(`SELECT r.*,se.leadInstructorId FROM session_repositories r WITH(UPDLOCK,HOLDLOCK)
         JOIN github_connections c ON c.userId=r.ownerUserId AND c.githubUserId=r.githubOwnerId
         JOIN users u ON u.id=c.userId AND u.status='active'
-        JOIN internship_sessions se ON se.id=r.sessionId AND se.leadInstructorId=r.ownerUserId
-        WHERE r.repoId=@0 AND r.githubOwnerId=@1 AND r.status='ready'`, [repositoryId, ownerId]);
+        JOIN internship_sessions se ON se.id=r.sessionId
+        WHERE r.repoId=@0 AND r.githubOwnerId=@1 AND r.status='ready'
+        AND (se.leadInstructorId=r.ownerUserId
+          OR EXISTS(SELECT 1 FROM user_roles ur JOIN roles role ON role.id=ur.roleId WHERE ur.userId=r.ownerUserId AND role.code='admin')
+          OR EXISTS(SELECT 1 FROM group_members gm JOIN group_roles gr ON gr.groupId=gm.groupId JOIN roles role ON role.id=gr.roleId WHERE gm.userId=r.ownerUserId AND role.code='admin'))`, [repositoryId, ownerId]);
       const repo = repositories[0];
       const supported = event === 'ping' || (GITHUB_WEBHOOK_EVENTS as readonly string[]).includes(event);
       const status = repo && supported && String(repo.githubOwnerId) === String(ownerId) ? 'processed' : 'ignored';
@@ -108,12 +112,13 @@ export class GithubWebhookService {
           const key = submission.internId.toLowerCase(), prior = recipients.get(key);
           recipients.set(key, { id: submission.internId, count: (prior?.count ?? 0) + 1 });
         }
-        if (changed.length) recipients.set(repo.ownerUserId.toLowerCase(), { id: repo.ownerUserId, count: changed.length });
+        const instructorId = repo.leadInstructorId ?? repo.ownerUserId;
+        if (changed.length) recipients.set(instructorId.toLowerCase(), { id: instructorId, count: changed.length });
         for (const { id: recipient, count } of recipients.values()) {
           const pref = await em.getRepository(NotificationPreference).findOne({ where: { userId: recipient, category: 'task' } });
           if (pref?.enabled === false) continue;
           await em.insert(Notification, { userId: recipient, type: 'submission.source_changed', title: 'Có thay đổi code sau khi nộp bài',
-            body: `GitHub ghi nhận head SHA khác ${count} bài đã nộp. Hãy kiểm tra lại commit và nộp/chấm lại khi cần.`, linkUrl: recipient.toLowerCase() === repo.ownerUserId.toLowerCase() ? `/instructor/sessions/${repo.sessionId}` : '/intern/work' });
+            body: `GitHub ghi nhận head SHA khác ${count} bài đã nộp. Hãy kiểm tra lại commit và nộp/chấm lại khi cần.`, linkUrl: recipient.toLowerCase() === instructorId.toLowerCase() ? `/instructor/sessions/${repo.sessionId}` : '/intern/work' });
         }
       }
       return { status, deduped: false };
