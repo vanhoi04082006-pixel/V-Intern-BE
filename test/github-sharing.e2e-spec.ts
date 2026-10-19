@@ -33,6 +33,8 @@ describe("consent and OAuth persistence on the current SQL schema", () => {
   const centralIdentity = { id: Math.floor(Math.random() * 1000000000) + 2000000000, login: 'platform-owner' };
   const centralClient = { call: jest.fn(async () => centralIdentity) };
   let centralAuth: GithubAuthService, centralAccount: GithubRepositoryAccountService;
+  let priorRepositoryAccount: { userId: string; githubUserId: string | number; configuredBy: string; updatedAt: Date } | undefined;
+  let capturedRepositoryAccount = false;
   let lifecycleGrantId: string;
   const originalFetch = global.fetch;
   beforeAll(async () => {
@@ -49,6 +51,8 @@ describe("consent and OAuth persistence on the current SQL schema", () => {
     await db.initialize();
     await db.runMigrations({ transaction: "all" });
     expect(await db.showMigrations()).toBe(false);
+    [priorRepositoryAccount] = await db.query('SELECT * FROM github_repository_account WHERE id=1');
+    capturedRepositoryAccount = true;
     await ensureRbac(db);
     permissions = new PermissionsService(
       db.getRepository(UserRole),
@@ -101,7 +105,17 @@ describe("consent and OAuth persistence on the current SQL schema", () => {
     global.fetch = originalFetch;
   });
   afterAll(async () => {
-    if (db?.isInitialized) await db.destroy();
+    if (db?.isInitialized) {
+      try {
+        if (capturedRepositoryAccount) {
+          await db.transaction(async em => {
+            await em.query('DELETE FROM github_repository_account WHERE id=1');
+            if (priorRepositoryAccount) await em.query('INSERT INTO github_repository_account(id,userId,githubUserId,configuredBy,updatedAt) VALUES(1,@0,@1,@2,@3)', [priorRepositoryAccount.userId, priorRepositoryAccount.githubUserId, priorRepositoryAccount.configuredBy, priorRepositoryAccount.updatedAt]);
+          });
+          expect(await db.query('SELECT * FROM github_repository_account WHERE id=1')).toEqual(priorRepositoryAccount ? [priorRepositoryAccount] : []);
+        }
+      } finally { await db.destroy(); }
+    }
   });
 
   it("requests, deduplicates, approves and reads only the consented session", async () => {
