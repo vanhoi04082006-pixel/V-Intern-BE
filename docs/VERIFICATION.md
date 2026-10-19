@@ -8,7 +8,9 @@ Gate SQL đạt 25 suite/237 test, 0 lỗi/0 bỏ qua trên `VIntern_E2E_Storage
 
 Readiness lúc 05:31:10 UTC: ba tài khoản gốc đăng nhập đúng identity/vai trò; FE3001 và API8080/8081 trả 200. Giảng viên/sinh viên chọn tài khoản chung bị từ chối 403; chưa cấu hình Admin thì provision trả đúng 503 `GITHUB_ADMIN_ACCOUNT_REQUIRED`, không tạo bản ghi repo giả. Nguồn: `manual-runtime/central-repository-runtime-20261019.json`. Báo cáo tổng hợp đợt này: `manual-runtime/central-repository-verification-20261019.json`.
 
-Người dùng đã xác nhận `buivanhoi12345678`. Trình duyệt đã chọn đúng tài khoản; GitHub chờ duyệt mở rộng `public_repo` cho V-Intern Local. Chưa chọn tài khoản chung, tạo repo hoặc cấp quyền collaborator thực tế trong đợt này. Repo có sẵn giữ nguyên chủ sở hữu. Production và remote CI ngoài phạm vi local hiện tại.
+Sau checkpoint chưa kết nối ở trên, người dùng thay tài khoản và tự hoàn tất OAuth cho `hbuivanhoi6-stack`. Admin đã chọn tài khoản này làm tài khoản chung. Lúc 05:53:53 UTC ngày 19/10, API và trang GitHub xác nhận repo public `vintern-so-tay-hoc-tap-ca-nhan-test-10-19-2026-20261019-9f35483d`, ID `1425170948`, owner ID `308232306`, nhánh `main`, marker đúng phiên. Sinh viên xem cùng URL và lời mời collaborator đã được GitHub nhận; chưa xác nhận người nhận chấp nhận. Giảng viên chưa liên kết GitHub nên trạng thái `not_connected`. Ba tài khoản gốc, FE3001/API8080/API8081 đều kiểm tra lại đạt. Nguồn: `manual-runtime/central-repository-live-20261019.json` và ảnh `central-repository-github-ready-20261019.png`.
+
+Webhook repo mới chưa cấu hình do public tunnel đang tắt; đợt này không chứng minh webhook PR hoặc chấm bài thực tế trên repo mới. Repo cũ giữ nguyên chủ sở hữu. Production và remote CI ngoài phạm vi local hiện tại.
 
 Các mục bên dưới là checkpoint lịch sử, giữ nguyên ngày và nguồn gốc.
 
