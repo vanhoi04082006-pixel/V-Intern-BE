@@ -1,3 +1,17 @@
+# Tài khoản repository chung của Admin — local 19/10/2026
+
+Backend 75 suite/585 unit test đạt, 0 lỗi/0 bỏ qua; build đạt, lint 0 lỗi/15 cảnh báo console có sẵn. Mã ứng dụng tại `9a40a19`; các commit sau đến `824be89` chỉ cô lập fixture SQL, giữ nguyên mã ứng dụng. Nguồn: `manual-runtime/private/central-repo-be-unit-20261019.json` trong workspace gốc.
+
+Migration 32 đã được kiểm tra trên hai database chính theo cách additive; kiểm tra đường dẫn SQL, identity và số lượng dữ liệu trước/sau, không reset. Nguồn: `manual-runtime/central-repository-migration-20261019.json`.
+
+Gate SQL đạt 25 suite/237 test, 0 lỗi/0 bỏ qua trên `VIntern_E2E_StorageFresh_20261019122026`, từ 05:20:31 đến 05:30:34 UTC ngày 19/10 (602.845 giây), source `824be89946b31653fd8ecbd9eae73f010eb73c72`, working tree sạch khi bắt đầu. Nguồn: `manual-runtime/storage-isolated-e2e-verification.json`. Lần dùng lại database vượt timeout KPI được giữ ở `manual-runtime/private/central-repo-sql-reused-database-20261019.log`; lần trên database mới đạt cả 15 ca KPI, không tăng timeout, bỏ test hoặc giảm assertion.
+
+Readiness lúc 05:31:10 UTC: ba tài khoản gốc đăng nhập đúng identity/vai trò; FE3001 và API8080/8081 trả 200. Giảng viên/sinh viên chọn tài khoản chung bị từ chối 403; chưa cấu hình Admin thì provision trả đúng 503 `GITHUB_ADMIN_ACCOUNT_REQUIRED`, không tạo bản ghi repo giả. Nguồn: `manual-runtime/central-repository-runtime-20261019.json`. Báo cáo tổng hợp đợt này: `manual-runtime/central-repository-verification-20261019.json`.
+
+Người dùng đã xác nhận `buivanhoi12345678`. Trình duyệt đã chọn đúng tài khoản; GitHub chờ duyệt mở rộng `public_repo` cho V-Intern Local. Chưa chọn tài khoản chung, tạo repo hoặc cấp quyền collaborator thực tế trong đợt này. Repo có sẵn giữ nguyên chủ sở hữu. Production và remote CI ngoài phạm vi local hiện tại.
+
+Các mục bên dưới là checkpoint lịch sử, giữ nguyên ngày và nguồn gốc.
+
 # Kiểm chứng backend — local 18/10/2026
 
 Chạy lại local: 73 unit suite/574 test đạt, không thất bại hoặc bỏ qua; build/typecheck đạt, lint0errors/15warning console có sẵn. Nguồn: `manual-runtime/private/local-audit-20261018/be-unit.json` và các log build/typecheck/lint trong cùng thư mục workspace. Số72/568 thuộc checkpoint cũ; con số573 trong báo cáo delivery trước đó đã được sửa theo JSON chạy thực tế. Báo cáo tổng hợp hiện hành: `manual-runtime/local-completion-verification.json`.
