@@ -308,4 +308,13 @@ describe("consent and OAuth persistence on the current SQL schema", () => {
     await expect(auth.finish('code', begin.state, begin.state)).rejects.toMatchObject({ status: 409 });
     expect((await centralAuth.connection(admin.id))?.githubUserId.toString()).toBe(centralIdentity.id.toString());
   });
+  it('refuses an unexpired repository-owner token after the application account is locked', async () => {
+    await db.getRepository(User).update(admin.id, { status: 'locked' });
+    try {
+      await expect(centralAuth.token(admin.id)).rejects.toMatchObject({ status: 503 });
+      await expect(centralAccount.credentials()).rejects.toMatchObject({ status: 503 });
+    } finally {
+      await db.getRepository(User).update(admin.id, { status: 'active' });
+    }
+  });
 });

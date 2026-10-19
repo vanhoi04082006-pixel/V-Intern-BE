@@ -81,7 +81,8 @@ export class GithubAuthService {
   }
   async connection(userId: string): Promise<GithubConnection | null> {
     const rows: GithubConnection[] = await this.db.query(
-      `SELECT ${CONNECTION_COLUMNS} FROM github_connections WHERE userId=@0`,
+      `SELECT ${CONNECTION_COLUMNS} FROM github_connections WHERE userId=@0
+        AND EXISTS(SELECT 1 FROM users WHERE id=@0 AND status='active')`,
       [userId],
     );
     return rows[0] ?? null;
