@@ -81,8 +81,7 @@ export class GithubAuthService {
   }
   async connection(userId: string): Promise<GithubConnection | null> {
     const rows: GithubConnection[] = await this.db.query(
-      `SELECT ${CONNECTION_COLUMNS} FROM github_connections WHERE userId=@0
-        AND EXISTS(SELECT 1 FROM users WHERE id=@0 AND status='active')`,
+      `SELECT ${CONNECTION_COLUMNS} FROM github_connections WHERE userId=@0`,
       [userId],
     );
     return rows[0] ?? null;
@@ -108,6 +107,8 @@ export class GithubAuthService {
   async token(
     userId: string,
   ): Promise<{ token: string; connection: GithubConnection }> {
+    const active = await this.db.query("SELECT id FROM users WHERE id=@0 AND status='active'", [userId]);
+    if (!active.length) throw new ServiceUnavailableException({ code: 'GITHUB_ACCOUNT_INACTIVE', message: 'Tài khoản cung cấp kết nối GitHub đã bị khóa hoặc ngừng hoạt động.' });
     const existing = await this.connection(userId);
     if (!existing)
       throw new ServiceUnavailableException({

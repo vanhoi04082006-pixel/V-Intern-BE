@@ -311,7 +311,7 @@ describe("consent and OAuth persistence on the current SQL schema", () => {
   it('refuses an unexpired repository-owner token after the application account is locked', async () => {
     await db.getRepository(User).update(admin.id, { status: 'locked' });
     try {
-      await expect(centralAuth.token(admin.id)).rejects.toMatchObject({ status: 503 });
+      await expect(centralAuth.token(admin.id)).rejects.toMatchObject({ status: 503, response: { code: 'GITHUB_ACCOUNT_INACTIVE' } });
       await expect(centralAccount.credentials()).rejects.toMatchObject({ status: 503 });
     } finally {
       await db.getRepository(User).update(admin.id, { status: 'active' });

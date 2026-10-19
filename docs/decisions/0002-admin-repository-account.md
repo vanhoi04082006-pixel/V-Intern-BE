@@ -10,7 +10,7 @@ Tên mới: `vintern-{tên-dự-án-tối-đa24}-{tên-phiên-tối-đa28}-{YYYY
 
 Repo cũ không tự chuyển chủ, đổi tên hoặc tạo bản sao. ownerUserId tiếp tục là nguồn credential của repo đã ghi, tách với leadInstructorId. Đổi tài khoản chung chỉ áp dụng cho repo mới. Reconnect không được âm thầm đổi GitHub numeric ID của tài khoản đang được chọn; disconnect bị từ chối cho tới khi Admin chọn tài khoản khác.
 
-Mỗi lần lấy kết nối/token đều kiểm tra người dùng ứng dụng còn active, kể cả token GitHub chưa hết hạn. Khóa Admin sở hữu tài khoản chung sẽ chặn dùng credential cho cả repo mới và repo đã có; không chỉ chặn lần refresh token tiếp theo.
+Mỗi lần lấy token đều kiểm tra người dùng ứng dụng còn active, kể cả token GitHub chưa hết hạn. Khóa Admin sở hữu tài khoản chung sẽ chặn dùng credential cho cả repo mới và repo đã có; không chỉ chặn lần refresh token tiếp theo. Metadata kết nối vẫn được giữ để kiểm tra lịch sử và tính bất biến của version; đọc metadata không cấp plaintext token.
 
 Webhook chấp nhận owner là chủ trì cũ hoặc Admin còn hoạt động; thông báo bài nộp vẫn đến giảng viên chủ trì. Sinh viên nộp PR/branch/commit vào đúng repo phiên, xác minh danh tính riêng, khóa SHA và chấm AI/runner như trước. Quyền repository không cho phép tự duyệt task trong V-INTERN.
 
