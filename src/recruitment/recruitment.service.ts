@@ -16,7 +16,7 @@ import {
   isRecruitmentRoleCode,
   recruitmentRoleLabel,
 } from './recruitment-roles';
-import { computeAttemptGate } from './attempt-policy';
+import { computeAttemptGate, recruitmentAttemptLimit } from './attempt-policy';
 import { RecruitmentProfileStatus } from './recruitment-status.machine';
 import { learningAssessment } from './learning-assessment';
 import { PermissionsService } from '../rbac/permissions.service';
@@ -377,7 +377,7 @@ export class RecruitmentService {
 
   private maxAttempts(): number {
     const raw = Number(this.config.get<number>('recruitment.maxAttempts', RECRUITMENT_MAX_ATTEMPTS_DEFAULT));
-    return raw > 0 ? Math.floor(raw) : RECRUITMENT_MAX_ATTEMPTS_DEFAULT;
+    return recruitmentAttemptLimit(raw);
   }
 
   attemptConfig() {

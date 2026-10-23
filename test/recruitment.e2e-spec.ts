@@ -106,13 +106,15 @@ const PASS_PAYLOAD = (_overrides: Record<string, unknown> = {}) => ({
   overallScore: 0,
 });
 
-const FAIL_PAYLOAD = () => ({
+const FAIL_PAYLOAD = (recommendedRole = 'qa') => ({
   technicalScore: 58,
   softSkillScore: 72,
   criteria: ['knowledge', 'communication', 'problem_solving', 'english', 'confidence', 'reasoning'].map(code => ({ code, score: 58, feedback: 'Insufficient evidence in the answers.' })),
   strengths: [],
   weaknesses: ['Gaps in fundamentals'],
   feedback: 'Not enough technical depth this time.',
+  recommendedRole,
+  roleRecommendation: { reason: 'The answers describe checking edge cases and reproducing failures, a useful starting point for QA.', evidencePositions: [1] },
 });
 
 function tcpReachable(host: string, port: number, timeoutMs = 2000): Promise<boolean> {
@@ -570,7 +572,7 @@ describe('Phase 4 recruitment + AI interview e2e (spec 64-69)', () => {
     expect(Number(submit.body.result.overallScore)).toBe(81.1);
     // Backend decision IGNORED the provider's passed:false
     expect(submit.body.result.decision).toBe('passed');
-    expect(submit.body.result.promptVersion).toBe('recruitment-evaluation-v3');
+    expect(submit.body.result.promptVersion).toBe('recruitment-evaluation-v4');
 
     // persisted + reloadable (spec 34)
     const result = await request(apiBase()).get('/api/v1/recruitment/me/result').set('Authorization', `Bearer ${i1}`);
@@ -667,7 +669,7 @@ describe('Phase 4 recruitment + AI interview e2e (spec 64-69)', () => {
   });
 
   // ── FAIL FLOW (spec 66) ──────────────────────────────────────────────────
-  it('FAIL flow: 58/72 → 62.2 → failed → recruitment_failed + INTERN_NOT_RECRUITED (spec 66)', async () => {
+  it('GUIDANCE flow: 58/72 → 62.2 → answer-backed alternative role, no placement eligibility', async () => {
     // i2's session from the ownership test is STILL ACTIVE — reuse it
     // (a second start would 409 INTERVIEW_ALREADY_IN_PROGRESS).
     const meI2 = await request(apiBase()).get('/api/v1/recruitment/me').set('Authorization', `Bearer ${i2}`);
@@ -681,6 +683,8 @@ describe('Phase 4 recruitment + AI interview e2e (spec 64-69)', () => {
       .set('Authorization', `Bearer ${i2}`);
     expect(submit.status).toBe(200);
     expect(Number(submit.body.result.overallScore)).toBe(62.2);
+    expect(submit.body.result.recommendedRole).toBe('qa');
+    expect(submit.body.result.feedback).toContain('Câu hỏi 1');
     expect(submit.body.result.decision).toBe('failed');
 
     const ws = await request(apiBase()).get('/api/v1/intern/me/workspace').set('Authorization', `Bearer ${i2}`);
@@ -820,7 +824,7 @@ describe('Phase 4 recruitment + AI interview e2e (spec 64-69)', () => {
     await request(apiBase()).patch('/api/v1/recruitment/me/role').set('Authorization', `Bearer ${i6}`).send({ role: 'qa' });
     const s6 = await startInterview(i6);
     await startAndAnswerAll(i6, s6.session.id);
-    testProvider.script([{ payload: FAIL_PAYLOAD() }]);
+    testProvider.script([{ payload: FAIL_PAYLOAD('business_analyst') }]);
     const sub6 = await request(apiBase()).post(`/api/v1/recruitment/me/interviews/${s6.session.id}/submit`).set('Authorization', `Bearer ${i6}`);
     expect(sub6.body.result.decision).toBe('failed');
     await query("UPDATE recruitment_results SET evaluatedAt = DATEADD(HOUR, 1, SYSUTCDATETIME()) WHERE sessionId = ?", [s6.session.id]);
