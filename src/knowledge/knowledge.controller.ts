@@ -14,6 +14,7 @@ export class KnowledgeController {
   constructor(private readonly store: KnowledgeStore, private readonly imports: KnowledgeImportService) {}
   @Get() list(@CurrentUser('userId') actor: string, @Query() query: KnowledgeQueryDto) { return this.store.list(actor, query); }
   @Get(':code/revisions') history(@CurrentUser('userId') actor: string, @Param('code') code: string, @Query() query: KnowledgePageDto) { return this.store.history(actor, code, query.page, query.pageSize); }
+  @Get(':code/publication-check') check(@CurrentUser('userId') actor: string, @Param('code') code: string) { return this.store.checkPublication(actor, code); }
   @Get(':code') get(@CurrentUser('userId') actor: string, @Param('code') code: string) { return this.store.get(actor, code); }
   @Post() @RequirePermissions('knowledge.read', 'knowledge.manage') create(@CurrentUser('userId') actor: string, @Body() body: CreateKnowledgeDto) { return this.store.saveDraft(actor, body.code, null, body.draft); }
   @Put(':code') @RequirePermissions('knowledge.read', 'knowledge.manage') update(@CurrentUser('userId') actor: string, @Param('code') code: string, @Body() body: UpdateKnowledgeDto) { return this.store.saveDraft(actor, code, body.version, body.draft); }

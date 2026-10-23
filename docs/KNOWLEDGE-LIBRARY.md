@@ -56,8 +56,9 @@ Thực hiện theo thứ tự:
 
 1. Tạo draft bằng `POST /api/v1/admin/knowledge` với payload dưới đây.
 2. Đọc lại bằng `GET /api/v1/admin/knowledge/git-read-errors`. Version đầu là 1, status draft.
-3. Gọi `POST /api/v1/admin/knowledge/git-read-errors/publish` với `{"version":1}`. Nhận version 2, status published.
-4. Đọc `.../git-read-errors/revisions` để thấy cả draft 1 và published 2, người tạo, thời điểm và hash.
+3. Đọc `GET /api/v1/admin/knowledge/git-read-errors/publication-check`. Kết quả có `currentVersion`, `status`, `sha256`, `publishable` và `issues`. Đây là kiểm tra chỉ đọc trên bản đã lưu; không tạo revision hoặc audit ghi dữ liệu.
+4. Sau khi duyệt chuyên môn, gọi `POST /api/v1/admin/knowledge/git-read-errors/publish` với `{"version":1}`. Nhận version 2, status published. Server vẫn kiểm quyền, version và cấu trúc lần nữa.
+5. Đọc `.../git-read-errors/revisions` để thấy cả draft 1 và published 2, người tạo, thời điểm và hash.
 
 ```json
 {
@@ -132,6 +133,8 @@ POST `/import/dry-run` nhận `{"entries":[{"code":"...","draft":{...}}]}` với
 ## 7. Quyền và bảo toàn dữ liệu
 
 Tất cả endpoint yêu cầu Admin hiệu lực và `knowledge.read`; thao tác biên soạn thêm `knowledge.manage`, publish thêm `knowledge.publish`. Giảng viên/sinh viên không được đọc kho biên soạn kể cả khi một role tùy chỉnh được cấp các permission này. Thu hồi quyền có hiệu lực ngay ở request sau; JWT chỉ giữ danh tính.
+
+Người chỉ được duyệt xuất bản vẫn có thể đọc `publication-check` khi có quyền đọc, không cần quyền biên soạn. Quyền này không cho phép kiểm file import: `/import/dry-run` tiếp tục yêu cầu `knowledge.manage`. Kiểm xuất bản không phải giữ chỗ hoặc khóa tài liệu; nếu một người khác sửa sau lúc kiểm, thao tác publish trả conflict và người duyệt phải đối chiếu lại.
 
 Mỗi lần ghi lưu current, revision và audit trong cùng transaction. Audit chỉ ghi mã/version/hash và bản nguồn khi restore; không chép toàn bộ đáp án. SQL trigger chặn UPDATE/DELETE revision. Down migration kho sẽ dừng nếu đã có nội dung; migration permission không tự thu hồi quyền đang được sử dụng.
 

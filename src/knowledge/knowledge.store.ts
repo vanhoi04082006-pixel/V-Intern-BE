@@ -120,6 +120,18 @@ export class KnowledgeStore {
     }), total, page: q.page, pageSize: q.pageSize };
   }
 
+  async checkPublication(actor: string, code: string) {
+    const document = await this.get(actor, code), issues: string[] = [];
+    if (document.status !== 'draft') issues.push(document.status === 'published' ? 'Phiên bản hiện tại đã được xuất bản.' : 'Khôi phục thành bản nháp trước khi xuất bản lại.');
+    try { validateKnowledgePublication(document.snapshot); }
+    catch (error) {
+      if (!(error instanceof BadRequestException)) throw error;
+      const body = error.getResponse();
+      issues.push(typeof body === 'object' && body && 'message' in body && typeof body.message === 'string' ? body.message : 'Nội dung chưa đủ điều kiện xuất bản.');
+    }
+    return { code: document.code, currentVersion: document.version, status: document.status, sha256: document.sha256, publishable: issues.length === 0, issues };
+  }
+
   async history(actor: string, code: string, page = 1, pageSize = 20) {
     await this.authorize(actor); this.code(code);
     if (!Number.isInteger(page) || page < 1 || page > 100000 || !Number.isInteger(pageSize) || pageSize < 1 || pageSize > 50) throw new BadRequestException('Phân trang tri thức không hợp lệ.');

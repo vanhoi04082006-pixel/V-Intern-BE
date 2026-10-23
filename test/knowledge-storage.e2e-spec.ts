@@ -339,4 +339,27 @@ describe('knowledge Admin HTTP boundary', () => {
     expect(schemas.KnowledgeDraftDto).toMatchObject({ required: expect.arrayContaining(['kind', 'audience', 'sources', 'body']), properties: { audience: { enum: ['student_safe', 'staff_only', 'grading_only'] }, body: { type: 'object' } } });
     expect(schemas.RestoreKnowledgeDto).toMatchObject({ required: expect.arrayContaining(['version', 'sourceVersion']) });
   });
+
+  it('checks the saved publication state read-only without requiring authoring permissions or changing versions', async () => {
+    const counts = () => db.query('SELECT (SELECT COUNT(*) FROM knowledge_entries) entries,(SELECT COUNT(*) FROM knowledge_revisions) revisions');
+    const before = await counts();
+    await request(app.getHttpServer()).get(`${base}/${apiCode}/publication-check`).expect(401);
+    for (const access of [teacherToken, studentToken]) await api(access).get(`${base}/${apiCode}/publication-check`).expect(403);
+    const role = await db.getRepository(Role).findOneByOrFail({ code: 'admin' }), permission = await db.getRepository(Permission).findOneByOrFail({ code: 'knowledge.manage' });
+    const grant = { roleId: role.id, permissionId: permission.id };
+    await db.getRepository(RolePermission).delete(grant);
+    try {
+      const result = await api().get(`${base}/${apiCode}/publication-check`).expect(200);
+      expect(result.body).toMatchObject({ code: apiCode, currentVersion: 4, status: 'draft', publishable: true, issues: [] });
+      expect(result.body.sha256).toMatch(/^[a-f0-9]{64}$/);
+      await api().post(`${base}/import/dry-run`).send({ entries: [{ code: apiCode, draft: draft() }] }).expect(403);
+      expect(await counts()).toEqual(before);
+    } finally { await db.getRepository(RolePermission).insert(grant); }
+    const incomplete = 'check-' + randomUUID().slice(0, 8);
+    await api().post(base).send({ code: incomplete, draft: { ...draft(), kind: 'qa', audience: 'grading_only', body: {} } }).expect(201);
+    const result = await api().get(`${base}/${incomplete}/publication-check`).expect(200);
+    expect(result.body).toMatchObject({ currentVersion: 1, status: 'draft', publishable: false });
+    expect(result.body.issues.length).toBeGreaterThan(0);
+    expect((await api().get(`${base}/${incomplete}/revisions`).expect(200)).body.total).toBe(1);
+  });
 });
