@@ -49,6 +49,8 @@ const DB_USER = process.env.DB_USERNAME ?? 'vintern_app';
 const DB_PASS = process.env.DB_PASSWORD ?? '';
 
 const RUN = Date.now().toString(36);
+const certificateCareerCode = `cert_${RUN}`;
+const certificateCareer = { name: 'Data Analyst Snapshot', description: 'Analyze a small data set and explain the verified result.', level: 'intern', language: 'en', requiredSkills: ['SQL'], optionalSkills: [], competencyWeights: { SQL: 100 } };
 const EMAILS = {
   admin: `e2e-e5b-admin-${RUN}@vintern.test`,
   si: `e2e-e5b-si-${RUN}@vintern.test`,
@@ -285,7 +287,9 @@ describe('Phase 5 KPI + virtual salary + certificates e2e (spec 82-87)', () => {
     expect(opened.status).toBe(201); // Nest POST default
 
     // Recruitment PASSED fixtures (k1/k2/k3); i2 stays NOT recruited.
-    await Promise.all([k1Id, k2Id, k3Id].map(id => ensureRecruitedProfile(dataSource, id)));
+    await request(apiBase()).post('/api/v1/admin/career-roles').set('Authorization', `Bearer ${admin}`).send({ code: certificateCareerCode, ...certificateCareer }).expect(201);
+    await request(apiBase()).put(`/api/v1/admin/career-roles/${certificateCareerCode}`).set('Authorization', `Bearer ${admin}`).send({ ...certificateCareer, version: 1, status: 'published', acceptingApplications: true }).expect(200);
+    await Promise.all([k1Id, k2Id, k3Id].map(id => ensureRecruitedProfile(dataSource, id, id === k1Id ? certificateCareerCode : 'frontend')));
 
     const beforePlacement = await request(apiBase()).get('/api/v1/intern/me/workspace').set('Authorization', `Bearer ${k1}`);
     expect(beforePlacement.status).toBe(200); expect(beforePlacement.body).toMatchObject({ status: 'unassigned', hasAssignmentHistory: false });
@@ -592,6 +596,7 @@ describe('Phase 5 KPI + virtual salary + certificates e2e (spec 82-87)', () => {
     expect(verify.body.status).toBe('issued');
     expect(verify.body.certificateNumber).toBe(certificate.certificateNumber);
     expect(verify.body.holderName).toBeTruthy();
+    expect(verify.body.role).toBe(certificateCareer.name);
     // SAFE fields only — no email/userId/evaluation/KPI internals (spec 48)
     expect(verify.body.email).toBeUndefined();
     expect(verify.body.userId).toBeUndefined();
@@ -640,6 +645,7 @@ describe('Phase 5 KPI + virtual salary + certificates e2e (spec 82-87)', () => {
       await query("UPDATE users SET displayName=N'Renamed after certificate' WHERE id=@0", [k1Id]);
       await query("UPDATE projects SET name=N'Renamed project after certificate' WHERE id=@0", [projectId]);
       await query("UPDATE internship_sessions SET name=N'Renamed session after certificate' WHERE id=@0", [sessionId]);
+      await request(apiBase()).put(`/api/v1/admin/career-roles/${certificateCareerCode}`).set('Authorization', `Bearer ${admin}`).send({ ...certificateCareer, name: 'Renamed career after certificate', version: 2, status: 'published', acceptingApplications: true }).expect(200);
       const after = await request(apiBase()).get(url); expect(after.status).toBe(200); expect(after.body).toEqual(before.body);
       const pdf = await app.get(CertificatesService).renderPdf(certificate.id, { userId: k1Id, isAdmin: false });
       expect(pdf.buffer.equals(pdfBefore.buffer)).toBe(true);

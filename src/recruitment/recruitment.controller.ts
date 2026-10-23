@@ -61,7 +61,7 @@ export class RecruitmentController {
 
   @Patch('me/role')
   @RequirePermissions('recruitment.start.own')
-  @ApiOperation({ summary: 'Select my recruitment role (frontend|backend|qa|business_analyst)' })
+  @ApiOperation({ summary: 'Select a career code from the published recruiting catalog' })
   async selectRole(
     @CurrentUser('userId') userId: string,
     @Body() dto: SelectRoleDto,
