@@ -1,4 +1,5 @@
 import { CertificatePdfService } from './certificate-pdf.service';
+import PDFDocument from 'pdfkit';
 
 describe('CertificatePdfService (spec 51-53)', () => {
   const service = new CertificatePdfService();
@@ -42,5 +43,30 @@ describe('CertificatePdfService (spec 51-53)', () => {
   it('renders Vietnamese holder names (DejaVu embedded, no mojibake crash)', async () => {
     const pdf = await service.render({ ...data, holderName: 'Trần Thị Én Ỡ' });
     expect(pdf.length).toBeGreaterThan(2000);
+  });
+
+  it('places verification and disclaimer on separate bounded lines, including a long verification URL', async () => {
+    const text = jest.spyOn(PDFDocument.prototype, 'text');
+    try {
+      await service.render({ ...data, verifyBaseUrl: `https://example.org/${'verification/'.repeat(8)}` });
+      const calls = text.mock.calls as unknown as [string, number | undefined, number | undefined, PDFKit.Mixins.TextOptions | undefined][];
+      const footer = calls.filter(([value]) =>
+        /^(Verification code:|Verify at:|This certificate is VIRTUAL)/.test(value),
+      );
+      expect(footer).toHaveLength(3);
+      let previousY = 0;
+      for (const [, x, y, options] of footer) {
+        expect(x).toBe(104);
+        expect(typeof y).toBe('number');
+        expect(y).toBeGreaterThan(previousY);
+        expect(y).toBeLessThan(539);
+        expect(options).toEqual(expect.objectContaining({ width: expect.any(Number) }));
+        expect(options?.width).toBeLessThanOrEqual(634);
+        expect(options?.lineBreak).not.toBe(false);
+        previousY = y as number;
+      }
+    } finally {
+      text.mockRestore();
+    }
   });
 });
