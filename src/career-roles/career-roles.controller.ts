@@ -1,11 +1,12 @@
 import { Body, Controller, Get, Param, Post, Put, Query } from '@nestjs/common';
-import { ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { RequirePermissions } from '../common/decorators/permissions.decorator';
 import { CareerRolePageDto, CareerRoleQueryDto, CareerRoleVersionDto, CreateCareerRoleDto, UpdateCareerRoleDto } from './career-role.dto';
 import { CareerRolesService } from './career-roles.service';
 
 @ApiTags('career-roles')
+@ApiBearerAuth()
 @Controller('admin/career-roles')
 @RequirePermissions('recruitment.manage')
 export class CareerRolesAdminController {
@@ -19,8 +20,10 @@ export class CareerRolesAdminController {
 }
 
 @ApiTags('career-roles')
+@ApiBearerAuth()
 @Controller('career-roles')
 export class CareerRolesCatalogController {
   constructor(private readonly roles: CareerRolesService) {}
   @Get() list() { return this.roles.listRecruiting(); }
+  @Get('reference') @RequirePermissions('recruitment.view') references() { return this.roles.listReferences(); }
 }

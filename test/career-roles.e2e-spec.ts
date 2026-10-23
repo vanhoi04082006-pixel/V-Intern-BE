@@ -56,6 +56,10 @@ describe('dynamic career catalog API', () => {
   it('requires authentication and restricts all administration to effective admins', async () => {
     await request(app.getHttpServer()).get(catalog).expect(401);
     await request(app.getHttpServer()).get(base).expect(401);
+    await request(app.getHttpServer()).get(`${catalog}/reference`).expect(401);
+    await api(student).get(`${catalog}/reference`).expect(403);
+    const references = await api(teacher).get(`${catalog}/reference`).expect(200);
+    expect(references.body.items.find((role: { code: string }) => role.code === 'frontend')).toEqual({ code: 'frontend', label: 'Frontend Developer' });
     for (const token of [teacher, student]) {
       await api(token).get(base).expect(403);
       await api(token).post(base).send({ code, ...content }).expect(403);
@@ -72,6 +76,7 @@ describe('dynamic career catalog API', () => {
     await api(admin).post(base).send({ code, ...content }).expect(409);
     const list = await api(student).get(catalog).expect(200);
     expect(list.body.items.some((r: { code: string }) => r.code === code)).toBe(false);
+    expect((await api(teacher).get(`${catalog}/reference`)).body.items.some((r: { code: string }) => r.code === code)).toBe(false);
     const detail = await api(admin).get(`${base}/${code}`).expect(200);
     expect(detail.body).toMatchObject({ code, version: 1 });
     expect((await db.query('SELECT COUNT(*) count FROM roles'))[0].count).toBe(before.count);
@@ -111,6 +116,7 @@ describe('dynamic career catalog API', () => {
     expect(archived.body).toMatchObject({ status: 'archived', acceptingApplications: false, version: 4 });
     await api(admin).post(`${base}/${code}/archive`).send({ version: 3 }).expect(409);
     expect((await api(student).get(catalog)).body.items.some((r: { code: string }) => r.code === code)).toBe(false);
+    expect((await api(teacher).get(`${catalog}/reference`)).body.items.some((r: { code: string }) => r.code === code)).toBe(true);
     expect((await api(admin).get(`${base}/${code}/revisions`)).body.items).toHaveLength(4);
     await request(app.getHttpServer()).delete(`${base}/${code}`).set('Authorization', `Bearer ${admin}`).expect(404);
     await api(admin).put(`${base}/${code}`).send({ ...content, version: 4, status: 'published', acceptingApplications: true }).expect(200);
@@ -163,5 +169,7 @@ describe('dynamic career catalog API', () => {
     await api(admin).post(`${base}/${career}/archive`).send({ version: 4 }).expect(201);
     await api(student).get(`${own}/interviews/${started.body.session.id}/conversation`).expect(200);
     expect((await api(student).get(own)).body).toMatchObject({ selectedRole: career, selectedRoleLabel: content.name, attemptNumber: 1 });
+    await api(admin).put(`${base}/${career}`).send({ ...content, version: 5, status: 'draft', acceptingApplications: false }).expect(200);
+    expect((await api(teacher).get(`${catalog}/reference`)).body.items.some((r: { code: string }) => r.code === career)).toBe(true);
   });
 });

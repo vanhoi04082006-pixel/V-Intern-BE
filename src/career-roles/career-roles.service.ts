@@ -52,6 +52,15 @@ export class CareerRolesService {
     return { items: rows.map(row => ({ code: row.code, label: row.name, description: row.description, level: row.level, language: row.language, requiredSkills: JSON.parse(row.requiredSkillsJson) as string[], optionalSkills: JSON.parse(row.optionalSkillsJson) as string[], version: row.version })) };
   }
 
+  async listReferences() {
+    // Instructors must still filter historical applicants after a career closes.
+    const rows = await this.db.getRepository(CareerRole).createQueryBuilder('career')
+      .select(['career.code', 'career.name'])
+      .where("career.status IN (:...statuses) OR EXISTS(SELECT 1 FROM recruitment_profiles p WHERE p.selectedRole=career.code)", { statuses: ['published', 'archived'] })
+      .orderBy('career.name', 'ASC').addOrderBy('career.code', 'ASC').getMany();
+    return { items: rows.map(row => ({ code: row.code, label: row.name })) };
+  }
+
   async requireRole(code: string, em: EntityManager = this.db.manager, recruiting = false) {
     // A held shared lock serializes eligibility with admin archive/publication.
     const [row]: CareerRole[] = await em.query('SELECT * FROM career_roles WITH(HOLDLOCK) WHERE code=@0', [code]);
