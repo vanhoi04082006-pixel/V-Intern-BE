@@ -6,12 +6,14 @@ Khi thực hiện, mỗi task bổ sung cột/ngày ghi nhận: `commit FE/BE �
 
 ## G0. CI hiện hành — M00
 
-- [ ] C01. Tái hiện lỗi bước 03 từ run 39901342649 trên database dùng riêng.
+- [x] C01. Tái hiện lỗi bước 03 từ run 39901342649 trên database dùng riêng.
   - Đạt khi: xác định chính xác sai ở locator, dữ liệu fixture hay hành vi ứng dụng; có repro và log an toàn.
   - Kiểm: chạy riêng scenario work/submission/concurrency; đối chiếu DOM/API/SQL. File: FE `scripts/phase7-work-live.mjs`, các component liên quan chỉ khi chứng minh lỗi ứng dụng.
-- [ ] C02. Sửa nguyên nhân, giữ kiểm concurrency 409/refetch/retry và persistence.
+  - Bằng chứng 23/10: local dùng riêng tái hiện sai accessible name; regression đỏ chứng minh hai cảnh báo trùng và lịch sử chưa refresh. Xem [báo cáo M00](../docs/reports/ci-recovery-20261023.md).
+- [x] C02. Sửa nguyên nhân, giữ kiểm concurrency 409/refetch/retry và persistence.
   - Đạt khi: assertion vẫn chứng minh hành vi cũ; không thay bằng timeout tùy tiện hoặc bỏ bước.
   - Kiểm: scenario đỏ trước/xanh sau; Node contract/lint, regression thích hợp. Phụ thuộc C01; file theo nguyên nhân.
+  - Kết quả: FE `5fdf329`, 542 unit test đạt; GitHub SQL Server 2019 run `39911945067` qua bước 03. C03 vẫn mở vì pipeline dừng ở bước 05; chưa đạt toàn bộ M00.
 - [ ] C03. Chạy đủ 14 bước full-stack và chốt commit pair.
   - Đạt khi: quality/full-stack đều pass, không skip/continue-on-error/hạ audit.
   - Kiểm: GitHub checks + evidence của cùng FE/BE SHA; lỗi ở bước sau được tách thành bug có repro. Phụ thuộc C02; FE workflows/scripts khi có căn cứ.
