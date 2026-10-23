@@ -1,5 +1,15 @@
 # M01 — Thư viện nghề nghiệp động
 
+**Trạng thái mới nhất:** R01/R02 đã đạt; R03 triển khai phần Admin UI, onboarding, question bank và gợi ý nghề AI. Còn filter phân công giảng viên và consumer template. Chưa hoàn tất M01 hay toàn bộ roadmap.
+
+| Nguồn hiện hành | Revision / kết quả |
+|---|---|
+| BE code | `ecc1cb8`; 629 unit, 34 SQL E2E local, lint/build đạt; [release gate](https://github.com/vanhoi04082006-pixel/V-Intern-BE/actions/runs/39945513221) và [acceptance](https://github.com/vanhoi04082006-pixel/V-Intern-BE/actions/runs/39945513131) đạt |
+| FE code sau bản sửa workflow/nhánh không còn nghề thay thế | `6e6e9c9`; 549 unit, lint/typecheck và 21 CI contract local đạt; [quality](https://github.com/vanhoi04082006-pixel/V-Intern-FE/actions/runs/39945967274) đạt |
+| Tích hợp cặp FE/BE mới | [Run 39945967240](https://github.com/vanhoi04082006-pixel/V-Intern-FE/actions/runs/39945967240) đang chạy; chỉ chốt sau khi đầy đủ 14 bước cũ + gate catalog đạt |
+
+Các số 625/548 ở dưới là bằng chứng của lát cắt trước, không phải tổng hiện hành. Không cộng các lượt chạy hoặc gọi fixture model là nghiệm thu AI live.
+
 ## R01: schema và migration
 
 **Đạt kiểm thử local SQL Server 2019 ngày 23/10/2026.** Đây là nền tảng dữ liệu; chưa chuyển consumer hay nghiệm thu toàn bộ M01. [Đặc tả](../../SPEC-career-roles.md) giải thích phạm vi và các bước tiếp theo.
@@ -33,7 +43,7 @@ Red trước implementation: endpoint chưa tồn tại, trả 404 thay vì mã 
 
 Current/revision/audit cùng transaction. Snapshot version 1 giữ nguyên sau sửa version 2/3. Tạo nghề không tạo role RBAC. Catalog chỉ công bố published/đang tuyển và không trả trọng số/actor. Code bất biến; không có endpoint xóa cứng. CI R02 sẽ được đối chiếu theo commit mới.
 
-**Còn R03:** UI Admin, chuyển các danh sách nghề/DTO/consumer khỏi enum cố định và kiểm role thứ sáu qua luồng phỏng vấn. R02 chưa làm CV/Agent (các module sau) hay chứng minh toàn bộ M01 đã xong.
+Tại mốc R02, UI và các consumer chưa chuyển. Các lát cắt tiếp theo bên dưới cập nhật trạng thái; R02 không chứng minh CV/Agent hay toàn bộ M01 đã xong.
 
 ### R03a — Consumer tuyển dụng và ngân hàng câu hỏi
 
@@ -41,7 +51,7 @@ Current/revision/audit cùng transaction. Snapshot version 1 giữ nguyên sau s
 
 SQL E2E **4 suite / 34 test đạt** (`career-consumer-green2.log`): tạo nghề mới, draft bị chặn, chọn nghề sau publish, pool thiếu trả 503 với mã cũ `INTERVIEW_QUESTION_POOL_INSUFFICIENT` và attempt vẫn 0; soạn 10 câu cho nghề mới, archive chặn bắt đầu, mở lại bắt đầu 10 snapshot/attempt 1, archive sau đó không xóa buổi thi. Hồi quy tuyển dụng/question bank/đăng ký cùng đạt. Giữ 400/`VALIDATION_ERROR` với nghề không tồn tại. Unit BE 625 test, lint/build đạt (`career-consumer-unit.log`, `career-consumer-lint.log`, `career-consumer-build.log`).
 
-R03 vẫn mở: UI Admin/onboarding/filter nghề; schema/prompt gợi ý nghề AI còn dùng baseline và cần chuyển riêng có kiểm chứng, cùng các consumer liên quan. Không tick cả R03 chỉ vì bắt đầu được buổi thi.
+Tại mốc R03a, UI/filter và schema/prompt AI vẫn dùng baseline. R03b/R03c bên dưới đã chuyển một phần này; không dùng kết quả của riêng R03a để tick cả R03.
 
 ### R03b/R03c — UI và gợi ý nghề từ catalog
 

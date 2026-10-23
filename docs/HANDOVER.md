@@ -11,6 +11,7 @@
 | Lập trình viên mới | Tài liệu này → [Bản đồ code](CODE-MAP.md) → [API](api/README.md) → chương domain cần sửa |
 | Người kiểm thử | [Testing](TESTING.md) → [Verification](VERIFICATION.md) → [Quy tắc migration](database/MIGRATION_POLICY.md) |
 | Người tiếp nhận Git | [Git workflow](GIT-WORKFLOW.md), phân biệt nhánh source với nhánh điều kiện nghiệp vụ |
+| Quản trị nghề nghiệp và tiếp nối Agent roadmap | [Đặc tả catalog](../SPEC-career-roles.md) → [bằng chứng theo lát cắt](reports/career-roles-20261023.md) → [checklist còn lại](../tasks/todo.md) |
 
 Để hiểu giao diện, đọc [bàn giao FE](https://github.com/vanhoi04082006-pixel/V-Intern-FE/blob/feat/ui-ux-overhaul/docs/HANDOVER.md). Hai repo phối hợp qua HTTP; chúng không dùng chung một lịch sử Git.
 

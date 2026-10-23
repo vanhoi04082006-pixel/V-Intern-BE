@@ -19,6 +19,7 @@ API cho hệ thống thực tập theo dự án: tuyển dụng bằng hội tho
 | Kiểm tra các nhánh điều kiện | [WORKFLOW-MATRIX](docs/WORKFLOW-MATRIX.md) |
 | Chạy và đọc kết quả kiểm thử | [TESTING](docs/TESTING.md), [VERIFICATION](docs/VERIFICATION.md) |
 | Tiếp nhận các nhánh source | [GIT-WORKFLOW](docs/GIT-WORKFLOW.md) |
+| Quản trị nghề nghiệp động | [Hợp đồng M01](SPEC-career-roles.md), [tiến độ và kiểm chứng](docs/reports/career-roles-20261023.md) |
 | Xử lý lỗi vận hành | [TROUBLESHOOTING](docs/TROUBLESHOOTING.md) |
 
 ## Công nghệ
