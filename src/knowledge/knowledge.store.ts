@@ -6,7 +6,7 @@ import { CareerRolesService } from '../career-roles/career-roles.service';
 import { PermissionsService } from '../rbac/permissions.service';
 import { KnowledgeEntry } from './entities/knowledge-entry.entity';
 import { KnowledgeRevision } from './entities/knowledge-revision.entity';
-import { KnowledgeDraft, KnowledgeSnapshot, KnowledgeStatus } from './knowledge.contracts';
+import { KnowledgeDraft, KnowledgeListQuery, KnowledgeSnapshot, KnowledgeStatus } from './knowledge.contracts';
 import { normalizeKnowledgeDraft, serializeKnowledgeSnapshot } from './knowledge.policy';
 import { validateKnowledgePublication } from './knowledge-publication.policy';
 
@@ -65,7 +65,8 @@ export class KnowledgeStore {
       const [current]: KnowledgeEntry[] = await em.query('SELECT * FROM knowledge_entries WITH(UPDLOCK,HOLDLOCK) WHERE code=@0', [code]);
       this.assertVersion(current, expectedVersion);
       if (!current) throw new NotFoundException('Không tìm thấy tri thức.');
-      if (current.status === status || (status === 'published' && current.status !== 'draft')) throw new ConflictException({ code: 'KNOWLEDGE_INVALID_TRANSITION', message: 'Cần bản nháp đã được kiểm tra trước khi xuất bản. Mục đã lưu trữ cần khôi phục thành bản nháp.' });
+      if (current.status === status) throw new ConflictException({ code: 'KNOWLEDGE_INVALID_TRANSITION', message: status === 'published' ? 'Phiên bản hiện tại đã được xuất bản.' : 'Tri thức này đã được lưu trữ.' });
+      if (status === 'published' && current.status !== 'draft') throw new ConflictException({ code: 'KNOWLEDGE_INVALID_TRANSITION', message: 'Hãy khôi phục thành bản nháp và kiểm tra nội dung trước khi xuất bản lại.' });
       const row = await em.getRepository(KnowledgeRevision).findOneByOrFail({ entryId: current.id, version: current.version });
       const content = normalizeKnowledgeDraft(this.decode(row));
       if (status === 'published') validateKnowledgePublication(content);
@@ -95,6 +96,28 @@ export class KnowledgeStore {
     const snapshot = this.decode(row);
     if (snapshot.code !== row.code || snapshot.version !== row.version || snapshot.status !== row.status) throw new InternalServerErrorException('Phiên bản tri thức không nhất quán.');
     return { id: row.id.toLowerCase(), code: row.code, version: row.version, status: row.status, snapshot, sha256: row.sha256, createdAt: row.createdAt, updatedAt: row.updatedAt };
+  }
+
+  async list(actor: string, q: KnowledgeListQuery) {
+    await this.authorize(actor);
+    const query = this.db.getRepository(KnowledgeEntry).createQueryBuilder('entry')
+      .innerJoin(KnowledgeRevision, 'revision', 'revision.entryId=entry.id AND revision.version=entry.version');
+    if (q.status) query.andWhere('entry.status=:status', { status: q.status });
+    if (q.kind) query.andWhere("JSON_VALUE(revision.snapshotJson,'$.kind')=:kind", { kind: q.kind });
+    if (q.audience) query.andWhere("JSON_VALUE(revision.snapshotJson,'$.audience')=:audience", { audience: q.audience });
+    if (q.purpose) query.andWhere("EXISTS(SELECT 1 FROM OPENJSON(revision.snapshotJson,'$.purposes') purpose WHERE purpose.[value]=:purpose)", { purpose: q.purpose });
+    if (q.roleCode) query.andWhere("EXISTS(SELECT 1 FROM OPENJSON(revision.snapshotJson,'$.roleCodes') career WHERE career.[value]=:roleCode)", { roleCode: q.roleCode });
+    if (q.search) query.andWhere("(CHARINDEX(:search,entry.code)>0 OR CHARINDEX(:search,JSON_VALUE(revision.snapshotJson,'$.title'))>0)", { search: q.search });
+    const total = await query.getCount();
+    const rows = await query.select(['entry.id AS id', 'entry.code AS code', 'entry.version AS version', 'entry.status AS status', 'entry.updatedAt AS updatedAt', 'revision.snapshotJson AS snapshotJson', 'revision.sha256 AS sha256'])
+      .orderBy('entry.updatedAt', 'DESC').addOrderBy('entry.code', 'ASC').offset((q.page - 1) * q.pageSize).limit(q.pageSize)
+      .getRawMany<KnowledgeRevision & { id: string; code: string; status: KnowledgeStatus; updatedAt: Date }>();
+    return { items: rows.map(row => {
+      const snapshot = this.decode(row);
+      return { id: row.id.toLowerCase(), code: row.code, version: row.version, status: row.status, updatedAt: row.updatedAt, sha256: row.sha256,
+        title: snapshot.title, summary: snapshot.summary, kind: snapshot.kind, language: snapshot.language, difficulty: snapshot.difficulty,
+        audience: snapshot.audience, purposes: snapshot.purposes, roleCodes: snapshot.roleCodes, tags: snapshot.tags };
+    }), total, page: q.page, pageSize: q.pageSize };
   }
 
   async history(actor: string, code: string, page = 1, pageSize = 20) {

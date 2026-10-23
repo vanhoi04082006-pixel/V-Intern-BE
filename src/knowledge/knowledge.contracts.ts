@@ -23,3 +23,7 @@ export interface KnowledgeDraft {
   body: { [key: string]: JsonValue };
 }
 export interface KnowledgeSnapshot extends KnowledgeDraft { schemaVersion: 1; code: string; version: number; status: KnowledgeStatus }
+export interface KnowledgeListQuery {
+  page: number; pageSize: number; search?: string; status?: KnowledgeStatus; kind?: KnowledgeKind;
+  audience?: KnowledgeAudience; purpose?: KnowledgePurpose; roleCode?: string;
+}

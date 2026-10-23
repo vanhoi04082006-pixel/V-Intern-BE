@@ -1,6 +1,10 @@
 import { DataSource } from 'typeorm';
 import { randomUUID } from 'crypto';
-import { BadRequestException, ConflictException, ForbiddenException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, INestApplication, ValidationPipe, VersioningType } from '@nestjs/common';
+import { Test } from '@nestjs/testing';
+import request from 'supertest';
+import { hash } from 'bcryptjs';
+import { AppModule } from '../src/app.module';
 import source from '../src/database/data-source';
 import { CreateKnowledgeLibrary1762809600000 } from '../src/database/migrations/1762809600000-CreateKnowledgeLibrary';
 import { ensureRbac } from '../src/bootstrap/ensure-rbac';
@@ -149,10 +153,180 @@ describe('knowledge storage on SQL Server 2019', () => {
     expect((await store.history(admin, code)).total).toBe(3);
   });
 
+  it('publishes, redrafts, archives and restores by appending snapshots instead of rewriting history', async () => {
+    const lifecycleCode = 'lifecycle-' + randomUUID().slice(0, 8);
+    await store.saveDraft(admin, lifecycleCode, null, draft());
+    const published = await store.publish(admin, lifecycleCode, 1);
+    expect(published).toMatchObject({ version: 2, status: 'published', snapshot: { status: 'published' } });
+    const nextDraft = await store.saveDraft(admin, lifecycleCode, 2, { ...draft(), title: 'Bản sửa chưa duyệt' });
+    expect(nextDraft.status).toBe('draft');
+    expect((await store.history(admin, lifecycleCode)).items[1]).toMatchObject({ version: 2, sha256: published.sha256 });
+    expect((await store.archive(admin, lifecycleCode, 3)).status).toBe('archived');
+    await expect(store.publish(admin, lifecycleCode, 4)).rejects.toBeInstanceOf(ConflictException);
+    const restored = await store.restore(admin, lifecycleCode, 4, 2);
+    expect(restored).toMatchObject({ version: 5, status: 'draft', snapshot: { title: draft().title } });
+    expect((await store.publish(admin, lifecycleCode, 5)).version).toBe(6);
+    const history = await store.history(admin, lifecycleCode);
+    expect(history.total).toBe(6); expect(history.items[4].sha256).toBe(published.sha256);
+  });
+
+  it('does not publish incomplete QA or increment its version when validation fails', async () => {
+    const incompleteCode = 'incomplete-' + randomUUID().slice(0, 8);
+    await store.saveDraft(admin, incompleteCode, null, { ...draft(), kind: 'qa', audience: 'grading_only', body: {} });
+    await expect(store.publish(admin, incompleteCode, 1)).rejects.toBeInstanceOf(BadRequestException);
+    expect((await store.get(admin, incompleteCode))).toMatchObject({ status: 'draft', version: 1 });
+    expect((await store.history(admin, incompleteCode)).total).toBe(1);
+    await expect(store.restore(admin, incompleteCode, 1, 99)).rejects.toThrow('Không tìm thấy phiên bản nguồn.');
+  });
+
   it('observes Admin role revocation on the next call, including history reads', async () => {
     await db.getRepository(UserRole).delete({ userId: admin });
     await expect(store.get(admin, code)).rejects.toBeInstanceOf(ForbiddenException);
     await expect(store.history(admin, code)).rejects.toBeInstanceOf(ForbiddenException);
     await expect(store.saveDraft(admin, code, 3, draft())).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(store.publish(admin, code, 3)).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(store.archive(admin, code, 3)).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(store.restore(admin, code, 3, 1)).rejects.toBeInstanceOf(ForbiddenException);
+  });
+});
+
+describe('knowledge Admin HTTP boundary', () => {
+  let app: INestApplication, token: string, teacherToken: string, studentToken: string, teacherId: string;
+  const password = 'Knowledge-E2e-123!';
+  const base = '/api/v1/admin/knowledge', apiCode = 'http-' + randomUUID().slice(0, 8);
+  const api = (accessToken = token) => ({
+    get: (path: string) => request(app.getHttpServer()).get(path).set('Authorization', `Bearer ${accessToken}`),
+    post: (path: string) => request(app.getHttpServer()).post(path).set('Authorization', `Bearer ${accessToken}`),
+    put: (path: string) => request(app.getHttpServer()).put(path).set('Authorization', `Bearer ${accessToken}`),
+  });
+  beforeAll(async () => {
+    const module = await Test.createTestingModule({ imports: [AppModule] }).compile();
+    app = module.createNestApplication({ logger: false }); app.setGlobalPrefix('api');
+    app.enableVersioning({ type: VersioningType.URI, defaultVersion: '1' });
+    app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }));
+    await app.listen(0);
+    const tokens: string[] = [];
+    for (const roleCode of ['admin', 'instructor', 'intern']) {
+      const id = randomUUID(), role = await db.getRepository(Role).findOneByOrFail({ code: roleCode });
+      const user = await db.getRepository(User).save({ email: `${id}@knowledge.test`, username: id, displayName: 'Knowledge HTTP', passwordHash: await hash(password, 10), status: 'active' });
+      await db.getRepository(UserRole).insert({ userId: user.id, roleId: role.id });
+      if (roleCode === 'instructor') teacherId = user.id;
+      const login = await request(app.getHttpServer()).post('/api/v1/auth/login').send({ email: user.email, password }).expect(200); tokens.push(login.body.accessToken);
+    }
+    [token, teacherToken, studentToken] = tokens;
+  }, 120000);
+  afterAll(async () => { await app?.close(); });
+
+  it('requires authentication and effective Admin privileges for every authoring path', async () => {
+    await request(app.getHttpServer()).get(base).expect(401);
+    for (const access of [teacherToken, studentToken]) {
+      const client = api(access);
+      await client.get(base).expect(403); await client.get(`${base}/${apiCode}`).expect(403);
+      await client.get(`${base}/${apiCode}/revisions`).expect(403);
+      await client.post(base).send({ code: apiCode, draft: draft() }).expect(403);
+      await client.put(`${base}/${apiCode}`).send({ version: 1, draft: draft() }).expect(403);
+      for (const action of ['publish', 'archive', 'restore']) await client.post(`${base}/${apiCode}/${action}`).send({ version: 1, ...(action === 'restore' ? { sourceVersion: 1 } : {}) }).expect(403);
+      await client.post(`${base}/import/dry-run`).send({ entries: [{ code: apiCode, draft: draft() }] }).expect(403);
+    }
+  });
+
+  it('does not turn knowledge permissions on another role into Admin access', async () => {
+    const delegated = await db.getRepository(Role).save({ code: 'knowledge_' + randomUUID().slice(0, 8), name: 'Knowledge delegation QA', description: null });
+    for (const code of ['knowledge.read', 'knowledge.manage', 'knowledge.publish']) {
+      const permission = await db.getRepository(Permission).findOneByOrFail({ code });
+      await db.getRepository(RolePermission).insert({ roleId: delegated.id, permissionId: permission.id });
+    }
+    await db.getRepository(UserRole).insert({ userId: teacherId, roleId: delegated.id });
+    await api(teacherToken).get(base).expect(403);
+    await api(teacherToken).post(base).send({ code: apiCode, draft: draft() }).expect(403);
+    await api(teacherToken).post(`${base}/import/dry-run`).send({ entries: [{ code: apiCode, draft: draft() }] }).expect(403);
+    await api(teacherToken).post(`${base}/${apiCode}/publish`).send({ version: 1 }).expect(403);
+  });
+
+  it('rejects extra authority fields, invalid nested data and unbounded pagination', async () => {
+    await api().post(base).send({ code: apiCode, draft: draft(), status: 'published', actor: teacherId }).expect(400);
+    await api().post(base).send({ code: apiCode, draft: { ...draft(), hidden: true } }).expect(400);
+    await api().post(base).send({ code: apiCode, draft: { ...draft(), sources: [{ title: 'Source', url: 'file:///private' }] } }).expect(400);
+    await api().get(`${base}?pageSize=99999`).expect(400);
+    await api().get(`${base}?kind=anything`).expect(400);
+  });
+
+  it('exposes draft detail/history and literal search metadata without sending body in collections', async () => {
+    const created = await api().post(base).send({ code: apiCode, draft: draft() }).expect(201);
+    expect(created.body).toMatchObject({ code: apiCode, status: 'draft', version: 1 });
+    await api().post(base).send({ code: apiCode, draft: draft() }).expect(409);
+    expect((await api().get(`${base}/${apiCode}`).expect(200)).body.snapshot.body).toEqual(draft().body);
+    const list = await api().get(`${base}?search=${apiCode}&status=draft&kind=guide&audience=student_safe&purpose=mentoring&roleCode=frontend&pageSize=1`).expect(200);
+    expect(list.body).toMatchObject({ total: 1, pageSize: 1, items: [{ code: apiCode, version: 1, title: draft().title }] });
+    expect(list.body.items[0]).not.toHaveProperty('body'); expect(list.body.items[0]).not.toHaveProperty('snapshot');
+    expect((await api().get(`${base}?search=%25`).expect(200)).body.total).toBe(0);
+    expect((await api().get(`${base}/${apiCode}/revisions`).expect(200)).body.total).toBe(1);
+    await api().get(`${base}/not-existent`).expect(404);
+  });
+
+  it('checks every import row, distinguishes draft validity from publication and performs no mutations', async () => {
+    const counts = () => db.query('SELECT (SELECT COUNT(*) FROM knowledge_entries) entries,(SELECT COUNT(*) FROM knowledge_revisions) revisions');
+    const before = await counts(), duplicate = 'duplicate-' + randomUUID().slice(0, 8);
+    const result = await api().post(`${base}/import/dry-run`).send({ entries: [
+      { code: apiCode, draft: draft() },
+      { code: 'incomplete-http', draft: { ...draft(), kind: 'qa', audience: 'grading_only', body: {} } },
+      { code: 'bad-role', draft: { ...draft(), roleCodes: ['unknown_role'] } },
+      { code: duplicate, draft: draft() }, { code: duplicate, draft: draft() },
+      { code: 'extra-authority', draft: draft(), status: 'published' }, null,
+    ] }).expect(200);
+    expect(result.body).toMatchObject({ total: 7, validDrafts: 2, publishable: 1, mutationsPerformed: 0 });
+    expect(result.body.items[0]).toMatchObject({ code: apiCode, exists: true, currentVersion: 1, validDraft: true, publishable: true });
+    expect(result.body.items[1]).toMatchObject({ validDraft: true, publishable: false });
+    expect(result.body.items[1].publicationIssues.length).toBeGreaterThan(0);
+    for (const index of [2, 3, 4, 5, 6]) expect(result.body.items[index].issues.length).toBeGreaterThan(0);
+    expect(await counts()).toEqual(before);
+    await api().post(`${base}/import/dry-run`).send({ entries: Array.from({ length: 51 }, () => ({ code: apiCode, draft: draft() })) }).expect(400);
+  });
+
+  it('enforces lifecycle versions and records restoration without changing published history', async () => {
+    const published = await api().post(`${base}/${apiCode}/publish`).send({ version: 1 }).expect(200);
+    expect(published.body).toMatchObject({ status: 'published', version: 2 });
+    await api().put(`${base}/${apiCode}`).send({ version: 1, draft: draft() }).expect(409);
+    await api().post(`${base}/${apiCode}/archive`).send({ version: 2 }).expect(200);
+    await api().post(`${base}/${apiCode}/publish`).send({ version: 3 }).expect(409);
+    const restored = await api().post(`${base}/${apiCode}/restore`).send({ version: 3, sourceVersion: 2 }).expect(200);
+    expect(restored.body).toMatchObject({ status: 'draft', version: 4 });
+    const history = await api().get(`${base}/${apiCode}/revisions?pageSize=2&page=2`).expect(200);
+    expect(history.body).toMatchObject({ total: 4, items: [{ version: 2, sha256: published.body.sha256 }, { version: 1 }] });
+    const [audit] = await db.query("SELECT TOP(1) detail FROM audit_logs WHERE targetId=@0 AND action='knowledge.restored' ORDER BY createdAt DESC", [restored.body.id]);
+    expect(JSON.parse(audit.detail).restoredFrom).toBe(2);
+  });
+
+  it('uses freshly resolved read and publication permissions rather than stale JWT claims', async () => {
+    const role = await db.getRepository(Role).findOneByOrFail({ code: 'admin' });
+    for (const code of ['knowledge.publish', 'knowledge.read']) {
+      const permission = await db.getRepository(Permission).findOneByOrFail({ code });
+      const grant = { roleId: role.id, permissionId: permission.id };
+      await db.getRepository(RolePermission).delete(grant);
+      try {
+        await api().post(`${base}/${apiCode}/publish`).send({ version: 4 }).expect(403);
+        if (code === 'knowledge.read') { await api().get(`${base}/${apiCode}`).expect(403); await api().post(base).send({ code: 'no-read', draft: draft() }).expect(403); }
+      } finally { await db.getRepository(RolePermission).insert(grant); }
+    }
+    expect((await api().get(`${base}/${apiCode}`).expect(200)).body.version).toBe(4);
+  });
+
+  it('round-trips multiple valid answers, weighted rubric and provenance through the authenticated API', async () => {
+    const qaCode = 'qa-' + randomUUID().slice(0, 8);
+    const content: KnowledgeDraft = { ...draft(), kind: 'qa', title: 'Xử lý lỗi API bất đồng bộ', summary: 'Đánh giá cách xử lý thất bại và phản hồi rõ ràng cho người dùng.', audience: 'grading_only', purposes: ['interview_evaluation'], sources: [{ title: 'MDN Promise', url: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise' }], body: {
+      question: 'Bạn xử lý lỗi của một yêu cầu API bất đồng bộ như thế nào?',
+      expectedConcepts: ['Bắt lỗi', 'Phản hồi cho người dùng'],
+      validAnswers: ['Dùng async/await và try/catch để lưu trạng thái lỗi có hướng xử lý tiếp.', 'Dùng Promise.catch và finally để hiện lỗi và kết thúc trạng thái loading.'],
+      exampleAnswer: 'Dùng try/catch, báo lỗi phù hợp và cho phép thử lại; dọn loading trong finally.',
+      commonMistakes: ['Bỏ qua lỗi rồi hiển thị thành công.'], followUps: ['Khi nào không nên tự động retry yêu cầu?'], weakAnswerExamples: ['Không cần bắt lỗi vì mạng thường ổn định.'],
+      rubric: [{ criterion: 'Kiểm soát lỗi', description: 'Bắt và phân biệt nguyên nhân gây lỗi.', weight: 60 }, { criterion: 'Trải nghiệm', description: 'Thông báo thật và giữ khả năng thao tác tiếp.', weight: 40 }],
+    } };
+    await api().post(base).send({ code: qaCode, draft: content }).expect(201);
+    const published = await api().post(`${base}/${qaCode}/publish`).send({ version: 1 }).expect(200);
+    expect(published.body.snapshot).toMatchObject({ status: 'published', audience: 'grading_only', purposes: ['interview_evaluation'], sources: content.sources, body: content.body });
+    const read = await api().get(`${base}/${qaCode}`).expect(200);
+    expect(read.body.sha256).toBe(published.body.sha256); expect(read.body.snapshot.body.validAnswers).toHaveLength(2);
+    await api(studentToken).get(`${base}/${qaCode}`).expect(403);
+    await request(app.getHttpServer()).get(`/api/v1/knowledge/${qaCode}`).set('Authorization', `Bearer ${studentToken}`).expect(404);
   });
 });
