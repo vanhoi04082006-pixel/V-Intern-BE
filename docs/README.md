@@ -30,6 +30,7 @@ flowchart LR
 |---|---|
 | Tài khoản | [Đăng ký, đăng nhập và quyền](architecture/registration.md) · [Quản trị](architecture/admin.md) |
 | Tuyển dụng | [Hội thoại, chấm điểm và đề xuất vai trò](architecture/recruitment-chat.md) |
+| Tri thức Agent | [Cách biên soạn và duyệt phiên bản](KNOWLEDGE-LIBRARY.md) · [Đặc tả M02](../SPEC-knowledge-library.md) · [Kiểm chứng K01/K02](reports/knowledge-library-20261023.md) |
 | Chuẩn bị thực tập | [Dự án mẫu](architecture/project-blueprints.md) · [Phiên và đội hình](architecture/academic-core.md) · [Kế hoạch AI](architecture/learning-plans.md) |
 | Làm việc | [Sprint, task và bài nộp](architecture/sprint-task-core.md) · [AI Mentor](architecture/ai-mentor.md) |
 | Mã nguồn | [GitHub và review](architecture/github-code-review.md) · [Runner tin cậy](architecture/grading-runner.md) |

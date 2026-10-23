@@ -60,9 +60,9 @@ Migration chỉ tạo bảng/constraint/trigger/index, không seed hay sửa d�
 
 | Lớp | Cần chứng minh | Trạng thái khi bắt đầu |
 |---|---|---|
-| K01 policy/unit | JSON/metadata hợp lệ; phân loại tài liệu chấm không bị hạ quyền; hash ổn định | Chưa kiểm |
-| K01 SQL | Bảo toàn dữ liệu cũ; lưu/sửa/lịch sử; conflict; rollback transaction; quyền Admin; revision bất biến | Chưa kiểm |
-| K02 API | Validation, quyền HTTP, nhiều đáp án đúng/rubric, publish/archive/restore/import dry-run | Chưa triển khai |
+| K01 policy/unit | JSON/metadata hợp lệ; phân loại tài liệu chấm không bị hạ quyền; hash ổn định | Đạt local, 25 case |
+| K01 SQL | Bảo toàn dữ liệu cũ; lưu/sửa/lịch sử; conflict; rollback transaction; quyền Admin; revision bất biến | Đạt local, có lifecycle K02; nguồn trong báo cáo |
+| K02 API | Validation, quyền HTTP, nhiều đáp án đúng/rubric, publish/archive/restore/import dry-run | Đạt local + CI: 22 SQL/HTTP tổng cộng, thêm 15 unit publication; đã kích hoạt hai API, nguồn trong báo cáo |
 | K03 UI | CRUD, preview, trạng thái Agent được dùng, tìm/lọc/history/keyboard | Chưa triển khai |
 | K04 retrieval | Chỉ nội dung đã duyệt, scope trước ranking, citation/version, chống lộ rubric và prompt injection | Chưa triển khai |
 

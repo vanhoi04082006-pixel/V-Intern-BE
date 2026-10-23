@@ -6,6 +6,8 @@ API local chính thường là `http://localhost:8080/api/v1`. Swagger của pro
 
 Đọc [ROUTES](ROUTES.md) để tìm endpoint và [SCHEMAS](SCHEMAS.md) để tra field DTO. Hai phụ lục được lấy từ OpenAPI của bản local và không chứa dữ liệu tài khoản thật. Phần dưới giải thích cách sử dụng chúng.
 
+Kho tri thức K02 có [hướng dẫn riêng](../KNOWLEDGE-LIBRARY.md): cách soạn draft, nhiều đáp án đúng/rubric, publish, archive, restore và kiểm lô import. Mỗi thao tác Admin kiểm vai trò hiệu lực cùng permission tương ứng; chưa có endpoint public trả đáp án cho sinh viên.
+
 ## Một request thành công cần gì?
 
 | Thành phần | Ví dụ | Lưu ý |
