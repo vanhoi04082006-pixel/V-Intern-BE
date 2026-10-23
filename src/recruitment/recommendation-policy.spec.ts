@@ -11,6 +11,20 @@ const base = {
 const validate = (raw: unknown) => validateRoleAwareRecruitmentEvaluation(raw, { roleCode: 'frontend', detailed: false, answers: evidence });
 
 describe('three-band recruitment policy', () => {
+  it('accepts a new catalog career with its label and rejects a legacy code absent from that catalog', () => {
+    const context = { roleCode: 'frontend', detailed: false, answers: evidence, availableRoles: [{ code: 'data_analyst', label: 'Data Analyst' }] };
+    const out = validateRoleAwareRecruitmentEvaluation({ ...base, recommendedRole: 'data_analyst' }, context);
+    expect(out.recommendedRole).toBe('data_analyst');
+    expect(out.feedback).toContain('Data Analyst');
+    expect(() => validateRoleAwareRecruitmentEvaluation({ ...base, recommendedRole: 'qa' }, context)).toThrow();
+  });
+  it('does not invent a career or change the score when no alternative career is recruiting', () => {
+    const context = { roleCode: 'frontend', detailed: false, answers: evidence, availableRoles: [{ code: 'frontend', label: 'Frontend Developer' }] };
+    const out = validateRoleAwareRecruitmentEvaluation({ ...base, recommendedRole: null, roleRecommendation: null }, context);
+    expect(out).toMatchObject({ recommendedRole: null, technicalScore: 60, softSkillScore: 60 });
+    expect(out.feedback).toContain('chưa có nghề nghiệp thay thế đang nhận hồ sơ');
+    expect(() => validateRoleAwareRecruitmentEvaluation({ ...base, recommendedRole: 'frontend' }, context)).toThrow(/must be null/);
+  });
   it.each([[0, 'failed'], [49.9, 'failed'], [50, 'role_recommended'], [62.2, 'role_recommended'], [70, 'role_recommended'], [70.1, 'passed'], [100, 'passed']] as const)('%s maps to %s', (score, outcome) => {
     expect(classifyRecruitmentScore(score)).toBe(outcome);
   });

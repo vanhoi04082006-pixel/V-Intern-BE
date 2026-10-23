@@ -1,5 +1,5 @@
 import { AiInvalidResponseError } from './ai-errors';
-import { RECRUITMENT_ROLES, isRecruitmentRoleCode } from '../recruitment/recruitment-roles';
+import { RECRUITMENT_ROLE_CODES } from '../recruitment/recruitment-roles';
 
 /**
  * STRICT structured-output contract for recruitment evaluation
@@ -36,8 +36,8 @@ const MAX_FEEDBACK = 4000;
 export const INTERVIEW_CRITERIA = ['knowledge', 'communication', 'problem_solving', 'english', 'confidence', 'reasoning'] as const;
 
 /** New conversational interviews require a complete skill assessment. Legacy results remain readable. */
-export function validateDetailedRecruitmentEvaluation(raw: unknown): RecruitmentEvaluationData {
-  const result = validateRecruitmentEvaluation(raw);
+export function validateDetailedRecruitmentEvaluation(raw: unknown, allowedRoles: readonly string[] = RECRUITMENT_ROLE_CODES): RecruitmentEvaluationData {
+  const result = validateRecruitmentEvaluation(raw, allowedRoles);
   const codes = new Set(result.criteria.map(c => c.code));
   if (result.criteria.length !== INTERVIEW_CRITERIA.length || !INTERVIEW_CRITERIA.every(c => codes.has(c))) {
     throw new AiInvalidResponseError('criteria must contain each of the six interview dimensions exactly once');
@@ -86,7 +86,7 @@ function boundedStringList(value: unknown, field: string): string[] {
  * (`passed`, `decision`, `overallScore`, `totalScore`) are intentionally
  * NOT read — they cannot influence anything (spec 5/36).
  */
-export function validateRecruitmentEvaluation(raw: unknown): RecruitmentEvaluationData {
+export function validateRecruitmentEvaluation(raw: unknown, allowedRoles: readonly string[] = RECRUITMENT_ROLE_CODES): RecruitmentEvaluationData {
   if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) {
     throw new AiInvalidResponseError('payload must be a JSON object');
   }
@@ -121,9 +121,9 @@ export function validateRecruitmentEvaluation(raw: unknown): RecruitmentEvaluati
   let recommendedRole: string | null = null;
   if (obj.recommendedRole !== undefined && obj.recommendedRole !== null) {
     const role = boundedString(obj.recommendedRole, 'recommendedRole', 32);
-    if (!isRecruitmentRoleCode(role)) {
+    if (!allowedRoles.includes(role)) {
       throw new AiInvalidResponseError(
-        `recommendedRole must be one of: ${RECRUITMENT_ROLES.map((r) => r.code).join(', ')}`,
+        `recommendedRole must be one of the recruiting catalog codes: ${allowedRoles.join(', ')}`,
       );
     }
     recommendedRole = role;

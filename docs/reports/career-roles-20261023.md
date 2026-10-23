@@ -42,3 +42,13 @@ Current/revision/audit cùng transaction. Snapshot version 1 giữ nguyên sau s
 SQL E2E **4 suite / 34 test đạt** (`career-consumer-green2.log`): tạo nghề mới, draft bị chặn, chọn nghề sau publish, pool thiếu trả 503 với mã cũ `INTERVIEW_QUESTION_POOL_INSUFFICIENT` và attempt vẫn 0; soạn 10 câu cho nghề mới, archive chặn bắt đầu, mở lại bắt đầu 10 snapshot/attempt 1, archive sau đó không xóa buổi thi. Hồi quy tuyển dụng/question bank/đăng ký cùng đạt. Giữ 400/`VALIDATION_ERROR` với nghề không tồn tại. Unit BE 625 test, lint/build đạt (`career-consumer-unit.log`, `career-consumer-lint.log`, `career-consumer-build.log`).
 
 R03 vẫn mở: UI Admin/onboarding/filter nghề; schema/prompt gợi ý nghề AI còn dùng baseline và cần chuyển riêng có kiểm chứng, cùng các consumer liên quan. Không tick cả R03 chỉ vì bắt đầu được buổi thi.
+
+### R03b/R03c — UI và gợi ý nghề từ catalog
+
+FE `f46bb8f` đã có UI Admin, editor trọng số, history, archive; onboarding và question bank dùng catalog. Local **84 file / 548 test**, lint/typecheck/production build đạt. Browser thật đạt tạo → publish → history → soạn 10 câu qua UI → sinh viên mới chọn nghề mới → bắt đầu 10 snapshot → archive vẫn đọc buổi thi, 5 chiều rộng không tràn ngang/page error. Hướng dẫn: FE `docs/CAREER-ROLES.md`; evidence `career-browser3.log`, `phase7-evidence/career-roles/result.json` trong thư mục local CI recovery. Quality FE `f46bb8f` đạt; workflow full-stack revision đó không nạp được do SHA bị lệch indent, đã sửa và thêm assertion giữ SHA trong `jobs.sql2019.env`, không gọi run đó là đạt.
+
+Prompt/validator đánh giá đã chuyển sang catalog published/đang tuyển do server truyền; mã nghề ngoài catalog bị từ chối, nhãn nghề mới được dùng trong feedback/notification. Input chấm có code/label/version/kỹ năng của catalog để truy vết; không thêm PII. Prompt tăng **v4 → v5**, kết quả cũ không sửa lại. Khi không còn nghề thay thế, model phải trả null, giữ nguyên điểm và thông báo rõ; không tự tạo/gán nghề.
+
+BE local sau phần AI: **78 suite / 629 test đạt**, 4 suite / **34 SQL E2E đạt**, lint 0 lỗi và build đạt. Nguồn: `career-ai-unit-final2.log`, `career-ai-regression2.log`, `career-ai-lint-final2.log`, `career-ai-build-final.log`. Đây là schema/policy và provider fixture; chưa phải eval chất lượng model live hay LangGraph Agent.
+
+**R03 vẫn mở:** bộ lọc nghề ở `member-selector.tsx` còn cố định; DTO template còn enum 6 nghề kể cả devops, cần xử lý tương thích lịch sử trước khi chuyển. Không tick R03/M01 toàn bộ. CI cặp revision mới cần đối chiếu sau khi push.

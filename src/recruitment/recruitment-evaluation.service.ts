@@ -23,7 +23,7 @@ import {
   buildRecruitmentSystemPrompt,
 } from './recruitment-prompt';
 import { RecruitmentService, toResultResponse } from './recruitment.service';
-import { recruitmentRoleLabel } from './recruitment-roles';
+import { CareerRolesService } from '../career-roles/career-roles.service';
 import { calculateOverallScore, classifyRecruitmentScore, decideRecruitment } from './scoring';
 import { validateRoleAwareRecruitmentEvaluation } from './recommendation-policy';
 
@@ -54,6 +54,7 @@ export class RecruitmentEvaluationService {
     private readonly aiService: AiService,
     private readonly recruitmentService: RecruitmentService,
     @InjectDataSource() private readonly dataSource: DataSource,
+    private readonly careerRoles: CareerRolesService,
   ) {}
 
   async evaluateSession(
@@ -150,6 +151,8 @@ export class RecruitmentEvaluationService {
     let model: string;
     try {
       if (session.questionCount === 10 && questions.some(q => !turnByQuestion.get(q.id.toLowerCase())?.prompt)) throw new AiInvalidResponseError('Missing delivered interview evidence.');
+      const catalog = (await this.careerRoles.listRecruiting()).items;
+      const roleLabel = await this.careerRoles.label(session.roleCode);
       const aiResult = await this.aiService.generateStructuredWithRun<RecruitmentEvaluationData>({
         feature: RECRUITMENT_EVALUATION_TASK,
         userId: session.userId,
@@ -158,10 +161,10 @@ export class RecruitmentEvaluationService {
         promptVersion: RECRUITMENT_EVALUATION_PROMPT_VERSION,
         request: {
           task: RECRUITMENT_EVALUATION_TASK,
-          systemPrompt: buildRecruitmentSystemPrompt(session.roleCode),
-          input,
+          systemPrompt: buildRecruitmentSystemPrompt(session.roleCode, catalog, roleLabel),
+          input: { ...input, careerCatalog: catalog.map(({ code, label, version, requiredSkills }) => ({ code, label, version, requiredSkills })) },
           schemaName: 'RecruitmentEvaluation',
-          validate: (raw) => validateRoleAwareRecruitmentEvaluation(raw, { roleCode: session.roleCode, detailed: session.questionCount === 10, answers: payloadAnswers }),
+          validate: (raw) => validateRoleAwareRecruitmentEvaluation(raw, { roleCode: session.roleCode, detailed: session.questionCount === 10, answers: payloadAnswers, availableRoles: catalog }),
           modelOptions: { temperature: 0.2, maxOutputTokens: 4096 },
         },
       });
@@ -335,10 +338,10 @@ export class RecruitmentEvaluationService {
         targetId: result.id,
         summary:
           decision === 'passed'
-            ? `Phỏng vấn tuyển dụng hoàn tất — bạn đã trúng tuyển vị trí ${recruitmentRoleLabel(session.roleCode)}`
-            : outcome === 'role_recommended'
-              ? `Phỏng vấn hoàn tất — AI đề xuất khám phá ${recruitmentRoleLabel(evaluation.recommendedRole!)}`
-              : 'Phỏng vấn tuyển dụng hoàn tất — kết quả chưa đạt',
+            ? `Phỏng vấn tuyển dụng hoàn tất — bạn đã trúng tuyển vị trí ${await this.careerRoles.label(session.roleCode)}`
+            : outcome === 'role_recommended' && evaluation.recommendedRole
+              ? `Phỏng vấn hoàn tất — AI đề xuất khám phá ${await this.careerRoles.label(evaluation.recommendedRole!)}`
+            : outcome === 'role_recommended' ? 'Phỏng vấn hoàn tất — cần định hướng thêm, chưa có nghề thay thế đang tuyển' : 'Phỏng vấn tuyển dụng hoàn tất — kết quả chưa đạt',
       });
 
       this.logger.log(
@@ -359,20 +362,20 @@ export class RecruitmentEvaluationService {
       where: { userId, category: 'recruitment' },
     });
     if (pref && !pref.enabled) return;
-    const label = recruitmentRoleLabel(roleCode);
+    const label = await this.careerRoles.label(roleCode);
     await em.insert(Notification, {
       userId,
       type: 'recruitment',
       title:
         outcome === 'passed'
           ? `Chúc mừng — bạn đã trúng tuyển vị trí ${label}`
-          : outcome === 'role_recommended' ? 'AI đề xuất một vai trò phù hợp hơn' : 'Kết quả phỏng vấn tuyển dụng: Chưa đạt',
+          : outcome === 'role_recommended' ? recommendedRole ? 'AI đề xuất một vai trò phù hợp hơn' : 'Kết quả phỏng vấn: Cần định hướng thêm' : 'Kết quả phỏng vấn tuyển dụng: Chưa đạt',
       body:
         outcome === 'passed'
           ? `Bạn đã vượt qua vòng phỏng vấn AI cho vị trí ${label}. Hệ thống sẽ thông báo khi bạn được phân công vào đồ án.`
-          : outcome === 'role_recommended'
-            ? `Từ câu trả lời phỏng vấn, AI đề xuất bạn khám phá ${recruitmentRoleLabel(recommendedRole!)}. Xem lý do và số lượt còn lại trước khi chọn vai trò cho lần tiếp theo.`
-            : 'Kết quả phỏng vấn lần này dưới 50 điểm. Xem phần cần cải thiện và số lượt còn lại để chuẩn bị cho lần tiếp theo.',
+          : outcome === 'role_recommended' && recommendedRole
+            ? `Từ câu trả lời phỏng vấn, AI đề xuất bạn khám phá ${await this.careerRoles.label(recommendedRole!)}. Xem lý do và số lượt còn lại trước khi chọn vai trò cho lần tiếp theo.`
+            : outcome === 'role_recommended' ? 'Kết quả nằm trong khoảng 50–70 điểm nhưng hiện chưa có nghề thay thế đang nhận hồ sơ. Xem nhận xét và liên hệ giảng viên để được định hướng; kết quả và số lượt vẫn được giữ.' : 'Kết quả phỏng vấn lần này dưới 50 điểm. Xem phần cần cải thiện và số lượt còn lại để chuẩn bị cho lần tiếp theo.',
       linkUrl: '/intern/onboarding/result',
     });
   }

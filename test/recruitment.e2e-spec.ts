@@ -572,7 +572,7 @@ describe('Phase 4 recruitment + AI interview e2e (spec 64-69)', () => {
     expect(Number(submit.body.result.overallScore)).toBe(81.1);
     // Backend decision IGNORED the provider's passed:false
     expect(submit.body.result.decision).toBe('passed');
-    expect(submit.body.result.promptVersion).toBe('recruitment-evaluation-v4');
+    expect(submit.body.result.promptVersion).toBe('recruitment-evaluation-v5');
 
     // persisted + reloadable (spec 34)
     const result = await request(apiBase()).get('/api/v1/recruitment/me/result').set('Authorization', `Bearer ${i1}`);
