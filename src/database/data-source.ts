@@ -1,5 +1,6 @@
 import { CreateCareerRoles1762636800000 } from './migrations/1762636800000-CreateCareerRoles';
 import { CreateKnowledgeLibrary1762809600000 } from './migrations/1762809600000-CreateKnowledgeLibrary';
+import { AddKnowledgePermissions1762896000000 } from './migrations/1762896000000-AddKnowledgePermissions';
 import { AdoptTemplateCareerRoles1762723200000 } from './migrations/1762723200000-AdoptTemplateCareerRoles';
 import { AddInterviewFollowUps1761945600000 } from './migrations/1761945600000-AddInterviewFollowUps';
 import { SnapshotCertificateCompletion1762377600000 } from './migrations/1762377600000-SnapshotCertificateCompletion';
@@ -95,5 +96,6 @@ export default new DataSource({
     CreateCareerRoles1762636800000,
     AdoptTemplateCareerRoles1762723200000,
     CreateKnowledgeLibrary1762809600000,
+    AddKnowledgePermissions1762896000000,
   ],
 });

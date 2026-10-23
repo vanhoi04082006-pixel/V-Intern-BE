@@ -11,6 +11,9 @@ import { RolePermission } from '../rbac/entities/role-permission.entity';
  * view+manage and intern.workspace.view.
  */
 export const PERMISSION_CATALOG: Array<{ code: string; name: string; description: string }> = [
+  { code: 'knowledge.read', name: 'Đọc kho tri thức nội bộ', description: 'Đọc nội dung và phiên bản biên soạn; dịch vụ còn yêu cầu vai trò Admin' },
+  { code: 'knowledge.manage', name: 'Biên soạn tri thức', description: 'Tạo nháp, sửa, lưu trữ, khôi phục và kiểm tra import' },
+  { code: 'knowledge.publish', name: 'Xuất bản tri thức', description: 'Duyệt phiên bản đủ điều kiện cho retrieval sau này' },
   { code: 'users.read', name: 'Xem người dùng', description: 'Danh sách và chi tiết người dùng' },
   { code: 'users.create', name: 'Tạo người dùng', description: 'Tạo tài khoản mới' },
   { code: 'users.update', name: 'Sửa người dùng', description: 'Cập nhật hồ sơ người dùng' },
