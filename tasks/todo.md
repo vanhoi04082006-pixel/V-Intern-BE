@@ -1,6 +1,6 @@
 # Theo dõi triển khai — nền tảng Agent và tuyển thực tập
 
-> 23/10/2026 — **đã được người dùng duyệt; đang xử lý G0/M00**. Các task chỉ được tick khi có bằng chứng. Audit source/CI và lựa chọn nghiệp vụ đã ghi ở [kế hoạch](plan.md); không đánh đồng audit với nghiệm thu tính năng.
+> 23/10/2026 — **đã được người dùng duyệt; G0/M00 đã đạt; bắt đầu G1/M01**. Các task chỉ được tick khi có bằng chứng. Audit source/CI và lựa chọn nghiệp vụ đã ghi ở [kế hoạch](plan.md); không đánh đồng audit với nghiệm thu tính năng.
 
 Khi thực hiện, mỗi task bổ sung cột/ngày ghi nhận: `commit FE/BE • test • expected/actual • PASS/FAIL/BLOCKED • evidence`. Chỉ tick khi đủ bằng chứng. Nhóm file là phạm vi dự kiến; tách nhỏ thêm nếu một task cần hơn khoảng 5 file.
 
@@ -14,9 +14,10 @@ Khi thực hiện, mỗi task bổ sung cột/ngày ghi nhận: `commit FE/BE �
   - Đạt khi: assertion vẫn chứng minh hành vi cũ; không thay bằng timeout tùy tiện hoặc bỏ bước.
   - Kiểm: scenario đỏ trước/xanh sau; Node contract/lint, regression thích hợp. Phụ thuộc C01; file theo nguyên nhân.
   - Kết quả: FE `5fdf329`, 542 unit test đạt; GitHub SQL Server 2019 run `39911945067` qua bước 03. C03 vẫn mở vì pipeline dừng ở bước 05; chưa đạt toàn bộ M00.
-- [ ] C03. Chạy đủ 14 bước full-stack và chốt commit pair.
+- [x] C03. Chạy đủ 14 bước full-stack và chốt commit pair.
   - Đạt khi: quality/full-stack đều pass, không skip/continue-on-error/hạ audit.
   - Kiểm: GitHub checks + evidence của cùng FE/BE SHA; lỗi ở bước sau được tách thành bug có repro. Phụ thuộc C02; FE workflows/scripts khi có căn cứ.
+  - PASS 23/10: FE `6b11d07`, BE `3989138`; quality `39922089336` và 14/14 SQL 2019 `39922089463` cùng revision. Local 83 file/544 test. Nguồn/giới hạn trong báo cáo M00.
 
 ## G1. Role, tri thức và nền tảng Agent — M01/M02/M04/M05
 
