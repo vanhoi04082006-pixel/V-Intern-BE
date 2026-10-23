@@ -5,6 +5,7 @@ import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import { hash } from 'bcryptjs';
 import { AppModule } from '../src/app.module';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import source from '../src/database/data-source';
 import { CreateKnowledgeLibrary1762809600000 } from '../src/database/migrations/1762809600000-CreateKnowledgeLibrary';
 import { ensureRbac } from '../src/bootstrap/ensure-rbac';
@@ -328,5 +329,14 @@ describe('knowledge Admin HTTP boundary', () => {
     expect(read.body.sha256).toBe(published.body.sha256); expect(read.body.snapshot.body.validAnswers).toHaveLength(2);
     await api(studentToken).get(`${base}/${qaCode}`).expect(403);
     await request(app.getHttpServer()).get(`/api/v1/knowledge/${qaCode}`).set('Authorization', `Bearer ${studentToken}`).expect(404);
+  });
+
+  it('publishes discoverable OpenAPI fields and nested schemas rather than empty DTO objects', () => {
+    const document = SwaggerModule.createDocument(app, new DocumentBuilder().setTitle('Knowledge QA').setVersion('1').build());
+    expect(document.paths[base].post).toBeDefined();
+    const schemas = document.components?.schemas ?? {};
+    expect(schemas.CreateKnowledgeDto).toMatchObject({ required: ['code', 'draft'], properties: { draft: { $ref: '#/components/schemas/KnowledgeDraftDto' } } });
+    expect(schemas.KnowledgeDraftDto).toMatchObject({ required: expect.arrayContaining(['kind', 'audience', 'sources', 'body']), properties: { audience: { enum: ['student_safe', 'staff_only', 'grading_only'] }, body: { type: 'object' } } });
+    expect(schemas.RestoreKnowledgeDto).toMatchObject({ required: expect.arrayContaining(['version', 'sourceVersion']) });
   });
 });
