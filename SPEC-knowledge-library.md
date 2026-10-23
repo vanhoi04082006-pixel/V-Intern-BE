@@ -63,7 +63,7 @@ Migration chỉ tạo bảng/constraint/trigger/index, không seed hay sửa d�
 | K01 policy/unit | JSON/metadata hợp lệ; phân loại tài liệu chấm không bị hạ quyền; hash ổn định | Đạt local, 25 case |
 | K01 SQL | Bảo toàn dữ liệu cũ; lưu/sửa/lịch sử; conflict; rollback transaction; quyền Admin; revision bất biến | Đạt local, có lifecycle K02; nguồn trong báo cáo |
 | K02 API | Validation, quyền HTTP, nhiều đáp án đúng/rubric, publish/archive/restore/import dry-run | Đạt local + CI: 22 SQL/HTTP tổng cộng, thêm 15 unit publication; đã kích hoạt hai API, nguồn trong báo cáo |
-| K03 UI | CRUD, preview, trạng thái Agent được dùng, tìm/lọc/history/keyboard | Chưa triển khai |
+| K03 UI | CRUD, preview, trạng thái Agent được dùng, tìm/lọc/history/keyboard | Đạt local + CI, kích hoạt runtime; [nguồn 24/10](docs/reports/knowledge-ui-20261024.md). Nêu rõ kho chưa nối vào Agent; không xóa vật lý revision |
 | K04 retrieval | Chỉ nội dung đã duyệt, scope trước ranking, citation/version, chống lộ rubric và prompt injection | Chưa triển khai |
 
 Các kết quả phải ghi lệnh, commit, giờ kiểm và nguồn log. Không dùng số test M01 để tick K01.
@@ -77,6 +77,7 @@ Tất cả endpoint dưới `/api/v1/admin/knowledge`, yêu cầu đăng nhập 
 | GET `/` | Metadata có phân trang/tìm/lọc; không trả body |
 | GET `/:code` | Snapshot current cho Admin |
 | GET `/:code/revisions` | Lịch sử có phân trang |
+| GET `/:code/publication-check` | Kiểm bản đã lưu với validator publish; trả version/status/hash/khả năng xuất bản/lý do, không ghi dữ liệu và không yêu cầu manage |
 | POST `/` | `{code,draft}` tạo draft version 1 |
 | PUT `/:code` | `{version,draft}` tạo draft version tiếp theo |
 | POST `/:code/publish` | `{version}`; kiểm chất lượng cấu trúc trước khi thêm revision published |

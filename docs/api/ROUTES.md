@@ -1,6 +1,6 @@
 # Danh mục endpoint theo module
 
-Sinh từ OpenAPI của API local đang chạy lúc **2026-10-23T16:19:36.081Z**, code Backend M02 b3a1ef7. Có **261 operations** trong **43 nhóm**. Đây là số method/path, không phải số luồng đã nghiệm thu. Nguồn schema được giữ trong evidence project-local.
+Sinh từ OpenAPI của API local chính đang chạy lúc **2026-10-23T21:35:13.266Z**, code Backend M02 bf3118693c782c145a87d4348212344396ce3526. Có **262 operations** trong **43 nhóm**. Đây là số method/path, không phải số luồng đã nghiệm thu. Nguồn schema được giữ trong evidence project-local.
 
 Đọc [hướng dẫn API](README.md) trước; schema DTO không thay validation/policy/ownership trong service. [Kho tri thức](../KNOWLEDGE-LIBRARY.md) giải thích API K02 và phân biệt draft/publish/retrieval. Một endpoint có Bearer không tự cấp quyền đọc mọi bản ghi.
 
@@ -30,7 +30,7 @@ Sinh từ OpenAPI của API local đang chạy lúc **2026-10-23T16:19:36.081Z**
 - [health](#health) — 1 operations
 - [imported-reviews](#imported-reviews) — 2 operations
 - [intern](#intern) — 13 operations
-- [knowledge](#knowledge) — 9 operations
+- [knowledge](#knowledge) — 10 operations
 - [kpi-periods](#kpi-periods) — 8 operations
 - [kpi-results](#kpi-results) — 1 operations
 - [notifications](#notifications) — 6 operations
@@ -310,6 +310,7 @@ Sinh từ OpenAPI của API local đang chạy lúc **2026-10-23T16:19:36.081Z**
 | GET | `/api/v1/admin/knowledge` | KnowledgeController_list_v1 | — |
 | POST | `/api/v1/admin/knowledge` | KnowledgeController_create_v1 | [CreateKnowledgeDto](SCHEMAS.md#createknowledgedto) |
 | GET | `/api/v1/admin/knowledge/{code}/revisions` | KnowledgeController_history_v1 | — |
+| GET | `/api/v1/admin/knowledge/{code}/publication-check` | KnowledgeController_check_v1 | — |
 | GET | `/api/v1/admin/knowledge/{code}` | KnowledgeController_get_v1 | — |
 | PUT | `/api/v1/admin/knowledge/{code}` | KnowledgeController_update_v1 | [UpdateKnowledgeDto](SCHEMAS.md#updateknowledgedto) |
 | POST | `/api/v1/admin/knowledge/import/dry-run` | KnowledgeController_dryRun_v1 | [KnowledgeImportDryRunDto](SCHEMAS.md#knowledgeimportdryrundto) |

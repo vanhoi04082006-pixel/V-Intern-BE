@@ -1,6 +1,6 @@
 # Tra cứu field của DTO
 
-Sinh từ cùng OpenAPI lúc **2026-10-23T16:19:36.081Z**, Backend M02 b3a1ef7. Phản ánh field được khai báo trong Swagger; [hướng dẫn kho tri thức](../KNOWLEDGE-LIBRARY.md) và validation/service quy định điều kiện nghiệp vụ. Field optional không đồng nghĩa được sửa ở mọi trạng thái.
+Sinh từ cùng OpenAPI lúc **2026-10-23T21:35:13.266Z**, Backend M02 bf3118693c782c145a87d4348212344396ce3526. Phản ánh field được khai báo trong Swagger; [hướng dẫn kho tri thức](../KNOWLEDGE-LIBRARY.md) và validation/service quy định điều kiện nghiệp vụ. Field optional không đồng nghĩa được sửa ở mọi trạng thái.
 
 ## Mục lục schema
 

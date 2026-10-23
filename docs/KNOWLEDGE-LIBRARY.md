@@ -1,6 +1,6 @@
 # Kho tri thức: soạn nội dung, duyệt phiên bản và giữ nguồn
 
-**Dành cho:** người quản trị nội dung và lập trình viên tiếp nhận Backend. Kho dùng chung cho các Agent đang được xây theo [lộ trình](../tasks/plan.md). Hiện K01/K02 cung cấp lưu trữ và API; giao diện K03 và retrieval K04 được nghiệm thu riêng. Một mục đã published chưa chứng minh các Agent hiện tại đã đọc mục đó.
+**Dành cho:** người quản trị nội dung và lập trình viên tiếp nhận Backend. Kho dùng chung cho các Agent đang được xây theo [lộ trình](../tasks/plan.md). K01–K03 đã có storage, API và giao diện, đạt local + CI và đang chạy local; [nguồn kiểm chứng](reports/knowledge-ui-20261024.md). Retrieval K04 chưa nghiệm thu. Một mục đã published chưa chứng minh các Agent hiện tại đã đọc mục đó.
 
 ## 1. Hiểu bằng một ví dụ
 

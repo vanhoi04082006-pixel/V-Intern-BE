@@ -1,6 +1,6 @@
 # Theo dõi triển khai — nền tảng Agent và tuyển thực tập
 
-> 23/10/2026 — **đã được người dùng duyệt; M00/M01 và K01/K02 đạt local + CI, M01/K01/K02 đã kích hoạt trên hai DB chính, dữ liệu giữ nguyên; tiếp theo K03/K04**. Các task chỉ được tick khi có bằng chứng. Audit source/CI và lựa chọn nghiệp vụ đã ghi ở [kế hoạch](plan.md); không đánh đồng audit với nghiệm thu tính năng.
+> Cập nhật 24/10/2026 — **đã được người dùng duyệt; M00/M01 và K01–K03 đạt local + CI, đã kích hoạt runtime chính, dữ liệu giữ nguyên; tiếp theo K04**. Các task chỉ được tick khi có bằng chứng. Audit source/CI và lựa chọn nghiệp vụ đã ghi ở [kế hoạch](plan.md); không đánh đồng audit với nghiệm thu tính năng.
 
 Khi thực hiện, mỗi task bổ sung cột/ngày ghi nhận: `commit FE/BE • test • expected/actual • PASS/FAIL/BLOCKED • evidence`. Chỉ tick khi đủ bằng chứng. Nhóm file là phạm vi dự kiến; tách nhỏ thêm nếu một task cần hơn khoảng 5 file.
 
@@ -41,7 +41,8 @@ Khi thực hiện, mỗi task bổ sung cột/ngày ghi nhận: `commit FE/BE �
   - PASS local + CI `113367e`/`1eb20fe`/`7cb3a46`/`b3a1ef7`: Q&A nhiều đáp án đúng, rubric tổng 100, nguồn, publish/retire/restore có version, list/filter/history, dry-run theo hàng không mutation. 15 unit publication và 22 SQL/HTTP tổng K01/K02; Swagger DTO có field. Đã chạy hai API chính; chưa nghiệm thu UI/retrieval từ API.
   - Đạt khi: có multiple valid answers, rubric, common mistakes, follow-up; conflict được báo rõ.
   - Kiểm: validation, publish/retire/rollback, import dry-run lỗi. Phụ thuộc K01; service/controller/DTO/tests.
-- [ ] K03. UI thư viện với tìm/lọc, preview và lịch sử.
+- [x] K03. UI thư viện với tìm/lọc, preview và lịch sử.
+  - PASS 24/10 local + CI + runtime: FE `17f4370`/`70d5e97`, BE `bf31186`; 579 FE test, 22 Node contracts, 669 BE unit, 23 SQL/HTTP, 24 browser viewport checks và native read-only smoke. 14 gate cũ + career + knowledge xanh; số liệu hai DB/lượt/tài khoản giữ nguyên. [Kết quả, CI và giới hạn](../docs/reports/knowledge-ui-20261024.md).
   - Đạt khi: quản trị viên biết mục nào Agent được dùng; trạng thái/loading/error đầy đủ.
   - Kiểm: thao tác CRUD/publish bằng browser và keyboard. Phụ thuộc K02; FE questions/knowledge API và UI.
 - [ ] K04. Retrieval theo scope và nguồn.
