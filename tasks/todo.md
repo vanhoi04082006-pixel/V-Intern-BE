@@ -1,6 +1,6 @@
 # Theo dõi triển khai — nền tảng Agent và tuyển thực tập
 
-> 23/10/2026 — **đã được người dùng duyệt; G0/M00 đã đạt; bắt đầu G1/M01**. Các task chỉ được tick khi có bằng chứng. Audit source/CI và lựa chọn nghiệp vụ đã ghi ở [kế hoạch](plan.md); không đánh đồng audit với nghiệm thu tính năng.
+> 23/10/2026 — **đã được người dùng duyệt; M00/M01 đã đạt local + CI, M01 đã kích hoạt trên hai DB chính; tiếp theo K01/M02**. Các task chỉ được tick khi có bằng chứng. Audit source/CI và lựa chọn nghiệp vụ đã ghi ở [kế hoạch](plan.md); không đánh đồng audit với nghiệm thu tính năng.
 
 Khi thực hiện, mỗi task bổ sung cột/ngày ghi nhận: `commit FE/BE • test • expected/actual • PASS/FAIL/BLOCKED • evidence`. Chỉ tick khi đủ bằng chứng. Nhóm file là phạm vi dự kiến; tách nhỏ thêm nếu một task cần hơn khoảng 5 file.
 
@@ -29,8 +29,8 @@ Khi thực hiện, mỗi task bổ sung cột/ngày ghi nhận: `commit FE/BE �
   - Đạt khi: CRUD/version/status; role inactive/draft không nhận hồ sơ mới.
   - Kiểm: validation/RBAC/conflict E2E. Phụ thuộc R01; BE `career-roles` service/controller/DTO/tests.
   - PASS local 23/10: 6 API SQL test và 33 test gồm hồi quy tuyển dụng/question bank/đăng ký; 625 unit BE, lint/build đạt. API giữ snapshot/audit, xử lý concurrent update 200/409; catalog chỉ published/đang tuyển. R03 chưa xong.
-- [ ] R03. Admin quản trị role và chuyển consumer khỏi enum cố định.
-  - Đã triển khai/kiểm: Admin UI, onboarding và question bank dùng catalog; nghề mới đi qua 10 câu/trả lời/nộp/chấm lưu SQL trong harness; prompt/validator gợi ý nghề lấy catalog đang tuyển (v5), không tự gán nghề nếu không có lựa chọn. BE 629 unit/34 SQL E2E; FE 549 unit, 22 Node contract. Cặp app `6e6e9c9`/`ecc1cb8` qua quality và đủ 14 bước + catalog trên GitHub; script mở rộng `291f870` local đạt, CI mới đang chạy. Còn filter phân công giảng viên và DTO/consumer template có enum 6 nghề; chưa tick toàn bộ R03.
+- [x] R03. Admin quản trị role và chuyển consumer khỏi enum cố định.
+  - PASS local + CI: Admin UI/onboarding/question bank/template/bộ lọc/phân công giảng viên dùng catalog; browser ba vai trò xác nhận nghề mới qua phỏng vấn, nộp/chấm, template/slot và phân công. Chứng nhận ghi tên catalog, sửa tên không đổi PDF đã cấp. BE 629 unit; FE 550 unit; 22 CI contract; các lượt SQL 47 hồi quy, 15 KPI/chứng nhận, 5 migration riêng biệt đạt. FE `890c4b6` / BE `1bd3c70`: quality `39960526305`, full-stack `39960526289` đạt. Hai DB chính đã migrate, counts/lượt giữ nguyên, 7 tài khoản gốc/demo đăng nhập và đọc catalog đạt. [Bằng chứng và giới hạn](../docs/reports/career-roles-20261023.md). Chưa nghiệm thu CV/Agent runtime từ kết quả M01.
   - Đạt khi: thêm role thứ 6 từ UI; API/FE đọc được mà không sửa danh sách mã.
   - Kiểm: FE form/route và một contract test role mới. Phụ thuộc R02; tách từng consumer khi vượt 5 file.
 - [ ] K01. Phiên bản và quyền kho tri thức chung.

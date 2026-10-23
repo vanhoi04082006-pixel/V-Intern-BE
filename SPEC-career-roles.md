@@ -50,3 +50,15 @@ Admin quản trị qua `/api/v1/admin/career-roles`; current version phải đi 
 Mã gồm 2–32 ký tự thường/số/gạch dưới và bắt đầu bằng chữ. Kỹ năng tối đa 30 mỗi nhóm; không trùng trong hoặc giữa hai nhóm sau trim/so sánh không phân biệt hoa thường. Trọng số nếu có phải bao phủ đúng kỹ năng bắt buộc, là số nguyên 1–100 và tổng 100. Draft cho phép danh sách/trọng số rỗng. Publish bắt buộc mô tả ít nhất 20 ký tự, kỹ năng bắt buộc và trọng số đầy đủ. `acceptingApplications=true` chỉ khi published. Có thể mở lại role archived qua PUT với version mới và nội dung hợp lệ.
 
 Current, snapshot revision và audit cùng một transaction. Khóa UPDLOCK/HOLDLOCK bảo vệ cả tạo trùng và sửa cạnh tranh; bản sửa thua nhận 409. Snapshot cũ không thay đổi khi sửa current. Audit chỉ ghi version/trạng thái/cờ nhận hồ sơ; nội dung đầy đủ nằm trong thư viện riêng. R03 mới thay danh sách tuyển dụng cố định và màn hình; việc role có trong catalog R02 chưa chứng minh sẵn sàng phỏng vấn.
+
+## R03: các consumer hiện hành
+
+- Onboarding và ngân hàng câu hỏi đọc catalog; thêm nghề mới không sửa enum FE/BE. Icon cũ chỉ là gợi ý hình thức, không quyết định nghề được chọn.
+- `GET /api/v1/career-roles/reference` yêu cầu `recruitment.view`; chỉ trả code/label cho bộ lọc giảng viên. Có nghề published, archived và nghề hiện là draft nhưng đã có hồ sơ tham chiếu. Draft mới chưa dùng không lộ qua danh sách này. Sinh viên không có quyền endpoint tham chiếu; danh sách ứng tuyển của sinh viên vẫn chỉ published/đang tuyển.
+- Template/task nhận mã động, kiểm tồn tại trong catalog và task thuộc tập role của template. Giới hạn 6 là số nghề tối đa trong **một mẫu dự án**, không phải giới hạn toàn catalog. Template update/start giữ version và snapshot cũ; slot phân công sao chép đúng mã nghề.
+- Migration `AdoptTemplateCareerRoles1762723200000` giữ cả `devops` từng được template hỗ trợ và các mã đang có trong slot/JSON blueprint. Các mục nhập thêm archived/đóng tuyển; không ghi đè chỉnh sửa Admin, không sửa JSON gốc. Ghi chú chuỗi cũ trong roleDetails/sprints/tasks được bỏ qua khi trích mã, giữ nguyên dữ liệu.
+- Mã lịch sử dài hơn 32 ký tự làm migration dừng để lập mapping rõ ràng; không cắt mã. `down` của migration nhập dữ liệu giữ nguyên metadata đã nhận, không xóa lịch sử; `up` lại không nhân đôi. Vì catalog đã có dữ liệu ngoài 5 baseline, rollback R01 tiếp theo sẽ dừng theo guard bảo toàn dữ liệu, cần kế hoạch xuất/giữ metadata khi gỡ cả module.
+- Chứng nhận mới chụp tên nghề từ catalog khi cấp. Sửa tên nghề sau đó không đổi bản xác minh/PDF đã cấp; chứng nhận cũ không được diễn giải lại. Score/attempt/recruitedAt và quyền tài khoản giữ nguyên.
+- Prompt đánh giá v5 lấy catalog đang tuyển, gắn version/kỹ năng vào input run. Đề xuất không có trong snapshot catalog bị từ chối. Khi không có lựa chọn thay thế, giữ điểm và trả hướng dẫn rõ ràng, không bịa một nghề.
+
+R03 kiểm trên SQL Server thật và browser ba vai trò: tạo nghề → soạn 10 câu → sinh viên nộp/chấm → template chứa nghề mới → giảng viên lọc/phân công đúng slot. CV/Agent runtime/lịch/mail thuộc các module sau, không suy diễn đã được nghiệm thu từ luồng chọn nghề thủ công hiện tại.

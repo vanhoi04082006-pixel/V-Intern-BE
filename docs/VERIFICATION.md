@@ -1,5 +1,7 @@
 # Kiểm chứng Backend — 23/10/2026
 
+**Mốc cập nhật M01:** 629 unit BE đạt; các lượt SQL kiểm catalog/template/tuyển dụng (47), KPI/chứng nhận nghề mới (15) và migration (5) được ghi riêng trong [báo cáo nghề nghiệp](reports/career-roles-20261023.md). Cặp FE `890c4b6` / BE `1bd3c70` đã qua CI quality + full-stack SQL 2019. Hai DB chính đã nhận hai migration M01; số bản ghi/lượt phỏng vấn giữ nguyên, 7 tài khoản gốc/demo đăng nhập và đọc catalog đạt lúc 15:08 UTC ngày 23/10. Báo cáo ghi nguồn, giới hạn fixture và phân biệt smoke local với acceptance. Bảng 625 test phía dưới thuộc bàn giao Aurora trước M01, giữ nguyên nguồn lịch sử; không phải tổng hiện hành sau M01.
+
 Đây là mốc kiểm chứng hiện hành cho đợt Aurora Glass, bàn giao và nhập vai. Số liệu được gắn với log thực tế, không trộn unit, SQL E2E và provider thật.
 
 | Hạng mục | Kết quả | Bằng chứng |

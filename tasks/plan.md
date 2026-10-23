@@ -1,6 +1,6 @@
 # V-INTERN — Kế hoạch mở rộng nền tảng Agent và tuyển thực tập
 
-> **Người dùng đã duyệt ngày 23/10/2026. G0/M00 đã đạt; đang triển khai G1/M01.**
+> **Người dùng đã duyệt ngày 23/10/2026. M00/M01 đã đạt local + CI; hai DB chính đã nhận M01, dữ liệu giữ nguyên. Đang chuyển sang K01/M02.**
 >
 > Đây là bản đồ phạm vi và kế hoạch nghiệm thu đã được duyệt. Hợp đồng API, migration và đặc tả từng module được cụ thể hóa theo thứ tự phụ thuộc. Không coi một hạng mục là hoàn thành chỉ vì đã tạo file hoặc gọi được mô hình.
 
@@ -76,7 +76,7 @@ Mã hạng mục giữ ổn định để gắn commit, PR, test và tài liệu
 | ID | Hạng mục, trách nhiệm | Phụ thuộc | Hoàn thành khi | Kiểm thử/kết quả lúc lập kế hoạch |
 |---|---|---|---|---|
 | M00 `ci-recovery` | Sửa dứt điểm CI FE, giữ toàn bộ 14 bước tích hợp | — | Quality và full-stack SQL 2019 cùng xanh trên cùng commit FE, ghim đúng BE | **Đạt 23/10**: FE `6b11d07`, quality và 14/14 SQL 2019 cùng xanh; [bằng chứng](../docs/reports/ci-recovery-20261023.md) |
-| M01 `career-roles` | Thư viện role nghề nghiệp động, năng lực, mức độ, trạng thái tuyển | — | Thêm role thứ 6 trên Admin; CV, câu hỏi, kế hoạch và dự án sử dụng được không sửa enum source | Có nền tảng cố định; phần động **chưa kiểm** |
+| M01 `career-roles` | Thư viện role nghề nghiệp động, năng lực, mức độ, trạng thái tuyển | — | Thêm role thứ 6 trên Admin; CV, câu hỏi, kế hoạch và dự án sử dụng được không sửa enum source | R01–R03 **đạt local + CI**, đã kích hoạt trên hai DB chính, giữ dữ liệu/tài khoản: catalog/API/UI, phỏng vấn, template và phân công nghề mới; [bằng chứng](../docs/reports/career-roles-20261023.md). CV dùng catalog được nghiệm thu khi M08–M11 tích hợp |
 | M02 `knowledge-library` | Tri thức chung, Q&A, lời giải, tiêu chí, provenance, phiên bản, phân quyền | M01 | Mỗi Agent lấy đúng tài liệu đã duyệt, đúng phiên bản, có nguồn; nội dung riêng tư không lộ | CRUD cũ có; kho dùng chung **chưa xây/kiểm** |
 | M03 `mini-projects` | Mẫu dự án nhỏ và bộ dữ liệu kiến thức cho Agent | M01, M02 | Tạo phiên từ mẫu; giới hạn phạm vi rõ; chạy được bài đúng và phát hiện bài sai | Thư viện cũ có; bộ mới **chưa kiểm** |
 | M04 `agent-runtime` | LangChain/LangGraph: registry, tools, state, retry, quyền, ngân sách | — | Agent gọi tool thật có scope; restart/resume không nhân đôi tác vụ; lỗi có trạng thái thật | **Chưa xây/kiểm** |
