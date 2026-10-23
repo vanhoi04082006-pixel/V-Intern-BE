@@ -34,6 +34,7 @@ Khi thực hiện, mỗi task bổ sung cột/ngày ghi nhận: `commit FE/BE �
   - Đạt khi: thêm role thứ 6 từ UI; API/FE đọc được mà không sửa danh sách mã.
   - Kiểm: FE form/route và một contract test role mới. Phụ thuộc R02; tách từng consumer khi vượt 5 file.
 - [ ] K01. Phiên bản và quyền kho tri thức chung.
+  - Nền lưu trữ PASS local (`99f5fae`, `1faba2b`): 25 policy case, 11 SQL case; toàn BE 654 unit, lint/build đạt; 47 SQL hồi quy M01 đạt. Chưa tick toàn bộ vì lifecycle publish/archive nối tiếp ở K02; API/UI/retrieval chưa triển khai. [Nguồn và giới hạn](../docs/reports/knowledge-library-20261023.md).
   - Đạt khi: draft/published/archive, source, audience, purpose và revision được lưu; sửa không đổi snapshot cũ.
   - Kiểm: SQL E2E version/RBAC. Phụ thuộc R01; BE `knowledge` contracts/entity/migration/tests.
 - [ ] K02. API Q&A và workflow duyệt/publish.
