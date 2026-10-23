@@ -1,11 +1,35 @@
-# Hiệu suất và hồ sơ sinh viên
+# Hiệu suất: hiểu từng chỉ số và phạm vi
 
-`GET /performance/interns` trả `items,total,page,pageSize,ranking`. Mặc định 10; tối đa 100. Backend tìm theo tên/email và lọc project/session/date trước phân trang. SQL xác định tập assignment thuộc quyền giảng viên, tổng hợp task và đánh giá để xếp hạng; chỉ trang được chọn mới tải facts tính metrics theo batch. Frontend không tải cả danh sách để tự cắt Top10. Các callers nội bộ như báo cáo dùng read model đầy đủ trong scope đã cấp quyền, không phụ thuộc trang giao diện.
+## Một trang hiệu suất đo điều gì?
 
-Thứ tự: tỷ lệ task Done giảm dần, trung bình evaluation finalized giảm dần, số task đang trễ tăng dần, số task giảm dần, UUID ổn định. Chưa có task xếp sau tỷ lệ đã đo; chưa chấm giữ null. Đây là thứ tự theo các chỉ số công khai, không phải điểm tổng AI tự suy ra. Người dùng tìm được sinh viên ngoài Top10; pagination và CSV ghi rõ phạm vi trang hiện tại. Bộ chọn tạo evaluation có tìm kiếm/phân trang để không mất sinh viên sau thay đổi contract.
+Performance tổng hợp facts đã lưu, không gọi AI để tạo số liệu. Nó giúp thấy số nhiệm vụ, tỷ lệ hoàn thành, thời hạn và điểm đã chốt. Không dùng một thời điểm duy nhất để kết luận người học tiến bộ bao nhiêu.
 
-`GET /performance/interns/:id/detail` yêu cầu performance.view và cùng ownership boundary với metrics. Trả profile public, kết quả phỏng vấn đã sanitize, 20 phân công gần nhất trong scope, task page (10 mặc định), bài nộp mới nhất/commit và điểm/nhận xét AI, giảng viên. Không trả mật khẩu, rubric câu hỏi hoặc token. Từng truy vấn task và assignment cũng kiểm tra quyền; admin/sinh viên thường không được dùng quyền của giảng viên khác.
+| Chỉ số | Nguồn và cách hiểu |
+|---|---|
+| Total/completed tasks | Task trong scope, Done là đã xác nhận |
+| Task completion rate | Completed / total; không có total thì null |
+| Story point completion | Điểm độ lớn Done / cam kết |
+| On-time completion | Task đã Done có hạn và hoàn thành đúng hạn / task Done có hạn |
+| Overdue open | Task chưa Done và đã quá hạn ở thời điểm đo |
+| Average evaluation | Trung bình evaluation finalized, không lấy draft |
+| Active Sprint progress | Phần việc trong Sprint active theo định nghĩa calculator |
 
-Trend sáu tháng UTC dùng task.createdAt và lần chuyển Done đầu tiên từ lịch sử append-only; mở lại và hoàn thành lại không tăng số lần hoàn thành lịch sử. Bộ lọc ngày chọn tập task theo createdAt, khoảng `[from,to)`; chart nói rõ định nghĩa, hiện số thực tế và dữ liệu bằng 0 khi không có sự kiện. Điểm thiếu không đổi thành 0. Chart không khẳng định mức cải thiện năng lực chỉ từ số task.
+`null` nghĩa là chưa đo được. `0` nghĩa là đã có dữ liệu và kết quả bằng 0. Hai giá trị phải có cách hiển thị khác nhau trên API, biểu đồ và export.
 
-Kiểm chứng SQL HTTP: evaluation-performance E2E 15/15 kiểm tra tính điểm/metrics, trang/search/rank, quyền giảng viên, profile/task detail, history và pagination. Frontend test kiểm tra search ngoài trang đầu, selection ổn định và trend có định nghĩa. Lint/typecheck/build kiểm tra các caller sau thay đổi API.
+## Danh sách sinh viên của giảng viên
+
+`GET /performance/interns` tìm theo tên/email, lọc scope/ngày, sort và paginate tại SQL. Mặc định trang 10, tối đa 100. Không tải toàn bộ rồi cắt Top 10 tại FE. Search vẫn tìm được người ngoài trang đầu.
+
+Xếp thứ tự theo tỷ lệ Done giảm dần, điểm evaluation finalized giảm dần, task trễ tăng dần, số task giảm dần và UUID ổn định. Người chưa có task/điểm được xử lý theo null semantics; đây không phải một điểm tổng AI tự suy ra.
+
+## Chi tiết một người
+
+Endpoint detail trả hồ sơ public, kết quả phỏng vấn đã sanitize, phân công trong scope, trang task và latest submission/AI/instructor feedback. Không trả password, rubric bí mật hay token. Mọi truy vấn con vẫn áp scope; biết UUID không tạo quyền.
+
+## Biểu đồ thời gian
+
+Trend sáu tháng UTC dùng task.createdAt và lần chuyển Done đầu tiên trong lịch sử append-only. Mở lại rồi hoàn thành lại không tăng số hoàn thành lịch sử nhiều lần. Bộ lọc task theo khoảng `[from,to)` trên createdAt; biểu đồ phải ghi rõ định nghĩa.
+
+Đồ thị không có sự kiện có thể hiển thị 0 sự kiện. Điểm chưa đánh giá vẫn là null, không phải 0 điểm. CSV “trang hiện tại” chỉ chứa những hàng trên trang đó; báo cáo snapshot dùng read model đầy đủ của scope được cấp.
+
+Nguồn: [calculator](../../src/performance/performance-calculator.ts), [performance service](../../src/performance/performance.service.ts), [báo cáo](reports.md).

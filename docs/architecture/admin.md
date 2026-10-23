@@ -1,31 +1,41 @@
-# Quản trị hệ thống
+# Quản trị: cấu hình và quan sát hệ thống
 
-Admin giữ các chức năng user/role/group/catalog/settings/audit hiện có. Ngân hàng câu hỏi, cấu hình AI và giám sát tích hợp dùng API riêng; tất cả kiểm tra permission và effective admin role tại backend. Không dựa vào việc ẩn menu.
+## Vai trò Admin
 
-## Template, phiên và báo cáo
+Admin quản lý danh tính, quyền, nhóm, catalog, settings và audit. Các API quản trị kiểm tra permission và effective admin ở BE. Đổi URL hoặc ẩn/hiện menu không thay quyền server.
 
-`/admin/templates` có tạo/nhân bản, preview đầy đủ, sửa definition, archive/restore. Editor giữ toàn bộ metadata blueprint bằng JSON có validation server; tên/mã/mô tả có trường riêng. Update gửi expectedVersion để chặn editor cũ; metadata summary và definition được cập nhật cùng transaction và tăng version. Code giữ nguyên, session/project code rút prefix để mã template64ký tự vẫn khởi tạo được. Mẫu archived không Start được; run snapshots giữ nguyên.
+| Khu vực | Công việc chính | Điểm cần kiểm tra |
+|---|---|---|
+| Users/roles/groups | Cấp đúng vai trò/phạm vi | Không dùng signup để tạo staff |
+| Templates | Tạo/sửa/clone/archive/restore | Version và snapshot run cũ |
+| Question bank | Quản lý câu hỏi riêng tư | Không lộ rubric cho sinh viên |
+| AI configuration | Model, timeout và retry | Không nhận API key/URL tùy ý từ form |
+| GitHub settings | Chọn tài khoản repo chung | Owner cũ, numeric ID và active user |
+| System status | SQL, counts và hoạt động tích hợp | Configured khác với live connected |
+| Audit | Đối chiếu hành động | Không chép answer/token vào log chung |
 
-`/admin/sessions` dùng cùng list/pagination và màn hình sửa academic metadata. Detail, sprint/task, performance và reports có route admin riêng; các link không đẩy admin sang layout chỉ dành cho instructor. Workflow lập/publish kế hoạch và OAuth owner vẫn thuộc màn hình giảng viên. Admin giám sát tất cả báo cáo theo permission/effective role; giảng viên vẫn chỉ thấy report của mình và mất quyền đọc nếu scope task bị thu hồi. Student/Instructor API không kế thừa quyền toàn cục của admin.
+## Sửa thư viện mẫu
 
-## Ngân hàng câu hỏi
+Editor có JSON definition để giữ đầy đủ blueprint và các field metadata để dùng thuận tiện. `expectedVersion` chặn ghi đè bản đã được người khác sửa. Code template giữ nguyên; archive ngăn Start mới nhưng giữ các run lịch sử. Template/version mới không sửa ngầm snapshot của phiên đang chạy.
 
-`/admin/question-bank` hỗ trợ GET list/detail, POST, PUT theo version và DELETE `?version=` để ngừng sử dụng. Search/role/phase/difficulty/status và pagination ở SQL. Đáp án mẫu, expected concepts, scoring rubric, hints và tags chỉ trả cho admin. Nội dung được validate/bounded; câu English dùng language=en. Role của câu đã tạo giữ nguyên để seed identity không đổi; tạo câu mới khi muốn đổi role. Sort order quản trị cấp từ1000 và serialize transaction để không xung đột seed.
+## Quản lý ngân hàng câu hỏi
 
-Migration28 thêm version và index. PUT/retire có row lock và version check; audit chỉ ghi version/action, không chép đáp án vào log chung. DELETE không xóa vật lý, nên seed không tạo lại câu đã nghỉ và history/FK giữ nguyên. Các interview_session_questions snapshot vẫn bất biến. Độ phủ active hiển thị theo role/phase; tối thiểu6technical/2introduction/2English cho10câu, không giả là đủ chất lượng chỉ nhờ đủ số lượng.
+List/search/filter/pagination thực hiện ở SQL. Admin xem expected concepts, scoring rubric, hints và tags; API sinh viên không được nhận các phần này. PUT/retire có row lock/version check; stale editor nhận conflict.
 
-## Cấu hình AI đang dùng
+DELETE là ngừng dùng, không xóa vật lý. Câu đã retire không được seed tạo lại như mới. Câu đã snapshot vào một interview giữ nguyên. Role của câu đã tạo giữ cố định; muốn đổi role thì tạo câu phù hợp mới.
 
-`GET/PUT /admin/ai-configuration` quản lý model Gemini, timeout10–180giây, retry0–3 và optimistic version. Lưu tại `system_settings.ai.runtime`, audit đầy đủ. Generic settings API từ chối sửa key này để không bỏ qua validation/version. API không nhận/trả API key, endpoint tùy ý hoặc token. Model ID vẫn phải có quyền truy cập ở nhà cung cấp; lưu cấu hình không gọi provider hoặc bật provider chưa có credential.
+Đủ số câu không đồng nghĩa đủ chất lượng. Kiểm tra phase/difficulty/language, đặc biệt tối thiểu nguồn cho 2 introduction, 6 technical và 2 English của bài mới.
 
-AiService đọc policy cho lời gọi Gemini mới, giữ transport/secret ở provider và tạo instance theo model/timeout đã chọn. Run provenance lưu đúng model dùng. Policy không sửa kết quả/phỏng vấn đã có, prompt version hoặc scoring policy; test provider override vẫn dùng transport test. Cấu hình DB hỏng được đánh dấu và fallback về env, admin có thể sửa lại. Credential/provider nằm ở môi trường triển khai; health công khai vẫn mô tả cấu hình env, trang admin mô tả policy hiệu lực.
+## Runtime AI policy
 
-## Giám sát
+Admin có thể chọn model Gemini, timeout 10–180 giây, retry 0–3 trong schema cho phép. Policy có optimistic version và audit. Generic settings không được ghi vòng qua key dành riêng này. API key/provider transport ở server, không đi vào form response.
 
-`GET /admin/system/status`: SQL connectivity/latency thật, counts user/session/question/template/migration/running review; thống kê ai_runs24h theo feature/status/latency. OAuth/webhook/runner chỉ báo cấu hình có mặt, không giả kết nối thành công; suite seal đếm từ config hợp lệ. Không probe network hoặc chạy AI có phí khi mở trang.
+Policy chỉ áp dụng cho lời gọi mới và không đổi prompt version, quyết định hoặc điểm đã lưu. Một model ID hợp lệ về hình thức vẫn cần quyền tại provider. DB policy hỏng có trạng thái lỗi/fallback rõ để Admin sửa; không khẳng định provider hoạt động chỉ vì đã lưu form.
 
-`GET /admin/system/repositories`: danh sách repository theo phiên có pagination/search/status, owner login, instructor, trạng thái webhook và delivery cuối. Không trả ciphertext/token/secret/payload webhook. Live provisioning vẫn cần OAuth của chính giảng viên và URL webhook public; số suite0 là trạng thái chưa seal, không phải bộ test đã chạy.
+## Trạng thái hệ thống nói được gì?
 
-Status còn hiển thị worker cảnh báo quá hạn/sự cố phiên: bật/tắt, chu kỳ, lượt quét gần nhất, số đã gửi/muted và mã lỗi an toàn của instance hiện tại. Cơ chế chống gửi trùng dùng ledger SQL chung; xem [thông báo](notifications.md).
+SQL connectivity/latency là truy vấn thật. AI runs tổng hợp trạng thái/thời gian theo phạm vi báo cáo. OAuth/webhook/runner có thể chỉ báo cấu hình hiện diện; mở trang không tự chạy AI có phí hoặc thao tác GitHub để chứng minh live.
 
-Kiểm chứng: question-bank SQL HTTP5test gồm RBAC, CRUD, conflict, soft retirement, snapshot bất biến, policy/version/secret rejection và status safe. Gemini transport unit chứng minh model mới qua cùng transport. Browser thật ở1440/820/390 kiểm tra tạo/ngừng câu hỏi, lưu AI policy và status, không mock API. Validation DB dùng bank cũ cho fixture AI; runtime hai DB có185câu và6blueprint.
+Danh sách repository có owner/giảng viên/trạng thái webhook và delivery an toàn, không trả token/ciphertext/secret/raw webhook payload. Worker cảnh báo hiển thị lịch quét và lỗi an toàn; xem chương [notifications](notifications.md).
+
+Nguồn: [admin](../../src/admin), [question bank](../../src/recruitment/question-bank.controller.ts), [AI runtime](../../src/ai/ai-runtime.controller.ts), [templates](../../src/templates), [GitHub](github-code-review.md).

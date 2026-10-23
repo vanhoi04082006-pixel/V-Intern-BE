@@ -1,11 +1,30 @@
-# AI hỗ trợ đánh giá
+# AI hỗ trợ giảng viên đánh giá
 
-Cập nhật theo implementation ngày14/10/2026.
+## Sản phẩm của tính năng
 
-AI đọc facts của intern/project/session trong scope giảng viên để đề xuất rubric và feedback. Suggestion có provenance/run/version; không finalize evaluation hoặc thay đổi điểm chính thức.
+Một gợi ý rubric/feedback dựa trên facts của sinh viên, project và session nằm trong scope giảng viên. Gợi ý giúp đọc bằng chứng nhanh hơn; không phải một evaluation đã chốt.
 
-Giảng viên xem xét evidence và nhập/quyết định evaluation. Permission và ownership kiểm tra tại BE, không dựa vào UI ẩn nút. Model output được validate và không nhận trường quyết định từ provider làm authority.
+```mermaid
+flowchart LR
+  F[Facts được phép] --> A[AI suggestion có provenance]
+  A --> I[Giảng viên đối chiếu và chỉnh]
+  I --> E[Evaluation chính thức]
+  E --> K[KPI và kết quả liên quan]
+```
 
-Thiếu provider/facts hoặc lỗi response trả trạng thái có thể thử lại. Code review và evaluation assistance là hai nghiệp vụ: code review dùng immutable GitHub evidence/runner, evaluation assistance tổng hợp kết quả học tập đã lưu.
+## Đọc và sử dụng đúng
 
-Xem [mục lục](../README.md), controller/DTO tương ứng và tests trước khi thay đổi contract.
+Kiểm tra đúng người và kỳ trước khi sinh gợi ý. Đọc lý do, nguồn dữ liệu và những chỗ thiếu. Sau đó nhập/chọn điểm trong evaluation chính thức theo quyền hiện có. AI suggestion không gọi finalize thay người dùng và không mở quyền trên một sinh viên ngoài scope.
+
+## Nhánh lỗi
+
+Prompt hiện hành là `evaluation-assistance-v2`. Nếu provider trả nội dung sai schema, service dùng chung `generateWithSchemaRepair`: tối đa một lượt repair có audit, vẫn qua validator và bounds cũ. Lỗi timeout/cấu hình không tạo thêm vòng repair. Nếu vẫn sai, request thất bại và evaluation chính thức được giữ nguyên. Xem `suggestion-repair.ts` và unit tests cạnh file để hiểu ranh giới retry.
+
+- Thiếu quyền/ownership: từ chối trước khi gửi context ra provider.
+- Provider/schema lỗi: trả lỗi và giữ evaluation hiện tại; không điền điểm giả.
+- Thiếu facts: mô tả thiếu, không tự biến thành 0 hoặc một nhận xét tích cực.
+- Scope thay đổi: kiểm tra lại khi đọc/thao tác, không dựa vào việc một suggestion đã từng hiển thị.
+
+Suggestion có AI run/model/prompt version để truy vết. Nếu formula hoặc quyền đánh giá đổi, sửa domain service tương ứng; không sửa prompt để vòng qua guard.
+
+Nguồn: [evaluation assistance](../../src/ai/evaluation-assistance), [evaluation](../../src/evaluation), [đánh giá và KPI](evaluation-performance-kpi.md).

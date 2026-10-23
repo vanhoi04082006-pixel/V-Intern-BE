@@ -1,19 +1,39 @@
-# Dự án mẫu và phiên thực tập
+# Phiên thực tập, đội hình và phân công
 
-Cập nhật theo implementation ngày14/10/2026.
+## Phân biệt project, session và assignment
 
-Thư viện có ba dự án nhỏ: quản lý công việc, cửa hàng cơ bản, ghi chú cá nhân. Mỗi mẫu có mục tiêu, phạm vi, roles/capacity, technology, sprint/task requirements/DoD, đầu ra, kịch bản và acceptance. Ngân hàng này là cấu hình học tập, không phải demo đã hoàn thành.
+Project giữ ngữ cảnh sản phẩm. Session giữ kỳ thực tập, người phụ trách, thời gian và roster. Assignment gắn một sinh viên với vị trí cụ thể trong ngữ cảnh đó. Một hàng roster không tự thay thế một assignment hợp lệ.
 
-Tạo run snapshot template version và tạo project/session riêng. RequestId chống replay; một template có nhiều run, nhưng tasks/sprints không dùng chéo giữa các phiên.
+## Chuẩn bị một phiên
 
-Eligibility cần intern active, passed recruitment, role hợp slot và không có assignment active. Ghi assignment/member và kiểm tra capacity trong transaction. Start cần đội hình hợp lệ, kích hoạt phiên và yêu cầu AI draft/provision repo; draft không phải task thật cho tới Confirm.
+1. Tạo run từ template và kiểm tra snapshot.
+2. Chọn lead/co-instructor đúng người phụ trách.
+3. Tìm ứng viên đủ điều kiện, phân công vào role còn capacity.
+4. Kiểm tra đội hình trước Start.
+5. Start phiên, duyệt draft và publish kế hoạch.
 
-Setup tìm ứng viên đủ điều kiện và hiển thị đội hình hiện tại riêng. Gỡ dùng filter sessionId+internId để tìm đúng active assignment, không phụ thuộc trang100đầu tiên của danh sách. Cancel xóa session membership, giữ project membership lịch sử và trả sinh viên về lifecycle chưa phân công. Backend vẫn chặn gỡ phiên template sau Start.
+| Điều kiện nhận sinh viên | Vì sao cần? |
+|---|---|
+| User intern đang active | Không giao việc cho tài khoản bị khóa |
+| Recruitment đã passed | Giữ điều kiện tuyển dụng |
+| Role phù hợp slot | Không âm thầm đổi hướng đã chọn |
+| Không có assignment active khác | Tránh hai phân công đang hoạt động mâu thuẫn |
+| Đủ capacity và thuộc quyền quản lý | Không vượt đội hình hoặc vượt scope |
 
-Danh sách/chi tiết giảng viên áp ownership tiêu chuẩn. Co-instructor được giao có scope của phiên; giảng viên khác chỉ đọc snapshot consent riêng. Class/attendance lịch sử vẫn có API nhưng không phải workflow chính project-first.
+BE khóa/ghi các quan hệ cần thiết trong transaction. Hai giảng viên cùng thao tác không được tạo hai assignment active cho một sinh viên.
 
-`GET /sessions/overview` phân trang sau khi tìm/lọc và sắp xếp toàn bộ phạm vi quản lý. `sortBy=startDate|endDate|name|progress`, `sortDirection=asc|desc` (mặc định startDate/desc), luôn có ID phân xử đồng hạng; DTO từ chối giá trị ngoài danh sách. Tìm kiếm gồm mã/tên phiên và dự án snapshot. `currentSprint` chỉ chọn Sprint active, không lấy planned thay thế. `alerts` gồm task chưa Done đã quá hạn UTC, task Review và phiên active/ending đã quá ngày kết thúc; bỏ task soft-delete. Hai truy vấn tổng hợp cho mỗi trang, không gọi riêng từng phiên.
+## Gỡ và kết thúc phân công
 
-Chi tiết thành viên có role dự án và trạng thái phân công active/completed của chính phiên (null nếu chỉ có roster). `GET /sessions/:id/work` dùng lại phạm vi/phân trang/bộ lọc task, sau đó hydrate một trang với blocker từ spec và lần nộp gần nhất: PR/source, immutable SHA, kết quả AI và điểm/phản hồi giảng viên độc lập. Không gọi GitHub/model, không trả lease/token/prompt, không tự duyệt bài. Session trong route luôn thay thế sessionId của query. `GET /sessions/:id/timeline` phân trang sự kiện bằng quan hệ target của phiên, không gom mọi hoạt động của cùng actor; bỏ task soft-delete và target không hợp lệ. Cả hai API yêu cầu sessions.view + tasks.view ngoài kiểm tra ownership. Người có quyền chỉ xem phiên không nhận thêm quyền đọc task/bài nộp.
+Trước khi Start, gỡ theo đúng `sessionId + internId`, không chỉ dựa trên một trang đầu của danh sách. Cancel giữ lịch sử cần thiết; không xóa project membership đã dùng làm căn cứ. Với phiên template đã Start, backend chặn gỡ theo policy thay vì để UI âm thầm mất người đang làm task.
 
-Xem [mục lục](../README.md), controller/DTO tương ứng và tests trước khi thay đổi contract.
+Khi không còn assignment active, workspace có thể trở về unassigned. Có lịch sử assignment thì sinh viên vẫn được đọc kết quả của chính mình; điều đó không mở lại task/Mentor như một phiên đang chạy.
+
+## Giảng viên nhìn thấy những gì?
+
+List/detail áp scope managed project/session. Co-instructor được giao có scope của phiên; giảng viên ngoài scope phải dùng consent snapshot riêng. Permission chung không bỏ qua ownership.
+
+`GET /sessions/overview` tìm/lọc/sort trước pagination, có ID phân xử khi bằng nhau. `currentSprint` chỉ là Sprint active. Cảnh báo gồm task chưa Done quá hạn, bài review và phiên quá ngày kết thúc; không suy diễn AI. Chi tiết work hydrate task/blocker/latest submission theo batch, không gọi provider cho từng hàng.
+
+Timeline lọc theo các resource của chính phiên, không gom toàn bộ sự kiện của một actor. Các endpoint work/timeline còn kiểm tra quyền task tương ứng; quyền xem phiên không tự cấp quyền xem bài nộp riêng tư.
+
+Nguồn: [sessions](../../src/sessions), [assignments](../../src/assignments), [projects](../../src/projects), [intern workspace](../../src/intern), [sharing](session-sharing.md).

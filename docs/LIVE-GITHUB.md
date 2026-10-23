@@ -1,3 +1,8 @@
+<!-- historical-acceptance -->
+# Hồ sơ nghiệm thu GitHub đã lưu
+
+> Đây là bằng chứng theo các ngày ghi trong hồ sơ bên dưới, không phải lần kiểm tra live hôm nay. Đọc [hướng dẫn hiện hành](architecture/github-code-review.md) để cấu hình/sử dụng; đọc [VERIFICATION](VERIFICATION.md) để phân biệt phạm vi kiểm chứng. Không dùng fixture một task để khẳng định mọi contract đã chạy đạt.
+
 # GitHub, Docker và AI — nghiệm thu 16/10/2026
 
 Luồng chạy trên API nghiệm thu8081, Next.js3004 và SQL `VIntern_Test_Learning_20261014`. Hai database runtime và ba tài khoản trắng không dùng làm fixture. Đây là bài tổng hợp do nhóm sở hữu để kiểm tra tích hợp, không phải quyết định đánh giá một sinh viên thật.

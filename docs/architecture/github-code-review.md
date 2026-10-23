@@ -1,49 +1,60 @@
-# GitHub và đánh giá code
+# GitHub: từ liên kết tài khoản đến một bài code được duyệt
 
-## OAuth theo người dùng
+## Ai tạo repository?
 
-Tạo GitHub OAuth App với callback của BE, ví dụ http://localhost:8080/api/v1/github/callback. Cấu hình GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET, GITHUB_CALLBACK_URL, FRONTEND_ORIGIN và khóa base64 32bytes GITHUB_TOKEN_ENCRYPTION_KEY trong .env server. Có thể tạo khóa bằng node crypto.randomBytes(32).toString('base64'); không gửi khóa trong chat.
+Admin chọn một tài khoản GitHub đã liên kết làm tài khoản tạo repo chung. Giảng viên khởi động phiên; server tạo repo bằng tài khoản chung. Giảng viên và sinh viên chỉ cần liên kết danh tính của mình để nhận quyền cộng tác/chứng minh người nộp.
 
-Admin mở /admin/settings, kết nối GitHub với scope read:user public_repo rồi chọn làm tài khoản tạo repo chung. Giảng viên mở /instructor/github và sinh viên mở /intern/github với scope read:user để nhận lời mời/chứng minh danh tính; không cần tự tạo repo hoặc cấp quyền tạo repo. Gmail chỉ là email; người dùng cần GitHub account riêng. OAuth state dùng một lần10phút, cookie HttpOnly và PKCE S256; callback revalidate user active + GitHub numericID. Token AES256GCM có AAD userId, không trả/log raw token. Một GitHub numericID chỉ gắn một user ứng dụng. Chi tiết tài khoản chung, naming, lời mời theo email GitHub và giữ repo cũ tại [ADR0002](../decisions/0002-admin-repository-account.md).
+Gmail là địa chỉ email, không tự thay cho một tài khoản GitHub. Không đoán username từ email. GitHub gửi lời mời đến danh tính đã liên kết; người dùng cần chấp nhận lời mời trên GitHub trước khi push.
 
-### Token có thời hạn
+```mermaid
+sequenceDiagram
+  participant A as Admin
+  participant V as V-Intern
+  participant G as GitHub
+  participant U as Giảng viên / Sinh viên
+  A->>V: Chọn tài khoản repo chung qua OAuth
+  V->>G: Tạo repo của phiên
+  U->>V: Liên kết GitHub cá nhân
+  V->>G: Mời collaborator đúng numeric ID
+  U->>G: Chấp nhận invitation, làm bài và mở PR
+  U->>V: Nộp liên kết bài
+  V->>G: Kiểm tra repo, author, base/head SHA
+```
 
-Giữ tính năng hết hạn token của OAuth App. Theo [hợp đồng GitHub](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/authorizing-oauth-apps#refreshing-an-access-token-with-a-refresh-token), token refresh đổi lấy cặp access/refresh mới; cặp cũ mất hiệu lực. Không gửi scope mới trong refresh. Response JSON được kiểm tra kiểu, thời hạn hữu hạn và độ dài trước khi lưu.
+## OAuth được bảo vệ thế nào?
 
-Migration31 thêm refresh ciphertext/expiry, tokenVersion và lease. Refresh token dùng AES-GCM với AAD riêng `github-refresh:userId`; không trả cho frontend, model, log hoặc runner. Lấy token cho thao tác thật sẽ gia hạn khi hết hạn/gần hết hạn. Token legacy không có expiry vẫn dùng được; legacy expired không có refresh hoặc refresh hết hạn/bị GitHub từ chối yêu cầu liên kết lại. Status không gọi provider, chỉ mô tả bằng chứng lưu hiện tại.
+Admin cần scope `read:user public_repo`; danh tính giảng viên/sinh viên dùng `read:user` theo luồng của ứng dụng. Callback phải trùng URL đã đăng ký. State dùng một lần, hạn 10 phút; cookie HttpOnly và PKCE S256 bảo vệ callback. BE kiểm tra lại user active và numeric GitHub ID.
 
-Trong một process dùng promise chung; nhiều worker dùng claim lease60giây ở SQL và compare version. Không giữ transaction qua HTTP GitHub. Chỉ ghi cặp mới sau khi `/user` xác nhận cùng numeric ID và scope không đổi; ghi có guard version/lease/user active. Reconnect mới, disconnect, user bị khóa hoặc callback cũ không bị reply muộn ghi đè. Callback pin connectionVersion ở bước begin và kiểm tra state còn tồn tại trước commit; disconnect xóa state trước connection để không hồi sinh liên kết đã hủy. Pending OAuth cũ trước migration có thể cần bắt đầu lại; các kết nối có token còn hạn được giữ.
+Token được mã hóa AES-256-GCM theo user với AAD riêng. Một numeric GitHub ID chỉ liên kết với một user ứng dụng. FE, model, runner và log không nhận plaintext token. Username có thể đổi; numeric ID mới là căn cứ danh tính bền vững.
 
-SQL regression dùng transport GitHub giả lập để kiểm tra rotation cạnh tranh, legacy, callback lưu cặp mã hóa, bad refresh, identity/scope/schema/provider error, disconnect/reconnect/user lock trong lúc HTTP đang chờ và callback version conflict. Đây là bằng chứng SQL/authorization, không thay thế OAuth thật.
+## Tên và quyền của repo
 
-## Repository mỗi phiên
+Tên repo mới có dạng `vintern-{projectSlug24}-{sessionSlug28}-{YYYYMMDD}-{sessionId8}`: chữ thường, bỏ dấu, có mã cuối tránh trùng. Tên đã lưu giữ nguyên khi đổi tên phiên. Repo ID, owner ID và marker phiên được đối chiếu trước thao tác.
 
-Server tạo repo bằng tài khoản chung do Admin chọn; chủ trì chỉ khởi động phiên hoặc yêu cầu đồng bộ lại. Tên deterministic vintern-{projectSlug24}-{sessionSlug28}-{YYYYMMDD}-{sessionid8}, description có marker sessionUUID, public:true, auto-init. Tên cũ đã lưu được giữ nguyên. Lease/idempotency và marker + repoID + numericOwnerID tránh trùng/chiếm repo. Start trigger tự động; worker đồng bộ thêm thành viên liên kết muộn. Mất cấu hình hoặc token không làm fake repo và có retry rõ ở SessionRepositoryCard.
+Đổi tài khoản chung áp dụng cho repo mới, không âm thầm chuyển chủ repo cũ. Repo cũ tiếp tục dùng ownerUserId đã lưu. Liên kết muộn được lần đồng bộ thành viên tiếp theo xử lý. Batch invite có giới hạn; lỗi một thành viên không được che thành tất cả đã nhận quyền.
 
-Invite giải quyết user theo numericID (không dùng username cũ có thể bị tái sử dụng), revalidate repoID/owner/public rồi gửi collaborator invitation. Batch tối đa5, progress theo thành viên; sinh viên phải chấp nhận invitation trên GitHub. Reconnect sang tài khoản khác không tự đổi repo của phiên đã gắn owner.
+## Token hết hạn và cạnh tranh
 
-## Bài nộp và evidence
+Service refresh access/refresh theo cùng danh tính và scope. Một process dùng promise chung; nhiều worker dùng SQL lease/version. Không giữ transaction xuyên HTTP GitHub. Disconnect, reconnect, khóa user hoặc callback mới không bị một response refresh đến muộn ghi đè.
 
-Chỉ HTTPS github.com, URL PR mở/chưa merge, full40SHA commit hoặc repo/ref explicit. Repo phải đúng session; PR author hoặc commit author phải là numericID của sinh viên liên kết. Snapshot head/base/repoId/ref lưu trước chuyển Review.
+Token legacy còn hạn vẫn có thể sử dụng. Nếu token không thể gia hạn, người dùng liên kết lại. Đọc status không tự gọi provider và không chứng minh token còn dùng được cho mọi thao tác.
 
-Evidence lấy compare baseSHA...headSHA cố định và blobSHA, không lấy diff PR đang thay đổi. Giới hạn20files,30KB/file,150KB source, concurrency4; file bí mật/key hoặc dấu hiệu credential bị loại cả content/patch. Thiếu/unsupported/large source trả warnings và complete=false, không tự cho đạt. GitHub checks chỉ supplementary, không tin kết quả do sinh viên tự quản.
+## Một lần nộp code được khóa thế nào?
 
-AI nhận task spec/DoD/source/diff và trusted runner result; strict rubric/findings chỉ file+line thật. Input/evidence hash, model/run/SHA lưu để truy vết. needs_changes khi lỗi/testfail/điểm thấp; awaiting_instructor chỉ đủ evidence + trusted passed tests + đủ spec + không limitations. Nếu thiếu runner là inconclusive.
+Đầu vào chỉ nhận URL/ref theo policy GitHub, đúng repo phiên và đúng danh tính. Bài nộp ghi base/head SHA bất biến. Collector lấy source/diff có giới hạn, loại file có thể chứa credential và đánh dấu thiếu/truncated. Không lấy arbitrary URL hoặc làm theo hướng dẫn nằm trong README/source sinh viên.
 
-Giảng viên xác nhận: kiểm tra quyền manage, pending submission/taskVersion và SHA freshness. Task Done chỉ sau approve theo rubric; review đang chạy không được override. Manual override phải lý do>=30ký tự và audit; không auto merge PR. Branch/PR base hoặc head đổi thì nộp lại; fixedcommit vẫn phải tồn tại/đọc được.
+| Bằng chứng | Chứng minh điều gì? | Không tự chứng minh điều gì? |
+|---|---|---|
+| Repository/author/SHA | Bài nào, của ai, phiên nào | Bài đúng chức năng |
+| AI nhận xét source | Nhận xét trên phần source đã thu thập | Toàn repo đã được đọc/chạy |
+| Trusted runner | Bộ test đã duyệt của đúng task/spec đã chạy | Mọi yêu cầu trên mọi framework đều đúng |
+| GitHub Actions sinh viên | CI của repo đã báo gì | Bộ test độc lập đáng tin |
+| Giảng viên rubric | Quyết định chấm chính thức | Tự thay thế toàn bộ provenance |
 
-## Webhook và thay đổi sau khi nộp
+PR thay base/head sau nộp phải qua freshness check. Hệ thống không auto merge. AI không tự chuyển task Done. Thiếu source/suite/runner tạo trạng thái chưa đủ bằng chứng, không sinh PASS giả.
 
-Migration 27 thêm receipt theo delivery UUID, nhật ký sự kiện theo phiên và trạng thái cấu hình webhook. Đặt `GITHUB_WEBHOOK_URL` thành URL HTTPS công khai kết thúc bằng `/api/v1/github/webhook`, cùng `GITHUB_WEBHOOK_SECRET` ngẫu nhiên ít nhất 32 ký tự ở server. Không dùng encryption key làm webhook secret. URL localhost chưa thể nhận delivery từ GitHub. Khi repository sẵn sàng, server tạo/cập nhật đúng hook bằng quyền chủ repo đã ghi; nút cấu hình lại trong phiên dành cho Admin hoặc chủ trì. Scope `public_repo` hiện có bao gồm quyền hook repository public.
+## Webhook và sự kiện
 
-`POST /api/v1/github/webhook` dùng HMAC SHA256 trên raw bytes, so sánh constant time, giới hạn JSON 1 MiB và không dùng JWT. Payload quá lớn trả 413; JSON sai trả 400 an toàn trước khi Nest chuyển đổi lỗi parser. Không lưu raw payload hoặc chữ ký. Repo numeric ID và owner numeric ID phải khớp kết nối đang hoạt động; owner là chủ trì cũ hoặc Admin được cấp vai trò trực tiếp/qua nhóm. Delivery trùng nội dung xử lý một lần; cùng ID với nội dung khác trả 409. Repository lạ hoặc owner đã disconnect bị bỏ qua.
+Webhook public HTTPS có HMAC secret. BE xác minh raw body, chống delivery trùng và lưu quan sát; replay/redelivery không nhân đôi tác dụng. Payload GitHub vẫn là dữ liệu ngoài, không được cấp quyền quản trị chỉ vì đến từ webhook.
 
-Sự kiện `pull_request`/`push` ghi `observedHeadSha` và gửi thông báo khi source hiện tại khác bài đang nộp; `headSha` đã nộp, điểm và trạng thái task không đổi. Sinh viên/giảng viên chủ trì thấy cảnh báo cần kiểm tra và nộp/chấm lại. `check_suite`/`workflow_run` chỉ là nhật ký, không thay trusted runner hoặc quyết định giảng viên. `GET /sessions/:id/github/activity` có phân trang và dùng cùng quyền đọc phiên; `POST /sessions/:id/github/webhook` chỉ Admin/chủ trì có quyền quản lý, credential vẫn lấy đúng owner đã lưu.
-
-Kiểm chứng local: 6 test HTTP với SQL Server kiểm tra chữ ký, dung lượng, JSON sai không lộ nội dung, delivery idempotent, SHA bất biến, cách ly phiên, quyền đọc và disconnect. GitHub transport bị chặn trong suite này; đây không phải bằng chứng delivery từ GitHub thật. Unit kiểm tra thêm đăng ký hook, identity và reuse hook. Nguồn: [GitHub signature](https://docs.github.com/en/webhooks/using-webhooks/validating-webhook-deliveries), [hook API](https://docs.github.com/en/rest/repos/webhooks), [OAuth scopes](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/scopes-for-oauth-apps).
-
-## Giới hạn nghiệm thu ngoài
-
-Nghiệm thu16/10 đã dùng OAuth App local, hai linked accounts khác nhau, public repo/invite/PR, một bài lỗi và một bài sửa, live Docker/Gemini và teacher final approval. GitHub gửi webhook thật200, redelivery200/deduped với một event SQL; hook/receiver HTTPS tạm đã đóng sau nghiệm thu. [Bằng chứng và giới hạn](../LIVE-GITHUB.md). Không dùng fixture tổng hợp để tuyên bố đã kiểm tra mọi lớp/framework hoặc độ chính xác AI.
-
-Nguồn chính thức: [OAuth/PKCE](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/authorizing-oauth-apps), [repo API](https://docs.github.com/en/rest/repos/repos), [PR API](https://docs.github.com/en/rest/pulls/pulls), [users API](https://docs.github.com/en/rest/users/users).
+Nguồn: [GitHub module](../../src/github), [code-review](../../src/code-review), [ADR tài khoản chung](../decisions/0002-admin-repository-account.md), [runner](grading-runner.md). [LIVE-GITHUB](../LIVE-GITHUB.md) là bằng chứng lịch sử, không phải trạng thái live hiện tại.

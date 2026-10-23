@@ -1,24 +1,56 @@
-# Kiểm thử backend
+# Kiểm thử: chọn đúng bằng chứng cho điều cần chứng minh
 
-DB_FILES_ROOT là thư mục tuyệt đối trên máy SQL Server để tạo file MDF/LDF của database test mới. Local đặt thư mục này trong project; thư mục phải tồn tại và SQL Database Engine cần quyền Full Control tại đó. CLI db:create:e2e và18suite setup dùng cùng một bộ dựng SQL, từ chối tên/đường dẫn không hợp lệ, UNC và traversal; không fallback sang vị trí khác khi cấu hình có lỗi. CI container có thể để trống để dùng volume tạm mặc định. Các chốt kiểm tra database disposable vẫn giữ nguyên.
+## Bốn lớp kiểm chứng
 
-Unit: npm test. Build: npm run build. Lint: npm run lint. Test provider chỉ trong test override, không có production fake-score fallback. Tests cần invariant/negative cases, không chỉ mirror implementation.
+| Lớp | Chứng minh được | Chưa chứng minh được |
+|---|---|---|
+| Unit | Công thức, policy, parser, các nhánh lỗi | SQL/HTTP/provider thật đã hoạt động |
+| SQL E2E | DTO/guard/service/transaction qua HTTP và SQL | Gemini/GitHub thật nếu transport bị override |
+| Browser | Layout, điều hướng, focus, responsive và luồng UI | Mọi nhánh backend nếu chưa kích hoạt |
+| Tích hợp thật | OAuth, provider, PR, Docker cho fixture đã thử | Tất cả bài nộp/framework hoặc production |
 
-Nhóm mới kiểm tra question phases/conversation ownership/clarification races, sharing consent, GitHub crypto/parser/durable identities/batch, immutable diff/credential filtering, HMAC runner binding, rubric schema và provenance. Adapter mocks không chứng minh GitHub/runner ngoài đã vận hành.
+Không cộng bốn loại thành một số test rồi coi như cùng độ tin cậy. Ghi rõ nguồn, thời điểm, commit/dirty state và fixture.
 
-E2E: npm run test:e2e với E2E_DB_NAME explicit dùng một lần và SQL listener đúng. Migrate toàn current registry, không hardcode baseline count. Test recruitment10turn phải gọi conversation next rồi answer; start/questions chỉ trả answered evidence. Test-only provider cần nhánh feature riêng cho question/clarification/evaluation/plan/mentor; không trả scoring cho mọi feature.
+## Các lệnh cơ bản
 
-Live acceptance dùng dedicatedDB và HTTP thật, provider thật khi cấu hình. Ghi rõ lúc provider503/invalid JSON; retry trên evidence lưu, không sửa profile để giả pass. Kiểm tra eligibility, Start/draft/publish, own tasks/specs, consent/revoke/write403, mentor, reports và browser. GitHub/runner cần OAuth accounts và isolated runner thật để kiểm tra repo/PR/bài lỗi/bài đạt.
+```powershell
+# Chạy tại thư mục gốc repository Backend
+& .\scripts\Use-ProjectStorage.ps1
+npm run lint
+npm test
+npm run build
+```
 
-SQL local major17compat150 khác native2019. Native2019 CI hiện chạy toàn bộ registry và25SQLsuites/231tests, sau đó giữ rollback gate lịch sử trên database riêng có đúng baseline. Tên DB/E2E_DB_NAME theo từng run và đáp ứng guard disposable, không giảm guard để chạy CI. Kiểm tra `migration:show` thay vì suy ra từ số liệu tài liệu. Không reset runtime để chạy test. [Kết quả hiện tại](VERIFICATION.md).
+Một nhóm unit: `npm test -- --runTestsByPath src/recruitment/scoring.spec.ts`. Dùng tên file thật trong source, không tự đoán một script không có trong package.json.
 
-## Các hồi quy quan trọng
+## SQL E2E an toàn
 
-- Recruitment: hội thoại10câu, tối đa2follow-up, refresh/replay/expiry, rubric sáu chiều, không lộ câu hỏi tương lai, phân quyền ứng viên.
-- Planning: metadata/phụ thuộc/milestone, publish transaction, UUID thật, idempotency và chặn task trước khi tiền nhiệm Done.
-- GitHub: state/PKCE/encryption, callback disconnect/reconnect/locked-user, lease/version khi refresh token, raw webhook HMAC và immutable SHA.
-- Submission: reviewer scope, trusted evidence/HMAC, AI không tự Done, manual override có lý do, thông báo task và muted preference.
-- Outcomes: report snapshot/scope revocation, KPI ổn định phân trang, certificate giữ identity/ngày hoàn thành sau rename, lịch sử của sinh viên hết assignment.
-- Admin: bank version/retire, template edit/archive, policy AI chỉ nhận trường cho phép, không lộ secrets.
+E2E yêu cầu DB riêng được chỉ định rõ. Kiểm tra setup của suite để biết DB nào AppModule và fixture DataSource cùng dùng. Trong workspace, MDF/LDF test phải ở dưới dự án và DB chính/tài khoản gốc được giữ nguyên.
 
-Các suite SQL dùng fixtures riêng có khóa ngẫu nhiên và kiểm tra database explicit. Test mới không được phụ thuộc việc xóa database chính hoặc tài khoản trắng. Refresh OAuth test chỉ mock HTTP provider; lease, version, token ciphertext và SQL persistence là thật. Browser và Docker smoke là gate riêng, không được thay thế bằng unit test.
+```powershell
+& .\scripts\Use-ProjectStorage.ps1
+$env:E2E_DB_NAME = 'VIntern_E2E_YourPreparedDatabase'
+$env:DB_NAME = $env:E2E_DB_NAME
+# DB_FILES_ROOT đã được scripts/Use-ProjectStorage.ps1 đặt trong project.
+npm run test:e2e -- --runTestsByPath test/recruitment.e2e-spec.ts
+```
+
+Ví dụ đòi hỏi DB đã chuẩn bị/login đủ quyền. Không nâng quyền runtime hoặc đổi sang DB chính khi nhận CREATE DATABASE permission denied. Migration/rollback suites có yêu cầu baseline riêng; đọc suite trước khi chạy cả bộ trên một DB đã dùng.
+
+Provider test chỉ nằm trong test override, trả payload qua cùng validator. Runtime không có fallback điểm giả. Test hội thoại phải gọi next/answer theo câu đã được gửi; start/questions không được coi là endpoint dump đề tương lai.
+
+## Hồi quy quan trọng
+
+- Phỏng vấn: các mốc 49,9/50/70/70,1, ba lượt, role khác có reason/reference thật, không phân công khi chưa passed, retry không tiêu thụ lượt mới.
+- Quyền: own/managed/foreign, user bị khóa, sharing hết hạn/thu hồi.
+- Kế hoạch: graph sai, ngày sai, roster sai, confirm/replay và không tạo task một phần.
+- GitHub: PKCE/state, immutable ID/SHA, refresh cạnh tranh, callback/disconnect/reconnect race, webhook HMAC.
+- Chấm code: đúng task/spec/suite, response HMAC, chưa đủ evidence, manual reason và AI không tự Done.
+- Kết quả: null semantics, trọng số KPI thiếu, ledger idempotency, certificate snapshot và report scope revocation.
+- UI: desktop/mobile, keyboard, modal focus/Escape, loading/error/empty và Kanban có guard.
+
+Không bỏ test/assertion hoặc hạ threshold để đạt green. Khi UI thêm nơi hiển thị cùng dữ liệu, scope selector vào vùng mà test cần kiểm tra thay vì giảm số assertion về nghiệp vụ.
+
+## Ghi kết quả
+
+Lưu log dưới thư mục bằng chứng của dự án. Một lần chạy có lỗi rồi sửa phải được phân biệt với lần cuối đạt; không trộn số liệu từ hai ngày. [VERIFICATION](VERIFICATION.md) là bảng chỉ dẫn đến các nguồn kiểm chứng hiện hành và lịch sử.

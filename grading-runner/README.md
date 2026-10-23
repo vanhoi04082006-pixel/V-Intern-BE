@@ -1,23 +1,65 @@
-# Isolated grading worker
+# Runner chấm bài: từ commit sinh viên đến bằng chứng thực thi
 
-Node 22 service for a **separate Linux Docker host**, outside the API/database host. It downloads public GitHub source at the exact submitted commit, runs the app and trusted acceptance tests in two separate containers, and signs results outside both containers. The service itself has no external Node dependencies.
+Runner là dịch vụ Node.js 22 chạy trên Linux có Docker. Nó tải đúng commit đã nộp, mở ứng dụng sinh viên trong container bị giới hạn, dùng container độc lập để kiểm tra chức năng, rồi ký kết quả bên ngoài cả hai container. Bản thân dịch vụ không cần thư viện Node bên ngoài.
 
-## Files and boundaries
+Tài liệu này dành cho người vận hành máy chấm hoặc bổ sung bộ kiểm tra. Để hiểu luồng nộp bài, đọc [GitHub và chấm code](../docs/architecture/github-code-review.md); để hiểu chữ ký và cách BE xác minh, đọc [kiến trúc runner](../docs/architecture/grading-runner.md).
 
-- `server.mjs`: authenticated `/grade`, one active job, bounded requests, replay protection and HMAC. Infrastructure errors return503 without a signed pass.
-- Signed results include measured execution time, a deterministic test score and each trusted check's name/outcome/bounded diagnostic. The server cross-checks counts before signing; backend validates all fields and preserves them in review evidence. Raw student output does not become trusted logs.
-- `docker-worker.mjs`: fixed codeload GitHub HTTPS, immutable SHA, 20MiB maximum archive, no host extraction, loopback-only network namespace, verified cleanup after success/failure.
-- `images/runtime`: React/Vite or native Node HTTP with locked preinstalled dependencies, trusted launcher/config and source extracted only into container tmpfs. Student install scripts are not used. Other dependencies require a reviewed runtime image.
-- `images/tester`: independent HTTP/Playwright checker, no student filesystem mounts. It receives instructor checks on stdin and calculates counts itself. Neither student stdout nor student-authored tests supply authoritative counts.
-- `suites`: Notes foundation/persistence and Tasks API CRUD/validation/ownership acceptance checks. They are opt-in contracts agreed with students before work starts; select only checks that match the individual task's criteria.
+## 1. Runner giải quyết phần nào?
 
-Containers use a read-only root, non-root UID, dropped capabilities, no-new-privileges, CPU/RAM/PID/output/deadline limits, private shared memory and bounded tmpfs. The app starts with `--network none`; the tester joins that app's loopback-only namespace with `--network container:...` and connects to127.0.0.1:3000. There is no bridge, host gateway, Internet or published port. Outer container isolation applies; there is no host IPC, privileged mode, secret, or Docker socket in either container. Keep the worker daemon on a dedicated patched host; the service's daemon access remains privileged infrastructure. These flags follow the official [none driver](https://docs.docker.com/engine/network/drivers/none/) and [shared namespace](https://docs.docker.com/engine/network/) contracts; Docker smoke still must validate the deployment.
+Ví dụ: sinh viên nộp PR cho nhiệm vụ “Tạo ghi chú”. AI nhận xét cấu trúc code; runner thực sự mở ứng dụng, thử lưu ghi chú hợp lệ và thử gửi tiêu đề trống. Hai nguồn bằng chứng được giữ riêng để giảng viên xem xét.
 
-## Build and verify
+```mermaid
+flowchart LR
+  PR[PR và commit đã xác thực] --> BE[BE chọn suite đúng task]
+  BE --> R[Runner tải đúng SHA]
+  R --> A[Container ứng dụng]
+  R --> T[Container kiểm tra]
+  T --> A
+  T --> K[Kết quả từng check]
+  K --> S[Ký ngoài container]
+  S --> V[BE xác minh và lưu bằng chứng]
+```
 
-Run `npm test` here. On Linux, review digest-pinned base images and build:
+Một suite là **bộ kiểm tra đã được người vận hành duyệt cho một task cụ thể**. Không có suite phù hợp thì chưa đủ bằng chứng để tự động cho bài đạt. Suite Notes không chứng minh mọi dự án hoặc công nghệ đều chạy được.
 
-A new dedicated Ubuntu24.04/amd64 worker can install Docker Engine from its signed official apt repository and checksum-verified Node22 using `sh provision-ubuntu.sh` as root. This script is for that worker only; it does not install Docker Desktop or change the Windows API host. `sh build-and-smoke.sh` then builds the reviewed image definitions and checks valid/broken fixtures. Production image digests still require review.
+Repository mới được tạo bằng **tài khoản GitHub chung do Admin cấu hình**. Giảng viên và sinh viên tham gia repository theo luồng cộng tác của hệ thống. Repository đã có giữ nguyên chủ sở hữu; bằng chứng cũ dùng repo giảng viên không mô tả chính sách tạo repo mới.
+
+## 2. Các file nên đọc trước
+
+| File/thư mục | Trách nhiệm |
+|---|---|
+| [server.mjs](server.mjs) | Xác thực /grade, giới hạn request, chống replay, một job đồng thời và ký kết quả |
+| [docker-worker.mjs](docker-worker.mjs) | Tải source theo SHA bất biến, điều khiển hai container và xác nhận dọn dẹp |
+| [policy.mjs](policy.mjs) | Kiểm tra request, digest và cấu hình sandbox |
+| [prepare-catalog.mjs](prepare-catalog.mjs) | Sinh catalog runner và binding BE từ kế hoạch đã duyệt |
+| [images/runtime](images/runtime) | Môi trường ứng dụng và launcher tin cậy |
+| [images/tester](images/tester) | Bộ kiểm tra HTTP/Playwright độc lập |
+| [suites](suites) | Bộ kiểm tra mẫu Notes và Tasks API |
+| [test](test) | Unit test, fixture đúng/sai và smoke Docker |
+
+## 3. Code sinh viên bị giới hạn thế nào?
+
+Source chỉ tải qua GitHub codeload HTTPS cố định, tại SHA đã nộp, archive tối đa **20 MiB**. Worker không giải nén bài lên host; source chỉ được giải nén vào tmpfs trong container ứng dụng.
+
+Cả hai container chạy non-root, root filesystem chỉ đọc, bỏ capabilities và bật no-new-privileges. CPU, RAM, PID, output, thời gian và tmpfs có giới hạn. Không mount host secret, Docker socket hoặc IPC vào bài.
+
+App dùng `--network none`. Tester tham gia network namespace đó bằng `--network container:...`, chỉ gọi 127.0.0.1:3000. Không có Internet, bridge, host gateway hoặc cổng công khai. Xem [Docker none driver](https://docs.docker.com/engine/network/drivers/none/) và [shared namespace](https://docs.docker.com/engine/network/).
+
+Tester không đọc filesystem sinh viên, không lấy counts từ stdout hoặc test sinh viên viết. Signer kiểm tra counts trước khi ký; BE kiểm tra lại schema, binding, SHA và chữ ký. Lỗi hạ tầng trả 503, không sinh kết quả đạt. Daemon Docker vẫn có đặc quyền: triển khai ngoài local cần host Linux riêng đã vá và smoke trên chính cấu hình đó.
+
+## 4. Kiểm tra và build image
+
+Trên workspace Windows hiện tại, mở PowerShell trong repository BE:
+
+```powershell
+& ..\manual-runtime\Use-ProjectStorage.ps1
+Set-Location grading-runner
+npm test
+```
+
+Lệnh test chạy `node --test test/*.test.mjs`, không cần cài dependency cho dịch vụ. Unit test không thay thế smoke Docker.
+
+Trên worker Linux chuyên dụng, sau khi review digest image nền:
 
 ```sh
 docker build --build-arg NODE_IMAGE='node@sha256:<reviewed-digest>' -t vintern-runtime images/runtime
@@ -26,40 +68,138 @@ docker image inspect vintern-runtime --format '{{.Id}}'
 docker image inspect vintern-tester --format '{{.Id}}'
 ```
 
-Set `RUNTIME_IMAGE` and `TESTER_IMAGE` to these immutable local `sha256:...` IDs, or pinned registry manifests. Run `node test/docker-smoke.mjs`. It must pass a correct fixture and reject broken empty-title validation. No student code executes on the host. The dedicated GitHub Actions workflow runs the same smoke on disposable Ubuntu with no application secrets. Its fixture base resolution does not approve production image changes. Image lockfiles and `npm ci --ignore-scripts` prevent dependency/install-script drift.
+Đặt RUNTIME_IMAGE/TESTER_IMAGE bằng image ID sha256 bất biến vừa kiểm tra hoặc manifest digest đã pin. Chạy `node test/docker-smoke.mjs`: fixture đúng phải đạt, fixture bỏ validation phải bị phát hiện.
 
-## Bind to a real task
+[provision-ubuntu.sh](provision-ubuntu.sh) chỉ dành cho **worker Ubuntu 24.04/amd64 mới**, cài Docker từ apt repository chính thức có chữ ký và Node 22 kiểm tra checksum. Script cần root trên worker đó; không dùng để thay đổi máy Windows hiện tại. [build-and-smoke.sh](build-and-smoke.sh) build image và kiểm tra fixture. Lockfile và npm ci --ignore-scripts trong image kiểm soát dependency; không chạy install script của bài.
 
-Export the raw specification object from authenticated `GET /api/v1/tasks/:id/spec/source` into private `task-spec.json`, removing any API envelope. This endpoint checks the same task access as the display endpoint. Preserve key order: the adapter hashes `JSON.stringify` of the persisted object. Do not seal the `/spec` display response: it enriches dependencies with live status and adds `blocked`, so it has a different hash and changes as prerequisites finish. Choose checks for that task's agreed criteria; do not apply a whole-project suite to an early task.
+Workflow GitHub Actions có smoke trên Ubuntu dùng fixture, không cần secret ứng dụng. Kết quả một run chỉ có giá trị với source/config của run đó; việc resolve image fixture không tự phê duyệt image production.
 
-Private operator plan example:
+## 5. Gắn bộ kiểm tra vào task thật
+
+### Bước 1 — lấy đúng specification
+
+Người có quyền gọi `GET /api/v1/tasks/:id/spec/source`, lưu **object specification nguyên gốc** vào file riêng task-spec.json, bỏ envelope API nếu có. Giữ thứ tự key: adapter hash JSON.stringify của object đã lưu.
+
+Không seal response /spec: endpoint hiển thị bổ sung dependency live và blocked nên hash khác, có thể đổi khi nhiệm vụ trước hoàn thành.
+
+### Bước 2 — chọn checks đúng yêu cầu
+
+Chỉ lấy check thuộc tiêu chí task. Task tạo form chưa yêu cầu persistence thì không gắn toàn bộ suite dự án. Thống nhất selector/API với người học trước khi seal.
+
+### Bước 3 — chuẩn bị kế hoạch vận hành
+
+Ví dụ sau dùng placeholder. Thay repository, task UUID và image ID bằng giá trị thật đã kiểm tra. Kế hoạch là dữ liệu người vận hành tin cậy, không nhận trực tiếp từ sinh viên hoặc phản hồi AI.
 
 ```json
-[{"id":"notes-foundation-reviewed-v1","templateCode":"LEARN-NOTES-V1","repository":"https://github.com/INSTRUCTOR/SESSION-REPO","taskId":"REAL-TASK-UUID","specFile":"task-spec.json","checksFile":"/absolute/path/to/suites/notes-foundation.json","runtimeImage":"sha256:IMAGE-ID","testerImage":"sha256:IMAGE-ID","command":["node","/runner/launch.mjs"]}]
+[
+  {
+    "id": "notes-foundation-reviewed-v1",
+    "templateCode": "LEARN-NOTES-V1",
+    "repository": "https://github.com/ADMIN-OWNER/SESSION-REPO",
+    "taskId": "REAL-TASK-UUID",
+    "specFile": "task-spec.json",
+    "checksFile": "suites/notes-foundation.json",
+    "runtimeImage": "sha256:IMAGE-ID",
+    "testerImage": "sha256:IMAGE-ID",
+    "command": ["node", "/runner/launch.mjs"],
+    "operator": {"version": "v1", "reviewer": "nguoi-duyet"}
+  }
+]
 ```
 
-Generate configuration with `node prepare-catalog.mjs /private/operator-plan.json > /private/generated.json`. Each plan entry may carry `operator: { version, reviewer }` — the script then records `meta: { version, reviewer, sealedAt, runtimeImage, testerImage }` next to `id`+`digest` in `backendSuites` (the part pasted into the backend's `GRADING_SUITES_JSON`); the digest itself is unchanged. The sealed surfaces are documented in `docs/GRADING_CONTRACTS.md` and visible read-only at `/admin/services` ("Hợp đồng chấm điểm đã seal").Save `generated.catalog` as runner catalog JSON and set backend `GRADING_SUITES_JSON` to `generated.backendSuites`. Keys are **`templateCode:taskId`**. The suite digest covers exact repository, task, spec hash, immutable images, command and all checks. Changed requirements/checks require review and regeneration. No matching task suite means no automatic pass.
+specFile/checksFile được resolve theo thư mục kế hoạch. Nếu kế hoạch nằm riêng, dùng đường dẫn tương đối đúng hoặc tuyệt đối đến suite đã duyệt.
 
-Notes selector contract (`data-testid`): `note-new`, `note-title`, `note-content`, `note-save`, `note-error`, `note-card`, `note-edit`. Supplied empty-title checks expect the word `title`; localize the trusted check with the agreed UI before sealing its digest. Each browser check starts with clean storage at390px. Actions: fill/click/press/reload/text/count/value; no evaluated plan code. HTTP checks support path/method/body/status and top-level `jsonIncludes`. Other templates need reviewed acceptance suites and compatible runtime images. Student Actions/tests remain supplementary.
+### Bước 4 — sinh và nạp cấu hình
 
-### Backend API contract
+```sh
+node prepare-catalog.mjs /private/operator-plan.json > /private/generated.json
+```
 
-For a native Node HTTP application use command `["node","/runner/launch.mjs","node-http","server.mjs"]`. The reviewed launcher resolves a real regular file inside `/work`, refuses traversal/symlinks outside it, and starts Node with only test env plus PORT=3000/HOST=127.0.0.1. It runs inside the same restricted student container, never on the host. This profile supports built-in Node modules and preinstalled reviewed dependencies; it does not install packages, launch arbitrary project scripts, supply external SQL access or imply every framework is supported. A compiled Node entry or another dependency set requires a reviewed image/entry contract.
+| Phần kết quả | Nạp ở đâu? |
+|---|---|
+| generated.catalog | Lưu JSON, trỏ RUNNER_CATALOG_PATH của runner vào file đó |
+| generated.backendSuites | Đặt vào GRADING_SUITES_JSON của BE |
 
-`suites/tasks-api.json` specifies `/api/register` and `/api/tasks`: unique registration returns `{id,token}` without password/hash; Bearer authorization; 401 unauthenticated, 422 invalid input, 409 duplicate email, 404 foreign/missing task; create/read/update/delete and own list `{items,total}`. Four checks cover validation, normal CRUD, a second account's read/write/delete denial, and owner deletion followed by new reads. They do not verify password hashing, durable storage across process restart or a particular database engine; add separate reviewed checks for those requirements. The owned fixture exists only to prove that the grader distinguishes valid behavior from removed validation or removed ownership.
+Binding dùng key **templateCode:taskId**. Digest gắn repository, task, hash spec, image bất biến, command và toàn bộ checks. Khi có operator, metadata gồm version/reviewer/sealedAt/runtimeImage/testerImage; metadata không đổi cách tính digest.
 
-API checks use `kind:"api"` with at most20 HTTP steps. Each step has path/method/status, optional JSON body, bearer, jsonIncludes (dot-path keys), jsonAbsent (top-level keys), and capture `{variable:"response.path"}`. Captures accept bounded primitive values; `{{variable}}` substitutes exact typed values in bodies/assertions, URL-encodes path values and preserves one random `{{nonce}}` per check. Variables never cross checks. The checker enforces the student origin, denies redirects, limits responses to256KiB and bounds each request to3seconds. Captured credentials stay in the independent tester's memory and are not returned in logs. No plan-supplied JavaScript is evaluated.
+Admin xem tại /admin/services, mục “Hợp đồng chấm điểm đã seal”. Đổi yêu cầu, image hoặc checks thì review và sinh lại cả hai phía. Không sửa digest bằng tay để bỏ qua mismatch.
 
-Browser step values may contain `{{nonce}}`, replaced by a fresh random value for each check. Supplied Notes suites use this to avoid fixed demonstration titles being mistaken for implemented behavior. Browser assertions wait up to5s per action, within the85s total worker deadline; missing behavior still fails.
+## 6. Hợp đồng ứng dụng Notes
 
-## Deploy
+Runtime hỗ trợ React/Vite với dependency đã cài sẵn trong image. Notes dùng các data-testid:
 
-Inject two different random credentials (at least32characters) using the host secret manager: `GRADING_RUNNER_TOKEN`, `GRADING_RUNNER_SIGNING_KEY`. Configure the same values privately in the API. Set `RUNNER_CATALOG_PATH` to the catalog file. `HOST=127.0.0.1 PORT=8090 node server.mjs` starts only when Docker confirms Linux. Keep8090private, use a restricted HTTPS reverse proxy with response timeout above120s, and set BE `GRADING_RUNNER_URL=https://your-private-worker/grade`. Do not expose the Docker daemon or raw worker API to students. OAuth/repo ownership remains with each instructor's linked GitHub account.
+| Selector | Chức năng |
+|---|---|
+| note-new | Mở thao tác tạo ghi chú |
+| note-title, note-content | Nhập tiêu đề và nội dung |
+| note-save | Lưu |
+| note-error | Thông báo validation |
+| note-card, note-edit | Xem và sửa ghi chú |
 
-## Verification boundary
+Check tiêu đề trống mẫu tìm từ title; UI tiếng Việt cần sửa check theo nội dung thống nhất **trước khi seal**. Mỗi browser check bắt đầu storage sạch ở viewport 390px.
 
-On2026-10-16,16runner tests passed on both Windows and WSL. A dedicated Ubuntu24.04.5 WSL2 environment `VIntern-Grader` runs Docker29.9.0 and Node22.23.3, with Windows drive automount/interop disabled. Real Docker smoke passed Notes2/2 and rejected broken validation1/2; Tasks API4/4, removed validation3/4, removed ownership3/4. The compiled Windows BE adapter verified signed per-check results, measured time and score100/50 through HTTP/HMAC using real app/test containers under the worker service user.
+Action hỗ trợ: fill/click/press/reload/text/count/value; không thực thi JavaScript từ kế hoạch. `{{nonce}}` tạo giá trị ngẫu nhiên riêng mỗi check, tránh tính dữ liệu demo cố định thành chức năng thật. Mỗi action chờ tối đa 5 giây trong deadline worker tổng 85 giây; thiếu chức năng vẫn trượt.
 
-Live acceptance subsequently used two actual GitHub identities, an instructor-owned public repository and a student-authored PR. The service downloaded immutable commits through GitHub codeload: broken validation failed1/2, corrected source passed2/2. A reviewed foundation-task binding was sealed against its persisted specification. Real Gemini feedback and instructor approval completed the application flow; this remains an owned synthetic integration fixture. The service test found and fixed UMask0077 masking archive0444 to0400: explicit chmod restores sandbox read access while its opaque directory remains0700 and bind mount read-only. See [live evidence](../docs/LIVE-GITHUB.md). Remote GitHub CI has not run.
+## 7. Native Node HTTP và Tasks API
 
-The local systemd unit is `vintern-grader.service`; secrets are root-readable `/etc/vintern-grader.env`, with catalog `/etc/vintern-grader-catalog.json`. `TMPDIR=/var/lib/vintern-grader/tmp` keeps opaque bind-mounted archives visible to the Docker daemon even with `PrivateTmp=true`. Startup/stop cleanup removes only labelled worker containers and owned archive files. Windows starts the local worker using `scripts/start-grading-worker.ps1` from the BE repository: keep that terminal open so WSL stays alive. Local service transport is localhost:8090; production requires a separate worker host and HTTPS. The current catalog contains one approved QA task; other tasks require their own reviewed bindings.
+Lệnh cho ứng dụng native Node:
+
+```json
+["node", "/runner/launch.mjs", "node-http", "server.mjs"]
+```
+
+Launcher chỉ nhận file thật trong /work, chặn traversal/symlink ra ngoài và cấp env test với PORT=3000, HOST=127.0.0.1. Nó chạy trong container, không trên host. Không cài package, chạy npm script tùy ý hoặc cấp SQL ngoài. Framework/dependency khác cần image và entry contract được duyệt.
+
+[suites/tasks-api.json](suites/tasks-api.json) kiểm tra /api/register và /api/tasks:
+
+| Nhóm | Điều được kiểm tra |
+|---|---|
+| Validation | 422 input sai, 409 email trùng, 401 thiếu xác thực; đăng ký hợp lệ trả id/token, không lộ password/hash |
+| CRUD | Tạo/đọc/sửa/liệt kê items,total bằng Bearer token |
+| Quyền sở hữu | Tài khoản khác không được đọc/sửa/xóa; task thiếu/khác chủ trả 404 |
+| Xóa | Chủ sở hữu xóa được và lần đọc sau xác nhận task không còn |
+
+Bốn check này **chưa chứng minh** password hash đúng, dữ liệu tồn tại sau restart hoặc database engine cụ thể. Yêu cầu đó cần checks riêng đã duyệt.
+
+Với kind api, mỗi check tối đa 20 bước. Mỗi bước có path/method/status; có thể thêm body JSON, bearer, jsonIncludes theo dot-path, jsonAbsent top-level và capture `{variable:"response.path"}`. Capture chỉ nhận primitive có giới hạn. `{{variable}}` giữ kiểu trong body/assertion, URL-encode trong path; biến chỉ tồn tại trong một check.
+
+Tester chỉ gọi origin app, chặn redirect, giới hạn response **256 KiB**, **3 giây/request**. Token capture chỉ ở bộ nhớ tester, không trả ra log. HTTP check đơn giản còn hỗ trợ body/status và jsonIncludes top-level. Không evaluate code trong plan.
+
+## 8. Chạy local và kết nối BE
+
+Hai credential phải khác nhau, ngẫu nhiên, ít nhất 32 ký tự: GRADING_RUNNER_TOKEN xác thực request và GRADING_RUNNER_SIGNING_KEY ký kết quả. Cấp cùng giá trị tương ứng cho BE và worker qua cấu hình riêng; không commit vào repository.
+
+```sh
+HOST=127.0.0.1 PORT=8090 node server.mjs
+```
+
+Service chỉ khởi động khi Docker xác nhận Linux. Đặt RUNNER_CATALOG_PATH đúng catalog. BE local dùng URL /grade ở cổng 8090. Khi triển khai riêng sau này, dùng HTTPS hạn chế truy cập, reverse proxy timeout trên 120 giây và GRADING_RUNNER_URL=https://your-private-worker/grade. Không công khai Docker daemon hoặc worker cho sinh viên.
+
+Workspace hiện có WSL VIntern-Grader, VHD và Docker storage dưới dự án. Các đường dẫn Linux sau nằm trong distribution đó:
+
+| Thành phần | Vị trí/tên |
+|---|---|
+| systemd service | vintern-grader.service |
+| Secret chỉ root đọc | /etc/vintern-grader.env |
+| Catalog | /etc/vintern-grader-catalog.json |
+| Tạm worker | TMPDIR=/var/lib/vintern-grader/tmp |
+
+TMPDIR giúp Docker daemon đọc archive bind mount khi bật PrivateTmp=true. Startup/stop cleanup chỉ dọn container có nhãn và archive thuộc worker.
+
+Từ BE dùng [scripts/start-grading-worker.ps1](../scripts/start-grading-worker.ps1), giữ terminal mở để WSL tiếp tục chạy. Không cài lại hoặc di chuyển ứng dụng Windows/SQL/Docker như một phần chạy local.
+
+## 9. Đọc lỗi và phạm vi bằng chứng
+
+| Hiện tượng | Cần kiểm tra |
+|---|---|
+| Không có suite | Binding templateCode:taskId, repository và raw spec đúng task |
+| Digest/request mismatch | Hai phía nạp cùng catalog; spec/image/checks có đổi sau seal không |
+| 503/timeout/cleanup lỗi | Docker/service/deadline; chưa đủ bằng chứng để cho đạt |
+| Check trượt | Tên check, diagnostic, selector, API contract và chức năng thật |
+| Chữ ký bị từ chối | Signing key và payload hai phía; không bỏ xác minh để retry |
+
+Kết quả **lịch sử 16/10/2026**: 16 runner tests đạt trên Windows/WSL; Docker Notes đạt 2/2, bài bỏ validation 1/2; Tasks API đạt 4/4, bài bỏ validation hoặc quyền sở hữu 3/4. Môi trường khi đó: Ubuntu 24.04.5/WSL2, Docker 29.9.0, Node 22.23.3; Windows automount/interop tắt.
+
+Nghiệm thu GitHub trước đây dùng hai danh tính và PR sinh viên: tải commit thật, bài lỗi 1/2, bài sửa 2/2; lưu kết quả ký cùng feedback Gemini và phê duyệt giảng viên. Đây là fixture tổng hợp thuộc quyền kiểm soát, không phải kết quả mọi bài hiện tại. Lỗi UMask 0077 làm archive 0444 thành 0400 đã sửa bằng chmod rõ ràng, giữ thư mục riêng 0700 và mount chỉ đọc.
+
+Xem [GitHub lịch sử](../docs/LIVE-GITHUB.md) và [kiểm chứng hiện hành](../docs/VERIFICATION.md). Không diễn giải tài liệu này thành vừa chạy lại Docker/GitHub/remote CI trong lượt UI/tài liệu. Catalog đã nghiệm thu có một task QA; task khác cần binding riêng.

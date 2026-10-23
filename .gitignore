@@ -6,3 +6,12 @@ coverage/
 *.log
 .DS_Store
 test/e2e-ids.json
+
+# Project-local caches and temporary data
+.runtime/
+
+# Host-specific package manager configuration
+.npmrc
+
+.env.*
+!.env.example

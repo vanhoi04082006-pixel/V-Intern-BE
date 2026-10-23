@@ -1,11 +1,53 @@
-# Đăng ký sinh viên
+# Tài khoản, đăng ký và quyền truy cập
 
-`POST /auth/register` là public endpoint riêng, không dùng `/users` của admin. Body chỉ có fullName, email, password, acceptedTerms=true; DTO từ chối mọi field khác như roleCodes/status/permissions. Họ tên2–128ký tự, email chuẩn hóa trim/lowercase tối đa320, mật khẩu tối thiểu8ký tự/không chỉ khoảng trắng/tối đa72byteUTF-8 trước bcrypt để không bị cắt ngầm. Không trim mật khẩu.
+## Đăng ký tạo ra điều gì?
 
-Transaction ghi user active với username UUID do server sinh, đúng một role intern, recruitment profile not_started/0attempt, audit chỉ ghi loại tài khoản/acceptedTerms và thông báo welcome. Thiếu RBAC hoặc lỗi ghi rollback toàn bộ. Unique email/username xử lý cạnh tranh; duplicate409 REGISTRATION_CONFLICT không trả SQL detail. Không nhận role giảng viên/admin từ trình duyệt, không tự pass tuyển dụng hoặc tạo assignment.
+Đăng ký public là cổng vào dành cho sinh viên, không phải cách tạo staff. `POST /auth/register` nhận họ tên, email, password và `acceptedTerms=true`. BE tạo user active, đúng role intern, recruitment profile chưa bắt đầu, audit và thông báo chào mừng trong cùng transaction.
 
-Response201 `{registered:true}` không chứa password/hash/refresh token và không đăng nhập tự động. Người dùng đăng nhập qua luồng đã có (HttpOnly refresh, rotation, fresh roles) rồi vào tuyển dụng. Trình duyệt chỉ hiển thị thành công sau khi kiểm tra response; lỗi400/409/429/closed không giả thành công. acceptedTerms phản ánh checkbox, không phải chứng cứ đã xác minh email hoặc quy trình pháp lý.
+```mermaid
+flowchart LR
+  A[Form đăng ký] --> B[DTO và giới hạn tần suất]
+  B --> C[Tạo user + intern role + profile]
+  C --> D[201 registered true]
+  D --> E[Người dùng đăng nhập]
+  E --> F[Chọn hướng và phỏng vấn]
+```
 
-`AUTH_PUBLIC_REGISTRATION=false` đóng signup (403 REGISTRATION_CLOSED). Mặc định mở theo luồng register→login của nền tảng; tài khoản staff vẫn do admin quản lý. `THROTTLE_REGISTER_PER_MIN` mặc định5/IP/phút, memory theo process như limiter hiện có. Triển khai nhiều instance cần rate limit dùng chung ở gateway/hạ tầng. Signup không gửi email và không đánh dấu email verified; Google login và khôi phục mật khẩu bằng email cần tích hợp riêng, không trả thành công giả.
+Đăng ký thành công chưa có nghĩa đã đăng nhập, xác minh email, đậu phỏng vấn hoặc có assignment.
 
-SQL HTTP4test gồm persist/hash/onboarding/không nâng quyền, concurrent duplicate một201/một409/mộtaudit, validation/consent/UTF-8 bound và đóng signup. Chrome thật kiểm tra form1440/820/390, đăng ký, login và nội dung onboarding qua API/SQL nghiệm thu riêng. Không dùng tài khoản trắng của runtime để tạo fixture.
+## Dữ liệu được kiểm tra
+
+| Field | Quy tắc |
+|---|---|
+| Họ tên | 2–128 ký tự |
+| Email | Trim/lowercase, giới hạn 320 ký tự, uniqueness |
+| Password | Ít nhất 8 ký tự, không chỉ khoảng trắng, tối đa 72 byte UTF-8 trước bcrypt |
+| Terms | Boolean true, không dùng chuỗi `"true"` thay thế |
+| Role/quyền/status | Không nhận từ client trong signup |
+
+Không trim password vì thao tác đó làm thay bí mật người dùng đã nhập. Hai request cùng email có thể cạnh tranh; unique constraint và transaction phải cho kết quả rõ ràng, không tạo một nửa tài khoản.
+
+## Các nhánh kết quả
+
+| Tình huống | Kết quả cần hiểu |
+|---|---|
+| Input hợp lệ, email mới | 201 `{registered:true}` |
+| Email đã tồn tại | 409 `REGISTRATION_CONFLICT` |
+| Signup đã đóng | 403 `REGISTRATION_CLOSED` |
+| Field không cho phép hoặc input sai | 400, không tạo tài khoản |
+| Quá giới hạn đăng ký | 429 |
+| Thiếu role nền hoặc lỗi ghi | Rollback toàn transaction |
+
+`AUTH_PUBLIC_REGISTRATION=false` đóng luồng này. Mặc định limiter đăng ký 5/IP/phút; đây là bộ đếm theo process, không phải limiter phân tán.
+
+## Đăng nhập và phiên
+
+API dùng Bearer access token và refresh cookie HttpOnly có rotation/replay detection. Quyền hiệu lực được resolve từ dữ liệu server; không tin một role tự khai trong body. Thông tin trả về frontend không chứa password hash hoặc refresh plaintext trong JSON.
+
+Khi sửa lỗi đăng nhập, kiểm tra origin/cookie và account status trước khi đổi JWT secret. Thay secret có thể làm các phiên đang dùng mất hiệu lực.
+
+## Chức năng chưa có
+
+Signup hiện không gửi email xác minh. Không diễn giải nút Google hoặc quên mật khẩu thành một tích hợp đã hoạt động nếu chưa cấu hình/xây dựng tương ứng. Staff vẫn do Admin quản lý qua luồng được phân quyền.
+
+Nguồn: [auth controller](../../src/auth/auth.controller.ts), [auth module](../../src/auth), [users](../../src/users), [RBAC](../../src/rbac), [SECURITY](../SECURITY.md).

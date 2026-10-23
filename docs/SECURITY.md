@@ -1,19 +1,44 @@
-# Ranh giới bảo mật
+# Bảo mật và ranh giới tin cậy
 
-JWT xác thực identity; DB resolve role/permission mỗi request. DTO whitelist/forbidNonWhitelisted và UUID validation, query parameters thay interpolation untrusted, managed project+session scope. Permission không đồng nghĩa có quyền trên mọi bản ghi.
+## Một request được phép khi nào?
 
-Refresh cookie HttpOnly, rotate family, detect replay; BCrypt password hash không serialize. OAuth state/cookie/PKCE/numeric identity và token AES256GCM theo user. Không log key/token/raw provider body. CORS exact origin, production HTTPS/TLS.
+Nó phải có danh tính hợp lệ, permission phù hợp, nằm trong scope bản ghi và đi qua DTO/domain validation. Chỉ kiểm tra role ở frontend không đáp ứng các điều kiện này.
 
-Sharing consent chỉ snapshot đọc, hết hạn/thu hồi/đổi owner kiểm tra mỗi request. Intern own-task/own-interview/own-conversation kiểm tra principal, không lấy userId client làm authority. Public question API không có rubric/expected/future prompts.
+| Ranh giới | Cơ chế chính |
+|---|---|
+| Người dùng → API | JWT, refresh rotation, guard, DTO whitelist/forbid unknown |
+| API → SQL | Tham số hóa truy vấn, transaction/version, kiểm tra ownership |
+| API → AI | Context tối thiểu, untrusted content tách khỏi instruction, structured schema |
+| API → GitHub | OAuth state/PKCE, ID bền vững, token mã hóa, URL/host policy |
+| API → runner | Token riêng, suite/spec/SHA binding, chữ ký HMAC |
+| Sharing | Consent theo phiên, expiry/revoke và kiểm tra mỗi lần đọc |
 
-Source/PR/ref/URL/câu trả lời là untrusted. Github host HTTPS cố định, no redirect tùy ý, pathencode, immutable SHA, bounded files/body/concurrency và credential exclusion. Evidence warnings không được làm complete=true. No student code execution trên BE; runner signer ở ngoài sandbox, toàn request+suite+SHA được bind bằng hash/HMAC.
+## Mật khẩu, token và logs
 
-AI chỉ đề xuất; teacher và backend quyết định. Không nhận model pass/approve field hoặc student-controlled checks làm bằng chứng authoritative. Audit final rubric/manual override/SHA và các thay đổi quyền.
+Password dùng bcrypt và giới hạn byte UTF-8 trước hash. Refresh cookie HttpOnly được rotate theo family và phát hiện replay. GitHub access/refresh mã hóa theo user/AAD, giữ version/lease khi gia hạn. Không trả hash/ciphertext/plaintext secret ra FE, prompt, runner hoặc log.
 
-Public signup chỉ tạo intern trong transaction và không tự đăng nhập, không nhận role từ client. Mật khẩu kiểm tra giới hạn UTF-8 trước bcrypt, tên/email bounded, terms phải là boolean true. Có switch đóng signup và rate limit riêng; xem [đăng ký](architecture/registration.md).
+Audit ghi hành động, resource IDs và metadata an toàn. Không log toàn body auth, câu trả lời phỏng vấn hoặc raw provider body chỉ để tiện debug. Khi chia sẻ log, giữ error code/traceId/thời điểm và loại bỏ secret.
 
-OAuth/repo/PR/runner đã nghiệm thu với hai tài khoản GitHub thật và fixture tổng hợp; [chi tiết](LIVE-GITHUB.md). Webhook HMAC/redelivery thật đạt, hook/tunnel tạm đã đóng. Không coi bằng chứng này là phê duyệt production cho mọi contract.
+## Dữ liệu sinh viên là không tin cậy
 
-Giới hạn: rate limits memory theo process; chưa có email verification/reset hoặc Google OAuth. Khi cần nhiều instance, dùng limiter/job processing chung và kiểm chứng reentry/concurrency trước rollout.
+Câu trả lời có thể chứa prompt injection. Source/README có thể chứa hướng dẫn yêu cầu gửi token. PR có thể đổi sau khi nộp. Test của sinh viên có thể tự tuyên bố pass. BE phải giữ các trường hợp này ở vai trò dữ liệu, không coi là chỉ thị hoặc bằng chứng độc lập.
 
-Audit16/10: dependency production không có high/critical, còn3moderate lan truyền từ sprintf-js qua tedious/mssql. Format trong driver là literal cố định; ứng dụng không cho request cung cấp format string. Toàn cây dev có thêm advisory braces qua Jest. Cả hai chưa có bản vá upstream; không coi full audit là sạch. [Phân tích và nguồn advisory](DEPENDENCIES.md). CI chặn high/critical của dependency production.
+Collector giới hạn source/diff và lọc credential files. Runner không chạy trên API host; signer ở ngoài sandbox. Warning/truncated evidence không được biến thành `complete=true`.
+
+## Quyền thay đổi theo thời gian
+
+User bị khóa, consent bị revoke, đổi lead hoặc mất ownership phải được kiểm tra lại lúc thao tác thật. Một tab đã mở hoặc một token còn hạn không tự giữ quyền cũ. Refresh/callback đến muộn không được hồi sinh connection đã disconnect.
+
+## Giới hạn hiện tại cần hiểu đúng
+
+Rate limiter theo process cần được xem lại nếu chạy nhiều instance. Signup chưa có email verification/reset qua email hoặc Google OAuth hoàn chỉnh. Bằng chứng GitHub/runner với fixture cụ thể không phải chứng nhận mọi framework hay triển khai production an toàn.
+
+## Khi phát hiện sự cố
+
+1. Ngừng thao tác gây lan rộng; giữ bằng chứng an toàn.
+2. Xác định secret/dữ liệu/phạm vi bị ảnh hưởng.
+3. Thu hồi/rotate qua quy trình phù hợp, có kế hoạch với dữ liệu đã mã hóa.
+4. Sửa nguyên nhân và thêm regression test chứng minh chặn lại được.
+5. Ghi thời điểm/phiên bản và kết quả kiểm chứng, không viết “đã an toàn” chỉ vì unit xanh.
+
+Đọc tiếp: [dependencies](DEPENDENCIES.md), [GitHub](architecture/github-code-review.md), [runner](architecture/grading-runner.md), [kiểm thử](TESTING.md).

@@ -1,15 +1,44 @@
-# Kế hoạch học tập có thể chỉnh sửa
+# Kế hoạch AI: từ gợi ý đến công việc thật
 
-Planner v2 nhận snapshot blueprint, thời gian phiên, roster và kết quả phỏng vấn từng thành viên: điểm chuyên môn/tiếng Anh, kỹ năng, điểm mạnh và điểm cần cải thiện. Dữ liệu thiếu giữ null hoặc danh sách rỗng. Kế hoạch cần có tiến trình từ nhiệm vụ vừa sức đến luyện kỹ năng còn yếu.
+## Vì sao có bước nháp?
 
-Mỗi task có key ổn định, mô tả, người nhận, ưu tiên, deadline, acceptanceCriteria, expectedOutput, estimatedHours, complexity và skillTags. dependsOn tham chiếu key task tiền nhiệm; parentKey biểu diễn task con. Milestone có key, tên, hạn và taskKeys xác định đầu ra nghiệm thu.
+AI có thể đề xuất một kế hoạch chưa khớp đội hình, thời gian hoặc phụ thuộc. Bước nháp cho giảng viên đọc, sửa và xác nhận trước khi sinh viên nhận việc. Sinh bản nháp không phải publish task.
 
-Validator từ chối key trùng, tham chiếu ngoài bản nháp, tự phụ thuộc, vòng lặp, phụ thuộc đặt sau task và milestone vượt cửa sổ kế hoạch. Publish tiếp tục kiểm tra quyền giảng viên, roster, phiên, template version, deadline và idempotency trong transaction. UUID task được cấp trước để ánh xạ tham chiếu; task_specs lưu ID thật, đầu ra, kỹ năng và milestone cùng rubric.
+```mermaid
+flowchart LR
+  A[Snapshot dự án + roster + bằng chứng năng lực] --> B[AI draft]
+  B --> C[Validator]
+  C --> D[Giảng viên đọc và chỉnh]
+  D --> E[Confirm trong transaction]
+  E --> F[Sprint + task + spec + thông báo]
+```
 
-Giảng viên sửa sprint/task, người nhận, ưu tiên, ngày, tiêu chí, giờ dự kiến, kỹ năng, phụ thuộc và chuyển task giữa sprint trước publish. Chuyển task giữ key và metadata; server xác nhận lại toàn bộ quan hệ. Sinh viên chỉ nhận công việc sau publish, với thông báo tới /intern/work; cùng request ID không gửi thông báo lần hai.
+## AI nhận dữ liệu nào?
 
-Milestone được ghi vào timeline session trong cùng transaction publish. Nếu provider trả JSON hoặc quan hệ ngày sai, planner/Mentor có một lần sinh lại qua helper dùng chung, giữ nguyên input và validator; mỗi lần có ai_runs riêng. Hết lượt vẫn lỗi thì giữ trạng thái lỗi và cho thử lại có kiểm soát, không thêm công việc hoặc lời đáp giả. Mentor dùng response schema answer/summary/followUps ngay tại provider.
+Blueprint, thời gian phiên, đội hình, kết quả phỏng vấn đã có, điểm mạnh và điểm cần cải thiện. Thiếu dữ liệu được ghi rõ bằng null/list rỗng. Prompt không được bịa một sinh viên, một điểm hoặc một kỹ năng để lấp chỗ thiếu.
 
-Bắt đầu công việc hoặc nộp bài yêu cầu mọi task tiền nhiệm cùng project đã ở Done do giảng viên duyệt. Thiếu task hoặc chưa hoàn thành trả TASK_DEPENDENCIES_PENDING. Task detail hiển thị đầu ra và phụ thuộc. Đặc tả tham gia hash gửi runner; thay tiêu chí không tái sử dụng được suite đã niêm phong cho đặc tả cũ.
+## Đọc một task trong bản nháp
 
-Mentor v3 nhận điểm yếu phỏng vấn cùng yêu cầu task và code feedback. Với bài nộp GitHub, collector kiểm tra snapshot/freshness, loại file secret, cung cấp tối đa 6 file/18.000 ký tự. Thiếu quyền/kết nối/source trả unavailable; cắt source đánh dấu partial. AI không tuyên bố đọc cả repo hoặc viết toàn bộ bài thay sinh viên.
+| Field | Ý nghĩa |
+|---|---|
+| `key` | Khóa ổn định trong bản nháp để tham chiếu |
+| Assignee, priority, deadline | Ai làm, cần ưu tiên gì, khi nào bàn giao |
+| Acceptance criteria / DoD | Điều kiện kiểm tra để xác nhận hoàn thành |
+| Expected output | Sản phẩm/bằng chứng cần nộp |
+| Estimated hours, complexity, skills | Ước lượng và mục tiêu học tập |
+| `dependsOn`, `parentKey` | Tiền nhiệm và quan hệ task con |
+| Milestone/taskKeys | Những đầu việc tạo thành mốc nghiệm thu |
+
+## Những nhánh bị từ chối
+
+Validator chặn key trùng, tham chiếu lạ, tự phụ thuộc, vòng lặp, phụ thuộc sai thứ tự và milestone ngoài cửa sổ kế hoạch. Confirm còn kiểm tra quyền, roster, session/template version, hạn và requestId. UUID được cấp trước để đổi các key nội bộ thành task ID thật.
+
+Nếu provider trả JSON/quan hệ ngày sai, helper có một lần sinh lại theo cùng input/validator cho luồng tương ứng; mỗi lời gọi có `ai_runs`. Hết lượt vẫn sai thì giữ lỗi để retry có kiểm soát, không tạo task một phần hoặc kết quả giả.
+
+## Sau khi xác nhận
+
+Spec lưu yêu cầu, phụ thuộc bằng ID thật và metadata cần nghiệm thu. Các thông báo/milestone được ghi cùng transaction; replay request không gửi thêm lần nữa. Sinh viên thấy task đã publish và phải chờ tiền nhiệm Done trước khi bắt đầu hoặc nộp task phụ thuộc.
+
+Sửa yêu cầu có thể làm đổi spec hash gửi runner. Bộ test seal theo spec cũ không được tự dùng lại cho đề mới.
+
+Nguồn: [ai-generation](../../src/ai-generation), [task spec](../../src/tasks), [template](project-blueprints.md), [task workflow](sprint-task-core.md).
