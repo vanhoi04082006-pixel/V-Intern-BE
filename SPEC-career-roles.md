@@ -18,6 +18,35 @@
 
 Database SQL Server dùng riêng; áp dụng toàn bộ migration cũ, chèn lịch sử role chưa biết rồi chạy migration mới. Kiểm đủ 5 mã gốc, backfill role lạ, history/attempt/snapshot không đổi, không tạo RBAC, FK chặn role không tồn tại và xóa role có tham chiếu, constraint trạng thái/JSON, version snapshot. Chạy down an toàn, chặn down khi có dữ liệu mới, rồi up lại. Không reset DB chính. Chỉ tick R01 sau khi SQL E2E thật đạt.
 
-## Hợp đồng dự kiến R02/R03
+## Hợp đồng R02 và bước tiếp theo R03
 
 Admin quản trị qua `/api/v1/admin/career-roles`; current version phải đi kèm mỗi update, conflict trả 409. Catalog tuyển dụng chỉ công bố role published/đang tuyển, không công bố rubric. Code bất biến; archive giữ lịch sử. Role chưa đủ câu hỏi/rubric phải trả lỗi sẵn sàng, không dùng bộ câu hỏi nghề khác. Mỗi consumer được chuyển và kiểm riêng; CV/Agent sẽ dùng catalog sau các module phụ thuộc, không coi schema là nghiệm thu toàn hành trình.
+
+| Endpoint | Quyền | Hành vi |
+|---|---|---|
+| `GET /api/v1/career-roles` | Đăng nhập | `{items}` các role published/đang tuyển; chỉ code, label, mô tả, cấp độ, ngôn ngữ, kỹ năng và version; không có trọng số/actor |
+| `GET /api/v1/admin/career-roles` | `recruitment.manage` + effective admin | Tìm theo mã/tên, status, page/pageSize; trả `{items,total,page,pageSize}` |
+| `POST /api/v1/admin/career-roles` | Như trên | Luôn tạo draft/version 1/đóng nhận hồ sơ; trùng mã trả 409 |
+| `GET /api/v1/admin/career-roles/:code` | Như trên | Current metadata, không tự sửa mã |
+| `PUT /api/v1/admin/career-roles/:code` | Như trên | Toàn bộ nội dung + version/status/acceptingApplications; 409 nếu version cũ |
+| `POST /api/v1/admin/career-roles/:code/archive` | Như trên | Body `{version}`, đóng tuyển và tăng version; không xóa. Trả 201 theo POST action hiện tại |
+| `GET /api/v1/admin/career-roles/:code/revisions` | Như trên | Snapshot, actor, thời điểm; phân trang, version giảm dần |
+
+### Nội dung để tạo nghề mới
+
+```json
+{
+  "code": "data_analyst",
+  "name": "Data Analyst",
+  "description": "Phân tích bộ dữ liệu nhỏ và giải thích kết quả bằng bằng chứng.",
+  "level": "intern",
+  "language": "vi",
+  "requiredSkills": ["SQL", "Statistics"],
+  "optionalSkills": ["Python"],
+  "competencyWeights": {"SQL": 60, "Statistics": 40}
+}
+```
+
+Mã gồm 2–32 ký tự thường/số/gạch dưới và bắt đầu bằng chữ. Kỹ năng tối đa 30 mỗi nhóm; không trùng trong hoặc giữa hai nhóm sau trim/so sánh không phân biệt hoa thường. Trọng số nếu có phải bao phủ đúng kỹ năng bắt buộc, là số nguyên 1–100 và tổng 100. Draft cho phép danh sách/trọng số rỗng. Publish bắt buộc mô tả ít nhất 20 ký tự, kỹ năng bắt buộc và trọng số đầy đủ. `acceptingApplications=true` chỉ khi published. Có thể mở lại role archived qua PUT với version mới và nội dung hợp lệ.
+
+Current, snapshot revision và audit cùng một transaction. Khóa UPDLOCK/HOLDLOCK bảo vệ cả tạo trùng và sửa cạnh tranh; bản sửa thua nhận 409. Snapshot cũ không thay đổi khi sửa current. Audit chỉ ghi version/trạng thái/cờ nhận hồ sơ; nội dung đầy đủ nằm trong thư viện riêng. R03 mới thay danh sách tuyển dụng cố định và màn hình; việc role có trong catalog R02 chưa chứng minh sẵn sàng phỏng vấn.

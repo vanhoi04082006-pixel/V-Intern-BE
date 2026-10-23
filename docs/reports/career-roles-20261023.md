@@ -15,4 +15,22 @@
 
 SQL dùng cổng 1437, engine 15.x trong distro VIntern-Grader có VHD thuộc workspace. Mỗi lượt tạo DB `VIntern_Test_CareerRoles_<timestamp>` mới; không drop/reset DB có sẵn. Test SQL này được tách khỏi E2E dùng chung vì cần kiểm migration trước/sau và rollback; workflow BE thêm một database riêng và chạy `npm run test:career-roles:migration`, không bỏ các gate hiện có.
 
-Chưa áp dụng migration vào hai DB demo chính. Chưa có API/UI quản trị (R02/R03); 5 role trong luồng cũ vẫn giữ nguyên behavior. Revision là append-only qua domain API sẽ được xây ở R02, không phải cơ chế chống DBA sửa SQL trực tiếp. CI của commit mới phải được đối chiếu riêng; [M00](ci-recovery-20261023.md) chỉ là baseline cũ.
+Chưa áp dụng migration vào hai DB demo chính. Revision append-only qua domain API, không phải cơ chế chống DBA sửa SQL trực tiếp. [M00](ci-recovery-20261023.md) là baseline FE cũ.
+
+**CI R01:** BE `8666d9a9f955c107faee1b16294cca4261655611` đạt cả [release gate SQL 2019](https://github.com/vanhoi04082006-pixel/V-Intern-BE/actions/runs/39937179208) và [acceptance](https://github.com/vanhoi04082006-pixel/V-Intern-BE/actions/runs/39937179273). Job `120359469982` xác nhận hai bước tạo DB riêng/kiểm migration nghề nghiệp đều thành công, hoàn tất 10:16:14 UTC ngày 23/10.
+
+## R02: API quản trị có phiên bản
+
+**Đạt local SQL Server 2019.** Có API tạo draft, xem/tìm/lọc/phân trang, xuất bản/đóng tuyển, archive/mở lại, đọc lịch sử snapshot. Endpoint và ví dụ trong [đặc tả](../../SPEC-career-roles.md).
+
+| Kiểm tra | Kết quả | Nguồn |
+|---|---|---|
+| API nghề nghiệp | 6/6 đạt: auth/RBAC, draft, publish/catalog, hai update đồng thời 200/409, archive/reopen, validation | `test/career-roles.e2e-spec.ts`, local `career-api-green.log` |
+| Hồi quy tuyển dụng, question bank, đăng ký + API mới | 4 suite / 33 test đạt | `career-api-regression2.log` |
+| Unit BE, lint, build | 625 test đạt, lint 0 lỗi (15 warning cũ), build đạt | `career-api-unit.log`, `career-api-lint.log`, `career-api-build.log` |
+
+Red trước implementation: endpoint chưa tồn tại, trả 404 thay vì mã nghiệp vụ yêu cầu (`career-api-red2.log`). Lượt regression đầu chưa đạt do helper đặt DB `Test` trong khi bộ đăng ký yêu cầu prefix `E2E`; đã đổi **helper local**, giữ nguyên guard test và chạy lại đạt 33/33. Không tính lượt đó là đạt.
+
+Current/revision/audit cùng transaction. Snapshot version 1 giữ nguyên sau sửa version 2/3. Tạo nghề không tạo role RBAC. Catalog chỉ công bố published/đang tuyển và không trả trọng số/actor. Code bất biến; không có endpoint xóa cứng. CI R02 sẽ được đối chiếu theo commit mới.
+
+**Còn R03:** UI Admin, chuyển các danh sách nghề/DTO/consumer khỏi enum cố định và kiểm role thứ sáu qua luồng phỏng vấn. R02 chưa làm CV/Agent (các module sau) hay chứng minh toàn bộ M01 đã xong.

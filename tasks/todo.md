@@ -25,9 +25,10 @@ Khi thực hiện, mỗi task bổ sung cột/ngày ghi nhận: `commit FE/BE �
   - Đạt khi: giữ mã 5 role cũ, tách RBAC, archive giữ tham chiếu; có rollback an toàn.
   - Kiểm: SQL E2E migration/reference. File: BE `career-roles` entity/migration/contracts; không reset DB.
   - PASS local 23/10: 5 SQL Server 2019 migration test; 625 unit BE, lint/build đạt. Chưa áp dụng DB demo, chưa chuyển consumer. [Bằng chứng R01](../docs/reports/career-roles-20261023.md).
-- [ ] R02. API quản trị và chọn role hợp lệ từ dữ liệu.
+- [x] R02. API quản trị và chọn role hợp lệ từ dữ liệu.
   - Đạt khi: CRUD/version/status; role inactive/draft không nhận hồ sơ mới.
   - Kiểm: validation/RBAC/conflict E2E. Phụ thuộc R01; BE `career-roles` service/controller/DTO/tests.
+  - PASS local 23/10: 6 API SQL test và 33 test gồm hồi quy tuyển dụng/question bank/đăng ký; 625 unit BE, lint/build đạt. API giữ snapshot/audit, xử lý concurrent update 200/409; catalog chỉ published/đang tuyển. R03 chưa xong.
 - [ ] R03. Admin quản trị role và chuyển consumer khỏi enum cố định.
   - Đạt khi: thêm role thứ 6 từ UI; API/FE đọc được mà không sửa danh sách mã.
   - Kiểm: FE form/route và một contract test role mới. Phụ thuộc R02; tách từng consumer khi vượt 5 file.

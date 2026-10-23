@@ -1,4 +1,5 @@
 import { GithubModule } from './github/github.module';
+import { CareerRolesModule } from './career-roles/career-roles.module';
 import { AdminSystemModule } from './admin/admin-system.module';
 import { SharingModule } from './sharing/sharing.module';
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
@@ -85,6 +86,7 @@ import { ReportsModule } from './reports/reports.module';
     RbacModule,
     GroupsModule,
     CatalogsModule,
+    CareerRolesModule,
     SettingsModule,
     AuditModule,
     NotificationsModule,
