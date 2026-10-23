@@ -15,7 +15,10 @@ beforeAll(async () => {
   const database = process.env.E2E_DB_NAME ?? '';
   if (!/^VIntern_(?:E2E|Test)_CareerRoles_[A-Za-z0-9_]+$/.test(database)) throw Error('Dedicated career-role migration database required.');
   if (source.options.type !== 'mssql' || !Array.isArray(source.options.migrations)) throw Error('SQL Server migrations required.');
-  db = new DataSource({ ...source.options, database, migrations: source.options.migrations.filter(m => m !== CreateCareerRoles1762636800000), synchronize: false });
+  const target = source.options.migrations.indexOf(CreateCareerRoles1762636800000);
+  if (target < 0) throw Error('Career-role migration must be registered.');
+  const migrations = source.options.migrations.slice(0, target + 1);
+  db = new DataSource({ ...source.options, database, migrations: migrations.slice(0, -1), synchronize: false });
   await db.initialize();
   await db.runMigrations({ transaction: 'all' });
   if (await tableExists('career_roles')) throw Error('Use a fresh dedicated database; never reset an existing one.');
@@ -26,7 +29,7 @@ beforeAll(async () => {
   [{ count: rbacCount }] = await db.query('SELECT COUNT(*) count FROM roles');
   // TypeORM builds its migration instances at initialize(), not setOptions().
   await db.destroy();
-  db = new DataSource({ ...source.options, database, synchronize: false });
+  db = new DataSource({ ...source.options, database, migrations, synchronize: false });
   await db.initialize();
   await db.runMigrations({ transaction: 'all' });
 }, 120000);

@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer';
-import { ArrayMaxSize, ArrayMinSize, ArrayUnique, IsArray, IsDateString, IsIn, IsInt, IsOptional, IsString, IsUUID, Length, Max, MaxLength, Min, ValidateNested } from 'class-validator';
+import { ArrayMaxSize, ArrayMinSize, ArrayUnique, IsArray, IsDateString, IsIn, IsInt, IsOptional, IsString, IsUUID, Length, Matches, Max, MaxLength, Min, ValidateNested } from 'class-validator';
 import { PaginationQueryDto } from '../common/pagination/pagination-query.dto';
 export class TemplateTaskDto {
   @IsOptional() @IsString() @Length(1, 64) key?: string;
@@ -13,7 +13,7 @@ export class TemplateTaskDto {
   @IsString() @Length(1, 256) title!: string;
   @IsString() @Length(10, 4000) requirements!: string;
   @IsArray() @ArrayMinSize(1) @ArrayMaxSize(20) @IsString({ each: true }) @MaxLength(256, { each: true }) dod!: string[];
-  @IsIn(['frontend','backend','fullstack','qa','business_analyst','devops']) role!: string;
+  @IsString() @Matches(/^[a-z][a-z0-9_]{1,31}$/) role!: string;
   @IsInt() @Min(1) @Max(100) storyPoints!: number;
 }
 export class TemplateSprintDto {
@@ -69,7 +69,7 @@ export class CreateTemplateDto {
   @IsString() @Length(10, 4000) description!: string;
   @IsIn(['beginner','intermediate','advanced']) difficulty!: 'beginner' | 'intermediate' | 'advanced';
   @IsArray() @ArrayMinSize(1) @ArrayMaxSize(20) @ArrayUnique() @IsString({ each: true }) @MaxLength(64, { each: true }) techStack!: string[];
-  @IsArray() @ArrayMinSize(1) @ArrayMaxSize(6) @ArrayUnique() @IsIn(['frontend','backend','fullstack','qa','business_analyst','devops'], { each: true }) roles!: string[];
+  @IsArray() @ArrayMinSize(1) @ArrayMaxSize(6) @ArrayUnique() @IsString({ each: true }) @Matches(/^[a-z][a-z0-9_]{1,31}$/, { each: true }) roles!: string[];
   @IsArray() @ArrayMinSize(1) @ArrayMaxSize(30) @IsString({ each: true }) @MaxLength(256, { each: true }) modules!: string[];
   @IsArray() @ArrayMinSize(1) @ArrayMaxSize(18) @ValidateNested({ each: true }) @Type(() => TemplateSprintDto) sprints!: TemplateSprintDto[];
   @IsArray() @ArrayMinSize(1) @ArrayMaxSize(20) @IsString({ each: true }) @MaxLength(256, { each: true }) dod!: string[];

@@ -15,12 +15,13 @@ import { toPaginated } from '../common/pagination/paginated';
 import { isUniqueViolation } from '../common/utils/db-errors';
 import { Ownership } from '../rbac/ownership';
 import { PermissionsService } from '../rbac/permissions.service';
+import { CareerRolesService } from '../career-roles/career-roles.service';
 import { ChangeRequestDto, CreateTemplateDto, QueryTemplatesDto, StartTemplateDto, UpdateTemplateDto } from './template.dto';
 import { validateBlueprint } from './blueprint-validation';
 interface TemplateRow { id: string; code: string; name: string; category: string | null; difficulty: string; status: string; version: number; definitionJson: string; createdAt: Date; archivedAt: Date | null; }
 @Injectable()
 export class TemplatesService {
-  constructor(private readonly db: DataSource, private readonly tasks: TasksService, private readonly permissions: PermissionsService) {}
+  constructor(private readonly db: DataSource, private readonly tasks: TasksService, private readonly permissions: PermissionsService, private readonly careers: CareerRolesService) {}
 
   private async assertProjectAccess(db: DataSource | EntityManager, projectId: string, actor: string, manage = false): Promise<void> {
     const rows: Array<{ mentorId: string | null }> = await db.query(
@@ -137,6 +138,7 @@ export class TemplatesService {
     const code = dto.code?.trim() || `TPL-${randomUUID().slice(0, 8).toUpperCase()}`;
     try {
       await this.db.transaction(async em => {
+        for (const code of dto.roles) await this.careers.requireRole(code, em);
         await em.query('INSERT INTO project_templates(id,code,name,category,difficulty,definitionJson,createdById) VALUES(@0,@1,@2,@3,@4,@5,@6)',
           [id, code, dto.name, dto.category?.trim() || null, dto.difficulty, JSON.stringify(dto), actor]);
         await this.record(em, actor, 'template.created', id, { name: dto.name, code });
@@ -167,6 +169,7 @@ export class TemplatesService {
           throw new BadRequestException('Task role must belong to template roles.');
         }
         this.validateDefinition(definition);
+        for (const code of definition.roles) await this.careers.requireRole(code, em);
         for (const [column, value] of [['name', definition.name], ['category', definition.category?.trim() || null], ['difficulty', definition.difficulty]] as const) { params.push(value); sets.push(`${column}=@${params.length - 1}`); }
         params.push(JSON.stringify(definition));
         sets.push(`definitionJson=@${params.length - 1}`);

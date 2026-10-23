@@ -6,6 +6,7 @@ import request from 'supertest';
 import { DataSource } from 'typeorm';
 import { AppModule } from '../src/app.module';
 import source from '../src/database/data-source';
+import { AdoptTemplateCareerRoles1762723200000 } from '../src/database/migrations/1762723200000-AdoptTemplateCareerRoles';
 import { ensureRbac } from '../src/bootstrap/ensure-rbac';
 import { User } from '../src/users/entities/user.entity';
 import { Role } from '../src/rbac/entities/role.entity';
@@ -171,5 +172,46 @@ describe('dynamic career catalog API', () => {
     expect((await api(student).get(own)).body).toMatchObject({ selectedRole: career, selectedRoleLabel: content.name, attemptNumber: 1 });
     await api(admin).put(`${base}/${career}`).send({ ...content, version: 5, status: 'draft', acceptingApplications: false }).expect(200);
     expect((await api(teacher).get(`${catalog}/reference`)).body.items.some((r: { code: string }) => r.code === career)).toBe(true);
+  });
+  it('keeps legacy template careers and accepts new catalog careers in versioned templates', async () => {
+    const legacy = await api(admin).get(`${base}/devops`).expect(200);
+    expect(legacy.body).toMatchObject({ code: 'devops', status: 'archived', acceptingApplications: false });
+    const template = (role: string) => ({ name: 'Small data exploration project', description: 'Practice one SQL report with a small reproducible data set.', difficulty: 'beginner', techStack: ['SQL'], roles: [role], modules: ['Report'], sprints: [{ name: 'Data report', goal: 'Deliver one verified report', durationDays: 3, tasks: [{ title: 'Query and explain', requirements: 'Implement a SQL report and verify empty and non-empty data.', dod: ['Query is reproducible'], role, storyPoints: 2 }] }], dod: ['Report works'], rubricVersion: 'task-review-v1', scenarios: ['Empty data set'], documentation: 'Run the query against the provided small data set and explain the result.' });
+    await api(admin).post('/api/v1/project-templates').send(template('devops')).expect(201);
+    const created = await api(admin).post('/api/v1/project-templates').send(template(code)).expect(201);
+    expect(created.body.definition.roles).toEqual([code]);
+    const changed = await request(app.getHttpServer()).patch(`/api/v1/project-templates/${created.body.id}`).set('Authorization', `Bearer ${admin}`).send({ definition: { ...template(code), name: 'Revised small report' }, expectedVersion: 1 }).expect(200);
+    expect(changed.body.version).toBe(2);
+    const started = await api(teacher).post(`/api/v1/project-templates/${created.body.id}/start`).send({ name: 'New-career project cohort', startDate: '2027-01-01T00:00:00.000Z', endDate: '2027-01-10T00:00:00.000Z', requestId: randomUUID() }).expect(201);
+    const slots = await api(teacher).get(`/api/v1/projects/${started.body.projectId}/slots`).expect(200);
+    expect(slots.body.slots).toEqual([expect.objectContaining({ roleCode: code, requiredCount: 1 })]);
+    const context = await api(teacher).get(`/api/v1/projects/${started.body.projectId}/template-context`).expect(200);
+    expect(context.body.definition.roles).toEqual([code]);
+    await api(admin).post('/api/v1/project-templates').send(template('missing_career')).expect(400);
+    expect((await api(student).get(catalog)).body.items.some((r: { code: string }) => r.code === 'devops')).toBe(false);
+  });
+  it('adopts imported blueprint careers as archived without overwriting edits, and refuses truncation', async () => {
+    const imported = `${code}_old`, templateId = randomUUID(), oversizedId = randomUUID();
+    const [actor] = await db.query("SELECT TOP(1) ur.userId id FROM user_roles ur JOIN roles r ON r.id=ur.roleId WHERE r.code='admin'");
+    const definition = JSON.stringify({ roles: [imported], roleDetails: [{ code: imported }], sprints: [{ tasks: [{ role: imported }] }] });
+    await db.query("INSERT INTO project_templates(id,code,name,difficulty,definitionJson,createdById) VALUES(@0,@1,N'Legacy imported blueprint','beginner',@2,@3)", [templateId, `OLD_${code}`, definition, actor.id]);
+    const query = db.createQueryRunner();
+    await query.connect();
+    try {
+      const migration = new AdoptTemplateCareerRoles1762723200000();
+      await migration.up(query);
+      expect((await api(admin).get(`${base}/${imported}`)).body).toMatchObject({ code: imported, status: 'archived', acceptingApplications: false });
+      expect((await db.query('SELECT definitionJson FROM project_templates WHERE id=@0', [templateId]))[0].definitionJson).toBe(definition);
+      await api(admin).put(`${base}/${imported}`).send({ ...content, name: 'Edited legacy career', version: 1, status: 'archived', acceptingApplications: false }).expect(200);
+      await migration.down(); await migration.up(query);
+      expect((await api(admin).get(`${base}/${imported}`)).body).toMatchObject({ name: 'Edited legacy career', version: 2 });
+      expect((await api(admin).get(`${base}/${imported}/revisions`)).body.total).toBe(2);
+      await db.query("INSERT INTO project_templates(id,code,name,difficulty,definitionJson,createdById) VALUES(@0,@1,N'Oversized legacy role','beginner',@2,@3)", [oversizedId, `LONG_${code}`, JSON.stringify({ roles: ['x'.repeat(33)] }), actor.id]);
+      await expect(migration.up(query)).rejects.toThrow(/automatic truncation is forbidden/);
+      expect((await api(admin).get(`${base}/${imported}`)).body.version).toBe(2);
+    } finally {
+      await query.release();
+      await db.query('DELETE FROM project_templates WHERE id=@0', [oversizedId]);
+    }
   });
 });
