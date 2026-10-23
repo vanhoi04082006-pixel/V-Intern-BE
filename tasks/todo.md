@@ -1,6 +1,6 @@
 # Theo dõi triển khai — nền tảng Agent và tuyển thực tập
 
-> 23/10/2026 — **đã được người dùng duyệt; M00/M01 đã đạt local + CI, M01 đã kích hoạt trên hai DB chính; tiếp theo K01/M02**. Các task chỉ được tick khi có bằng chứng. Audit source/CI và lựa chọn nghiệp vụ đã ghi ở [kế hoạch](plan.md); không đánh đồng audit với nghiệm thu tính năng.
+> 23/10/2026 — **đã được người dùng duyệt; M00/M01 và K01/K02 đạt local + CI, M01/K01/K02 đã kích hoạt trên hai DB chính, dữ liệu giữ nguyên; tiếp theo K03/K04**. Các task chỉ được tick khi có bằng chứng. Audit source/CI và lựa chọn nghiệp vụ đã ghi ở [kế hoạch](plan.md); không đánh đồng audit với nghiệm thu tính năng.
 
 Khi thực hiện, mỗi task bổ sung cột/ngày ghi nhận: `commit FE/BE • test • expected/actual • PASS/FAIL/BLOCKED • evidence`. Chỉ tick khi đủ bằng chứng. Nhóm file là phạm vi dự kiến; tách nhỏ thêm nếu một task cần hơn khoảng 5 file.
 
@@ -33,11 +33,12 @@ Khi thực hiện, mỗi task bổ sung cột/ngày ghi nhận: `commit FE/BE �
   - PASS local + CI: Admin UI/onboarding/question bank/template/bộ lọc/phân công giảng viên dùng catalog; browser ba vai trò xác nhận nghề mới qua phỏng vấn, nộp/chấm, template/slot và phân công. Chứng nhận ghi tên catalog, sửa tên không đổi PDF đã cấp. BE 629 unit; FE 550 unit; 22 CI contract; các lượt SQL 47 hồi quy, 15 KPI/chứng nhận, 5 migration riêng biệt đạt. FE `890c4b6` / BE `1bd3c70`: quality `39960526305`, full-stack `39960526289` đạt. Hai DB chính đã migrate, counts/lượt giữ nguyên, 7 tài khoản gốc/demo đăng nhập và đọc catalog đạt. [Bằng chứng và giới hạn](../docs/reports/career-roles-20261023.md). Chưa nghiệm thu CV/Agent runtime từ kết quả M01.
   - Đạt khi: thêm role thứ 6 từ UI; API/FE đọc được mà không sửa danh sách mã.
   - Kiểm: FE form/route và một contract test role mới. Phụ thuộc R02; tách từng consumer khi vượt 5 file.
-- [ ] K01. Phiên bản và quyền kho tri thức chung.
-  - Nền lưu trữ PASS local (`99f5fae`, `1faba2b`): 25 policy case, 11 SQL case; toàn BE 654 unit, lint/build đạt; 47 SQL hồi quy M01 đạt. Chưa tick toàn bộ vì lifecycle publish/archive nối tiếp ở K02; API/UI/retrieval chưa triển khai. [Nguồn và giới hạn](../docs/reports/knowledge-library-20261023.md).
+- [x] K01. Phiên bản và quyền kho tri thức chung.
+  - PASS local + CI: schema, metadata/source/audience/purpose, immutable revision/hash, draft/published/archive/restore, quyền hiệu lực và transaction; `99f5fae` → `b3a1ef7`. Toàn BE 669 unit, lint/build đạt; 22 SQL/HTTP K01/K02 và 47 SQL hồi quy M01 đạt riêng. CI cuối `39984751380`/`39984751342` xanh. Hai DB chính đã nhận M02, nghiệp vụ/lượt/tài khoản giữ nguyên; readiness 16:19 UTC, kho rỗng. [Nguồn và giới hạn](../docs/reports/knowledge-library-20261023.md).
   - Đạt khi: draft/published/archive, source, audience, purpose và revision được lưu; sửa không đổi snapshot cũ.
   - Kiểm: SQL E2E version/RBAC. Phụ thuộc R01; BE `knowledge` contracts/entity/migration/tests.
-- [ ] K02. API Q&A và workflow duyệt/publish.
+- [x] K02. API Q&A và workflow duyệt/publish.
+  - PASS local + CI `113367e`/`1eb20fe`/`7cb3a46`/`b3a1ef7`: Q&A nhiều đáp án đúng, rubric tổng 100, nguồn, publish/retire/restore có version, list/filter/history, dry-run theo hàng không mutation. 15 unit publication và 22 SQL/HTTP tổng K01/K02; Swagger DTO có field. Đã chạy hai API chính; chưa nghiệm thu UI/retrieval từ API.
   - Đạt khi: có multiple valid answers, rubric, common mistakes, follow-up; conflict được báo rõ.
   - Kiểm: validation, publish/retire/rollback, import dry-run lỗi. Phụ thuộc K01; service/controller/DTO/tests.
 - [ ] K03. UI thư viện với tìm/lọc, preview và lịch sử.
