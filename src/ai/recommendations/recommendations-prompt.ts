@@ -9,7 +9,7 @@ import type { RecommendationMetricCode } from './recommendations-schema';
  * recommendation stays explainable and reusable (spec 34/35).
  */
 
-export const RECOMMENDATION_PROMPT_VERSION = 'performance-recommendation-v1';
+export const RECOMMENDATION_PROMPT_VERSION = 'performance-recommendation-v2';
 export const RECOMMENDATION_TASK = 'recommendation';
 
 /**
@@ -73,6 +73,10 @@ export function buildRecommendationSystemPrompt(): string {
     'OUTPUT FORMAT (strict JSON, no markdown fence, no extra fields):',
     '{"recommendations":[{"type":string,"priority":"high"|"medium"|"low","title":string,"reason":string,"actions":string[],"evidenceMetricCodes":string[]}],"summary":string}',
     '- 1..8 recommendations, most important first; reason explains WHY from cited metrics; actions are concrete next steps.',
+    '- Write Vietnamese. Allowed types: skill_focus, delivery_improvement, quality_improvement, time_management, communication, next_task_focus, sprint_focus, career_growth.',
+    '- title: non-empty, at most 200 characters. reason: non-empty, at most 800 characters.',
+    '- actions: 1..5 non-empty strings, each at most 200 characters. evidenceMetricCodes: at most 5 allowed metric codes.',
+    '- summary: non-empty, at most 1000 characters. Follow array and numeric types exactly.',
   ].join('\n');
 }
 

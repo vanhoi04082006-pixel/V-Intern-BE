@@ -6,6 +6,17 @@ import {
 } from "../submissions/submission-policy";
 import type { EvidenceFile } from "../github/github-evidence.service";
 
+/** A real code defect can coexist with unavailable execution evidence. */
+export function canRetryUnavailableRunner(review: { status: string; evidenceJson: string | null }): boolean {
+  if (review.status !== 'needs_changes' || !review.evidenceJson) return false;
+  try {
+    const evidence = JSON.parse(review.evidenceJson) as { trustedTests?: { status?: string } } | null;
+    return evidence?.trustedTests?.status === 'failed' || evidence?.trustedTests?.status === 'not_configured';
+  } catch {
+    return false;
+  }
+}
+
 export interface CodeFinding {
   severity: "critical" | "major" | "minor";
   file: string;

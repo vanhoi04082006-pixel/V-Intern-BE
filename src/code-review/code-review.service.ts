@@ -19,6 +19,7 @@ import { PermissionsService } from "../rbac/permissions.service";
 import { TasksService } from "../tasks/tasks.service";
 import { GradingRunnerService } from "./grading-runner.service";
 import {
+  canRetryUnavailableRunner,
   reviewDecision,
   validateCodeReview,
   CodeReviewResult,
@@ -111,6 +112,7 @@ export class CodeReviewService {
         last &&
         last.headSha === submission.headSha &&
         !["failed", "inconclusive"].includes(last.status) &&
+        !canRetryUnavailableRunner(last) &&
         (last.status !== "running" ||
           last.createdAt.getTime() > Date.now() - 900000)
       )

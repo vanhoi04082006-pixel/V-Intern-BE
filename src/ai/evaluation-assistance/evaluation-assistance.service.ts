@@ -21,6 +21,7 @@ import { RecruitmentProfile } from '../../recruitment/entities/recruitment-profi
 import { PerformanceService } from '../../performance/performance.service';
 import { PermissionsService } from '../../rbac/permissions.service';
 import { EvaluationAiSuggestion } from './entities/evaluation-ai-suggestion.entity';
+import { generateSuggestionWithRepair } from './suggestion-repair';
 import {
   EVALUATION_ASSISTANCE_PROMPT_VERSION,
   EVALUATION_ASSISTANCE_TASK,
@@ -187,7 +188,7 @@ export class EvaluationAssistanceService {
     let suggestion: EvaluationSuggestionData;
     let runId: string | null = null;
     try {
-      const result = await this.aiService.generateStructuredWithRun<EvaluationSuggestionData>({
+      const result = await generateSuggestionWithRepair(this.aiService, {
         feature: EVALUATION_ASSISTANCE_TASK,
         userId: evaluation.internId,
         resourceType: 'evaluation',

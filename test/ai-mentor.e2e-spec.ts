@@ -736,7 +736,7 @@ describe('AI evaluation assistance', () => {
       criterionCode: 'technical_quality',
       suggestedScore: 95,
     });
-    expect(res.body.promptVersion).toBe('evaluation-assistance-v1');
+    expect(res.body.promptVersion).toBe('evaluation-assistance-v2');
 
     // The evaluation is untouched by generation.
     const after = await query(`SELECT status, overallScore FROM evaluations WHERE id = ?`, [ids.evaluationId]);
@@ -773,12 +773,20 @@ describe('AI evaluation assistance', () => {
           criterionSuggestions: [{ criterionCode: 'madeUpCriterion', suggestedScore: 50, evidence: [], comment: null }],
         },
       },
+      {
+        payload: {
+          ...SUGGESTION_PAYLOAD,
+          criterionSuggestions: [{ criterionCode: 'madeUpCriterion', suggestedScore: 50, evidence: [], comment: null }],
+        },
+      },
     ]);
     const res = await request(apiBase())
       .post(`/api/v1/evaluations/${ids.evaluationId}/ai-suggestions`)
       .set('Authorization', `Bearer ${instructorToken}`);
     expect(res.status).toBe(503);
     expect(res.body.code).toBe('AI_INVALID_RESPONSE');
+    expect(testProvider.calls).toHaveLength(2);
+    expect(testProvider.queued).toBe(0);
     const countAfter = (await query(`SELECT COUNT(1) AS n FROM evaluation_ai_suggestions WHERE evaluationId = ?`, [ids.evaluationId]))[0].n as number;
     expect(countAfter).toBe(countBefore);
   });
@@ -896,7 +904,7 @@ describe('AI recommendations', () => {
     expect(res.status).toBe(201);
     expect(res.body.reused).toBe(false);
     expect(res.body.sourceHash).toMatch(/^[0-9a-f]{64}$/);
-    expect(res.body.promptVersion).toBe('performance-recommendation-v1');
+    expect(res.body.promptVersion).toBe('performance-recommendation-v2');
     expect(res.body.recommendations.recommendations[0].evidenceMetricCodes).toContain('onTimeCompletionRate');
 
     const call = testProvider.calls[testProvider.calls.length - 1];
@@ -912,7 +920,7 @@ describe('AI recommendations', () => {
       `SELECT sourceHash, promptVersion FROM ai_recommendation_snapshots WHERE userId = ? ORDER BY createdAt DESC`,
       [ids.a],
     );
-    expect(snapshot[0]).toMatchObject({ sourceHash: res.body.sourceHash, promptVersion: 'performance-recommendation-v1' });
+    expect(snapshot[0]).toMatchObject({ sourceHash: res.body.sourceHash, promptVersion: 'performance-recommendation-v2' });
     ids.sourceHash = res.body.sourceHash;
   });
 
@@ -953,6 +961,12 @@ describe('AI recommendations', () => {
           summary: 's',
         },
       },
+      {
+        payload: {
+          recommendations: [{ type: 'skill_focus', priority: 'high', title: 'x', reason: 'y', actions: ['z'], evidenceMetricCodes: ['madeUpMetric'] }],
+          summary: 's',
+        },
+      },
     ]);
     const res = await request(apiBase())
       .post('/api/v1/intern/me/ai-recommendations/refresh')
@@ -960,6 +974,8 @@ describe('AI recommendations', () => {
     expect(res.status).toBe(503);
     expect(res.body.code).toBe('AI_INVALID_RESPONSE');
     const countAfter = (await query(`SELECT COUNT(1) AS n FROM ai_recommendation_snapshots WHERE userId = ?`, [ids.a]))[0].n as number;
+    expect(testProvider.calls).toHaveLength(2);
+    expect(testProvider.queued).toBe(0);
     expect(countAfter).toBe(countBefore);
   });
 
