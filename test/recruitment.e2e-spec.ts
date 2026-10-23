@@ -369,8 +369,8 @@ describe('Phase 4 recruitment + AI interview e2e (spec 64-69)', () => {
       .set('Authorization', `Bearer ${i1}`)
       .send({ role: 'hacker' });
     expect(bad.status).toBe(400);
-    // The whitelist DTO rejects unknown role codes before the service runs;
-    // RECRUITMENT_ROLE_REQUIRED remains the service-level safety net.
+    // Unknown role codes are validated against the career catalog; preserve
+    // the existing 400/VALIDATION_ERROR contract while allowing new careers.
     expect(bad.body.code).toBe('VALIDATION_ERROR');
 
     const ok = await request(apiBase())

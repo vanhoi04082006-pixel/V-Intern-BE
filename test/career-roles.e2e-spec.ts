@@ -131,4 +131,37 @@ describe('dynamic career catalog API', () => {
     await api(admin).post(`${base}/${code}/archive`).send({ version: 0 }).expect(400);
     await api(admin).get(`${base}/not_a_real_career`).expect(404);
   });
+
+  it('uses a new career for question authoring and interviews while preserving attempts on readiness/state errors', async () => {
+    const career = `${code}_i`, bank = '/api/v1/admin/question-bank';
+    const own = '/api/v1/recruitment/me';
+    const select = (role: string) => request(app.getHttpServer()).patch(`${own}/role`).set('Authorization', `Bearer ${student}`).send({ role });
+    await api(admin).post(base).send({ code: career, ...content }).expect(201);
+    await select(career).expect(409); // Draft is not eligible for new applicants.
+    await select('unknown_role').expect(400);
+    await api(admin).put(`${base}/${career}`).send({ ...content, version: 1, status: 'published', acceptingApplications: true }).expect(200);
+    const selected = await select(career).expect(200);
+    expect(selected.body).toMatchObject({ selectedRole: career, selectedRoleLabel: content.name, attemptNumber: 0 });
+    const notReady = await api(student).post(`${own}/interviews`).send({}).expect(503);
+    expect(notReady.body.code).toBe('INTERVIEW_QUESTION_POOL_INSUFFICIENT');
+    expect((await api(student).get(own)).body.attemptNumber).toBe(0);
+    for (let i = 0; i < 10; i++) {
+      const phase = i < 2 ? 'introduction' : i < 8 ? 'technical' : 'english';
+      await api(admin).post(bank).send({ roleCode: career, phase, difficulty: 'easy', language: phase === 'english' ? 'en' : 'vi', prompt: `Interview question ${i}: Explain a specific example.`, expectedConcepts: ['reasoning'], exampleAnswer: 'Private answer guidance only for the evaluator.', scoringRubric: 'Assess reasoning with a concrete example and limitations.', followUpHints: ['Explain another example.'], tags: ['career-e2e'], isActive: true }).expect(201);
+    }
+    const filtered = await api(admin).get(`${bank}?roleCode=${career}`).expect(200);
+    expect(filtered.body.total).toBe(10);
+    await api(admin).post(`${base}/${career}/archive`).send({ version: 2 }).expect(201);
+    const closed = await api(student).post(`${own}/interviews`).send({}).expect(409);
+    expect(closed.body.code).toBe('CAREER_ROLE_NOT_RECRUITING');
+    expect((await api(student).get(own)).body.attemptNumber).toBe(0);
+    await api(admin).put(`${base}/${career}`).send({ ...content, version: 3, status: 'published', acceptingApplications: true }).expect(200);
+    const started = await api(student).post(`${own}/interviews`).send({}).expect(201);
+    expect(started.body.session).toMatchObject({ roleCode: career, attemptNumber: 1, questionCount: 10 });
+    const [persisted] = await db.query('SELECT COUNT(*) count FROM interview_session_questions WHERE sessionId=@0', [started.body.session.id]);
+    expect(persisted.count).toBe(10);
+    await api(admin).post(`${base}/${career}/archive`).send({ version: 4 }).expect(201);
+    await api(student).get(`${own}/interviews/${started.body.session.id}/conversation`).expect(200);
+    expect((await api(student).get(own)).body).toMatchObject({ selectedRole: career, selectedRoleLabel: content.name, attemptNumber: 1 });
+  });
 });

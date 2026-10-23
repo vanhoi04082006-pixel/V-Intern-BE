@@ -1,4 +1,5 @@
 import { InterviewConversationService } from './interview-conversation.service';
+import { CareerRolesModule } from '../career-roles/career-roles.module';
 import { InterviewFollowUpService } from './interview-follow-up.service';
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -31,6 +32,7 @@ import { RbacModule } from '../rbac/rbac.module';
 @Module({
   imports: [
     AiModule,
+    CareerRolesModule,
     RbacModule,
     TypeOrmModule.forFeature([
       RecruitmentProfile,

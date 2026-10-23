@@ -184,6 +184,8 @@ export class InterviewService {
         }
       }
 
+      // New attempts require a recruiting career; already-started sessions stay readable.
+      await this.recruitmentService.requireRecruitingRole(em, profile.selectedRole);
       // (4) Server-side question selection from ACTIVE bank rows (spec 15).
       const pool = await em.getRepository(InterviewQuestion).find({
         where: { roleCode: profile.selectedRole, isActive: true },

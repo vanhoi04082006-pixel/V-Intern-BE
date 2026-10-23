@@ -1,6 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsIn, IsOptional, IsString, Length, MaxLength } from 'class-validator';
-import { RECRUITMENT_ROLE_CODES } from '../recruitment-roles';
+import { IsIn, IsOptional, IsString, Length, Matches, MaxLength } from 'class-validator';
 import { RECRUITMENT_PROFILE_STATUSES } from '../recruitment-status.machine';
 import { INTERVIEW_ANSWER_MAX_LENGTH, INTERVIEW_ANSWER_MIN_LENGTH } from '../recruitment.constants';
 import { PaginationQueryDto } from '../../common/pagination/pagination-query.dto';
@@ -10,11 +9,9 @@ import { PaginationQueryDto } from '../../common/pagination/pagination-query.dto
  * no DTO ever accepts a userId as authority (spec 43).
  */
 export class SelectRoleDto {
-  @ApiProperty({ enum: RECRUITMENT_ROLE_CODES, example: 'frontend' })
+  @ApiProperty({ example: 'frontend', description: 'Stable code from the recruiting career catalog' })
   @IsString()
-  @IsIn(RECRUITMENT_ROLE_CODES as unknown as string[], {
-    message: `role must be one of: ${RECRUITMENT_ROLE_CODES.join(', ')}`,
-  })
+  @Matches(/^[a-z][a-z0-9_]{1,31}$/)
   role!: string;
 }
 
@@ -42,7 +39,7 @@ export class QueryCandidatesDto extends PaginationQueryDto {
   @ApiPropertyOptional({ description: 'Interview role code filter' })
   @IsOptional()
   @IsString()
-  @IsIn(RECRUITMENT_ROLE_CODES as unknown as string[])
+  @Matches(/^[a-z][a-z0-9_]{1,31}$/)
   role?: string;
 
   @ApiPropertyOptional({ enum: ['available', 'all'], default: 'all', description: 'available = passed with no active assignment' })

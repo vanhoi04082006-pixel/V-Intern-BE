@@ -52,6 +52,21 @@ export class CareerRolesService {
     return { items: rows.map(row => ({ code: row.code, label: row.name, description: row.description, level: row.level, language: row.language, requiredSkills: JSON.parse(row.requiredSkillsJson) as string[], optionalSkills: JSON.parse(row.optionalSkillsJson) as string[], version: row.version })) };
   }
 
+  async requireRole(code: string, em: EntityManager = this.db.manager, recruiting = false) {
+    // A held shared lock serializes eligibility with admin archive/publication.
+    const [row]: CareerRole[] = await em.query('SELECT * FROM career_roles WITH(HOLDLOCK) WHERE code=@0', [code]);
+    if (!row) throw new BadRequestException({ code: 'VALIDATION_ERROR', message: 'Mã nghề nghiệp không tồn tại trong thư viện.' });
+    if (recruiting && (row.status !== 'published' || !row.acceptingApplications)) {
+      throw new ConflictException({ code: 'CAREER_ROLE_NOT_RECRUITING', message: 'Nghề nghiệp này đang đóng nhận hồ sơ. Hãy chọn vị trí đang tuyển hoặc liên hệ quản trị viên.' });
+    }
+    return row;
+  }
+
+  async label(code: string) {
+    const row = await this.db.getRepository(CareerRole).findOneBy({ code });
+    return row?.name ?? code;
+  }
+
   private validateContent(input: CareerRoleContentDto, publishing: boolean) {
     const skills = [...input.requiredSkills, ...input.optionalSkills].map(s => s.toLocaleLowerCase('vi'));
     if (new Set(skills).size !== skills.length) throw new BadRequestException('Kỹ năng bắt buộc và tùy chọn không được trùng nhau.');

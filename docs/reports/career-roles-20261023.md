@@ -34,3 +34,11 @@ Red trước implementation: endpoint chưa tồn tại, trả 404 thay vì mã 
 Current/revision/audit cùng transaction. Snapshot version 1 giữ nguyên sau sửa version 2/3. Tạo nghề không tạo role RBAC. Catalog chỉ công bố published/đang tuyển và không trả trọng số/actor. Code bất biến; không có endpoint xóa cứng. CI R02 sẽ được đối chiếu theo commit mới.
 
 **Còn R03:** UI Admin, chuyển các danh sách nghề/DTO/consumer khỏi enum cố định và kiểm role thứ sáu qua luồng phỏng vấn. R02 chưa làm CV/Agent (các module sau) hay chứng minh toàn bộ M01 đã xong.
+
+### R03a — Consumer tuyển dụng và ngân hàng câu hỏi
+
+Đã chuyển role selection và nhãn profile sang catalog, DTO/filter câu hỏi nhận mã động, tác vụ tạo câu hỏi kiểm mã tồn tại trước khi ghi. Bắt đầu lượt phỏng vấn mới kiểm lại published/đang tuyển trong transaction. Archive không làm mất quyền đọc buổi đã bắt đầu.
+
+SQL E2E **4 suite / 34 test đạt** (`career-consumer-green2.log`): tạo nghề mới, draft bị chặn, chọn nghề sau publish, pool thiếu trả 503 với mã cũ `INTERVIEW_QUESTION_POOL_INSUFFICIENT` và attempt vẫn 0; soạn 10 câu cho nghề mới, archive chặn bắt đầu, mở lại bắt đầu 10 snapshot/attempt 1, archive sau đó không xóa buổi thi. Hồi quy tuyển dụng/question bank/đăng ký cùng đạt. Giữ 400/`VALIDATION_ERROR` với nghề không tồn tại. Unit BE 625 test, lint/build đạt (`career-consumer-unit.log`, `career-consumer-lint.log`, `career-consumer-build.log`).
+
+R03 vẫn mở: UI Admin/onboarding/filter nghề; schema/prompt gợi ý nghề AI còn dùng baseline và cần chuyển riêng có kiểm chứng, cùng các consumer liên quan. Không tick cả R03 chỉ vì bắt đầu được buổi thi.

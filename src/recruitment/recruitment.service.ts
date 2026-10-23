@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, EntityManager, Repository } from 'typeorm';
@@ -11,11 +11,7 @@ import {
   RECRUITMENT_MAX_ATTEMPTS_DEFAULT,
   RECRUITMENT_RETAKE_COOLDOWN_HOURS_DEFAULT,
 } from './recruitment.constants';
-import {
-  RECRUITMENT_ROLE_CODES,
-  isRecruitmentRoleCode,
-  recruitmentRoleLabel,
-} from './recruitment-roles';
+import { CareerRolesService } from '../career-roles/career-roles.service';
 import { computeAttemptGate, recruitmentAttemptLimit } from './attempt-policy';
 import { RecruitmentProfileStatus } from './recruitment-status.machine';
 import { learningAssessment } from './learning-assessment';
@@ -104,6 +100,7 @@ export class RecruitmentService {
     private readonly config: ConfigService,
     @InjectDataSource() private readonly dataSource: DataSource,
     private readonly permissions: PermissionsService,
+    private readonly careerRoles: CareerRolesService,
   ) {}
 
   /** Latest result for the profile, if any. */
@@ -158,7 +155,7 @@ export class RecruitmentService {
       status: profile.status,
       selectedRole: profile.selectedRole,
       selectedRoleLabel: profile.selectedRole
-        ? recruitmentRoleLabel(profile.selectedRole)
+        ? await this.careerRoles.label(profile.selectedRole)
         : null,
       attemptNumber: profile.attemptCount,
       attemptsRemaining: gate.attemptsRemaining,
@@ -178,13 +175,6 @@ export class RecruitmentService {
     roleCode: string,
     ctx: { actorId?: string | null; ip?: string | null; userAgent?: string | null },
   ): Promise<RecruitmentMeResponse> {
-    if (!isRecruitmentRoleCode(roleCode)) {
-      throw new BadRequestException({
-        statusCode: 400,
-        code: 'RECRUITMENT_ROLE_REQUIRED',
-        message: `role must be one of: ${RECRUITMENT_ROLE_CODES.join(', ')}`,
-      });
-    }
     return this.dataSource.transaction(async (em) => {
       // Serialize concurrent role selections per user.
       const profile = await this.lockOrCreateProfile(em, userId);
@@ -198,7 +188,8 @@ export class RecruitmentService {
           message: 'An interview is in progress — the role cannot be changed right now.',
         });
       }
-      profile.selectedRole = roleCode;
+      const career = await this.requireRecruitingRole(em, roleCode);
+      profile.selectedRole = career.code;
       // not_started/role_selected → role_selected; failed → role_selected
       // (retake preparation). Same-role re-selection is idempotent.
       profile.status = 'role_selected';
@@ -226,7 +217,7 @@ export class RecruitmentService {
       return {
         status: profile.status,
         selectedRole: profile.selectedRole,
-        selectedRoleLabel: recruitmentRoleLabel(profile.selectedRole!),
+        selectedRoleLabel: career.name,
         attemptNumber: profile.attemptCount,
         attemptsRemaining: gate.attemptsRemaining,
         nextEligibleAt: gate.nextEligibleAt,
@@ -235,6 +226,10 @@ export class RecruitmentService {
         result: null,
       };
     });
+  }
+
+  requireRecruitingRole(em: EntityManager, code: string) {
+    return this.careerRoles.requireRole(code, em, true);
   }
 
   /** GET /recruitment/me/result — the authoritative persisted outcome. */
