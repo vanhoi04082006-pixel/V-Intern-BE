@@ -67,3 +67,23 @@ Migration chỉ tạo bảng/constraint/trigger/index, không seed hay sửa d�
 | K04 retrieval | Chỉ nội dung đã duyệt, scope trước ranking, citation/version, chống lộ rubric và prompt injection | Chưa triển khai |
 
 Các kết quả phải ghi lệnh, commit, giờ kiểm và nguồn log. Không dùng số test M01 để tick K01.
+
+## 5. API biên soạn K02
+
+Tất cả endpoint dưới `/api/v1/admin/knowledge`, yêu cầu đăng nhập và vai trò Admin hiệu lực. Permission HTTP phân tách đọc (`knowledge.read`), soạn/lưu trữ/khôi phục (`knowledge.manage`) và xuất bản (`knowledge.publish`). Cấp các permission này cho một role khác vẫn không vượt được kiểm vai trò Admin ở dịch vụ. Không có endpoint public trả đáp án/rubric.
+
+| Method/path | Tác dụng |
+|---|---|
+| GET `/` | Metadata có phân trang/tìm/lọc; không trả body |
+| GET `/:code` | Snapshot current cho Admin |
+| GET `/:code/revisions` | Lịch sử có phân trang |
+| POST `/` | `{code,draft}` tạo draft version 1 |
+| PUT `/:code` | `{version,draft}` tạo draft version tiếp theo |
+| POST `/:code/publish` | `{version}`; kiểm chất lượng cấu trúc trước khi thêm revision published |
+| POST `/:code/archive` | `{version}`; dừng dùng cho run mới, giữ lịch sử |
+| POST `/:code/restore` | `{version,sourceVersion}`; chép bản cũ thành draft mới, cần publish lại |
+| POST `/import/dry-run` | `{entries:[{code,draft},...]}` tối đa 50 mục; chỉ kiểm, không ghi/import/publish |
+
+Khi publish, Q&A phải có câu hỏi, ý chính, **ít nhất hai cách trả lời đúng khác nhau**, ví dụ trả lời, lỗi phổ biến, gợi ý đào sâu, ví dụ chưa đạt và rubric. Rubric có 1–12 tiêu chí riêng biệt, trọng số nguyên dương tổng 100. Guide và nội dung bài tập/kế hoạch/liên lạc dùng markdown có ý nghĩa; rubric riêng có guidance và rubric cấu trúc. Mọi loại cần nguồn và metadata đủ đọc hiểu. Validation này không thay việc người duyệt kiểm chuyên môn; người publish được ghi trong revision/audit.
+
+Dry-run báo lỗi theo hàng, mã trùng trong lô và mã đã có; không tự sửa metadata hoặc ghi đè tài liệu đã biên soạn. Kết quả dry-run không phải giấy phép bỏ kiểm khi lưu/publish: mỗi lần ghi đều kiểm version/quyền/dữ liệu lại.
