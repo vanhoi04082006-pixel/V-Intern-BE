@@ -21,9 +21,10 @@ Khi thực hiện, mỗi task bổ sung cột/ngày ghi nhận: `commit FE/BE �
 
 ## G1. Role, tri thức và nền tảng Agent — M01/M02/M04/M05
 
-- [ ] R01. Mô hình và migration role nghề nghiệp động.
+- [x] R01. Mô hình và migration role nghề nghiệp động.
   - Đạt khi: giữ mã 5 role cũ, tách RBAC, archive giữ tham chiếu; có rollback an toàn.
   - Kiểm: SQL E2E migration/reference. File: BE `career-roles` entity/migration/contracts; không reset DB.
+  - PASS local 23/10: 5 SQL Server 2019 migration test; 625 unit BE, lint/build đạt. Chưa áp dụng DB demo, chưa chuyển consumer. [Bằng chứng R01](../docs/reports/career-roles-20261023.md).
 - [ ] R02. API quản trị và chọn role hợp lệ từ dữ liệu.
   - Đạt khi: CRUD/version/status; role inactive/draft không nhận hồ sơ mới.
   - Kiểm: validation/RBAC/conflict E2E. Phụ thuộc R01; BE `career-roles` service/controller/DTO/tests.

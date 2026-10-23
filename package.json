@@ -11,6 +11,7 @@
     "test": "jest --runInBand",
     "test:coverage": "jest --coverage --runInBand",
     "test:e2e": "jest --config test/jest-e2e.json --runInBand",
+    "test:career-roles:migration": "jest --config test/jest-e2e.json --runInBand --testRegex=career-role-migration.sql-spec.ts$",
     "migration:generate": "typeorm-ts-node-commonjs migration:generate -d src/database/data-source.ts",
     "migration:create": "typeorm-ts-node-commonjs migration:create",
     "migration:run": "typeorm-ts-node-commonjs migration:run -d src/database/data-source.ts",

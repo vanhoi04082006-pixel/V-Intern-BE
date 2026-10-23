@@ -1,3 +1,5 @@
+import { CareerRole } from '../career-roles/entities/career-role.entity';
+import { CareerRoleRevision } from '../career-roles/entities/career-role-revision.entity';
 import { User } from '../users/entities/user.entity';
 import { Role } from '../rbac/entities/role.entity';
 import { Permission } from '../rbac/entities/permission.entity';
@@ -55,6 +57,8 @@ import { Certificate } from '../certificates/entities/certificate.entity';
 
 /** Single source of truth for the platform + academic-core entity list. */
 export const ENTITIES = [
+  CareerRole,
+  CareerRoleRevision,
   // Phase 1 — platform core
   User,
   Role,

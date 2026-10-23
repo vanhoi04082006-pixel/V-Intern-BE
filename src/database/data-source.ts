@@ -1,3 +1,4 @@
+import { CreateCareerRoles1762636800000 } from './migrations/1762636800000-CreateCareerRoles';
 import { AddInterviewFollowUps1761945600000 } from './migrations/1761945600000-AddInterviewFollowUps';
 import { SnapshotCertificateCompletion1762377600000 } from './migrations/1762377600000-SnapshotCertificateCompletion';
 import { AddGithubTokenRotation1762464000000 } from './migrations/1762464000000-AddGithubTokenRotation';
@@ -89,5 +90,6 @@ export default new DataSource({
     SnapshotCertificateCompletion1762377600000,
     AddGithubTokenRotation1762464000000,
     AddGithubRepositoryAccount1762550400000,
+    CreateCareerRoles1762636800000,
   ],
 });

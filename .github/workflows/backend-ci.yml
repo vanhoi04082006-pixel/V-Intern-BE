@@ -243,6 +243,21 @@ jobs:
           })().catch(error => { console.error(error.message); process.exitCode = 1; });
           NODE
 
+      - name: Create isolated career-role migration database
+        env:
+          E2E_DB_NAME: VIntern_E2E_CareerRoles_${{ github.run_id }}_${{ github.run_attempt }}
+          DB_ADMIN_USERNAME: sa
+          DB_ADMIN_PASSWORD: ${{ env.SA_PASSWORD }}
+          DB_PASSWORD: ${{ env.APP_PASSWORD }}
+        run: npm run db:create:e2e
+
+      - name: Verify career-role migration, history references and safe rollback
+        env:
+          DB_NAME: VIntern_E2E_CareerRoles_${{ github.run_id }}_${{ github.run_attempt }}
+          E2E_DB_NAME: VIntern_E2E_CareerRoles_${{ github.run_id }}_${{ github.run_attempt }}
+          DB_PASSWORD: ${{ env.APP_PASSWORD }}
+        run: npm run test:career-roles:migration
+
       # ── Real runtime boot (spec 19/20) ────────────────────────────────
       - name: Boot the real API — poll /api/v1/health, then /api/docs + OpenAPI
         env:
