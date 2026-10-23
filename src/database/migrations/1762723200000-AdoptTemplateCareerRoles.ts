@@ -9,11 +9,13 @@ export class AdoptTemplateCareerRoles1762723200000 implements MigrationInterface
       UNION SELECT N'devops'
       UNION SELECT roles.[value] FROM project_templates t
         CROSS APPLY OPENJSON(t.definitionJson,'$.roles') roles WHERE roles.[type]=1
-      UNION SELECT JSON_VALUE(details.[value],'$.code') FROM project_templates t
-        CROSS APPLY OPENJSON(t.definitionJson,'$.roleDetails') details WHERE JSON_VALUE(details.[value],'$.code') IS NOT NULL
-      UNION SELECT JSON_VALUE(tasks.[value],'$.role') FROM project_templates t
+      UNION SELECT JSON_VALUE(CASE WHEN details.[type]=5 THEN details.[value] ELSE N'{}' END,'$.code') FROM project_templates t
+        CROSS APPLY OPENJSON(t.definitionJson,'$.roleDetails') details
+        WHERE JSON_VALUE(CASE WHEN details.[type]=5 THEN details.[value] ELSE N'{}' END,'$.code') IS NOT NULL
+      UNION SELECT JSON_VALUE(CASE WHEN tasks.[type]=5 THEN tasks.[value] ELSE N'{}' END,'$.role') FROM project_templates t
         CROSS APPLY OPENJSON(t.definitionJson,'$.sprints') sprints
-        CROSS APPLY OPENJSON(sprints.[value],'$.tasks') tasks WHERE JSON_VALUE(tasks.[value],'$.role') IS NOT NULL
+        CROSS APPLY OPENJSON(CASE WHEN sprints.[type]=5 THEN sprints.[value] ELSE N'{}' END,'$.tasks') tasks
+        WHERE JSON_VALUE(CASE WHEN tasks.[type]=5 THEN tasks.[value] ELSE N'{}' END,'$.role') IS NOT NULL
     `);
     if (codes.some(row => row.code.length > 32)) throw new Error('A legacy template/project career code exceeds 32 characters. Preserve its references and define an explicit mapping before migration; automatic truncation is forbidden.');
     for (const { code } of codes) {

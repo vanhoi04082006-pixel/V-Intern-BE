@@ -193,7 +193,7 @@ describe('dynamic career catalog API', () => {
   it('adopts imported blueprint careers as archived without overwriting edits, and refuses truncation', async () => {
     const imported = `${code}_old`, templateId = randomUUID(), oversizedId = randomUUID();
     const [actor] = await db.query("SELECT TOP(1) ur.userId id FROM user_roles ur JOIN roles r ON r.id=ur.roleId WHERE r.code='admin'");
-    const definition = JSON.stringify({ roles: [imported], roleDetails: [{ code: imported }], sprints: [{ tasks: [{ role: imported }] }] });
+    const definition = JSON.stringify({ roles: [imported], roleDetails: [{ code: imported }, 'Legacy role note'], sprints: [{ tasks: [{ role: imported }, 'Legacy task note'] }, 'Legacy sprint note'] });
     await db.query("INSERT INTO project_templates(id,code,name,difficulty,definitionJson,createdById) VALUES(@0,@1,N'Legacy imported blueprint','beginner',@2,@3)", [templateId, `OLD_${code}`, definition, actor.id]);
     const query = db.createQueryRunner();
     await query.connect();
