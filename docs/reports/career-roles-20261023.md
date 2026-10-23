@@ -6,7 +6,8 @@
 |---|---|
 | BE code | `ecc1cb8`; 629 unit, 34 SQL E2E local, lint/build đạt; [release gate](https://github.com/vanhoi04082006-pixel/V-Intern-BE/actions/runs/39945513221) và [acceptance](https://github.com/vanhoi04082006-pixel/V-Intern-BE/actions/runs/39945513131) đạt |
 | FE code sau bản sửa workflow/nhánh không còn nghề thay thế | `6e6e9c9`; 549 unit, lint/typecheck và 21 CI contract local đạt; [quality](https://github.com/vanhoi04082006-pixel/V-Intern-FE/actions/runs/39945967274) đạt |
-| Tích hợp cặp FE/BE mới | [Run 39945967240](https://github.com/vanhoi04082006-pixel/V-Intern-FE/actions/runs/39945967240) đang chạy; chỉ chốt sau khi đầy đủ 14 bước cũ + gate catalog đạt |
+| Tích hợp cặp app FE/BE mới | [Run 39945967240](https://github.com/vanhoi04082006-pixel/V-Intern-FE/actions/runs/39945967240) **đạt** đủ 14 bước cũ + gate catalog, FE `6e6e9c9a0c16af46ed33f15be0c5f225ce12735a` / BE `ecc1cb8`, hoàn tất 11:42:27 UTC |
+| Mở rộng script nộp/chấm | FE `291f870` thêm kiểm browser trả lời đủ 10 câu/chấm/lưu SQL và sửa fixture đề xuất; local đạt, 22/22 Node contract. [CI mới](https://github.com/vanhoi04082006-pixel/V-Intern-FE/actions/runs/39949202903) đang chạy; không dùng run cũ để gọi revision kiểm thử mới đã xanh |
 
 Các số 625/548 ở dưới là bằng chứng của lát cắt trước, không phải tổng hiện hành. Không cộng các lượt chạy hoặc gọi fixture model là nghiệm thu AI live.
 
@@ -61,4 +62,10 @@ Prompt/validator đánh giá đã chuyển sang catalog published/đang tuyển 
 
 BE local sau phần AI: **78 suite / 629 test đạt**, 4 suite / **34 SQL E2E đạt**, lint 0 lỗi và build đạt. Nguồn: `career-ai-unit-final2.log`, `career-ai-regression2.log`, `career-ai-lint-final2.log`, `career-ai-build-final.log`. Đây là schema/policy và provider fixture; chưa phải eval chất lượng model live hay LangGraph Agent.
 
-**R03 vẫn mở:** bộ lọc nghề ở `member-selector.tsx` còn cố định; DTO template còn enum 6 nghề kể cả devops, cần xử lý tương thích lịch sử trước khi chuyển. Không tick R03/M01 toàn bộ. CI cặp revision mới cần đối chiếu sau khi push.
+**R03 vẫn mở:** bộ lọc nghề ở `member-selector.tsx` còn cố định; DTO template còn enum 6 nghề kể cả devops, cần xử lý tương thích lịch sử trước khi chuyển. Không tick R03/M01 toàn bộ.
+
+### Đóng vai đầy đủ cho nghề mới
+
+`career-browser-grade3.log` và `phase7-evidence/career-roles/result.json` xác nhận lượt đạt: Admin tạo draft/publish, đọc hai revision, soạn 10 câu qua UI; sinh viên mới chọn nghề động, bắt đầu; Admin archive; sinh viên vẫn trả lời/nộp đủ 10 câu. SQL lưu `passed`, 81.1 và `recruitment-evaluation-v5`. Không page error, không tràn ngang ở 5 chiều rộng. Hai lượt mở rộng trước fail (API chưa sẵn sàng; fixture trả nghề đã archive vào trường đề xuất) không được tính đạt. Giữ nguyên validator ứng dụng; sửa fixture thành `recommendedRole=null` ngoài khoảng 50–70 và thêm regression đỏ/xanh.
+
+Điểm 81.1 là **fixture của harness**, không phải chất lượng model thật. Không sử dụng tài khoản trắng hoặc ghi vào hai database demo chính. Kiểm tra cuối phiên: API 8080/8081 trả health `ok`/database `ok`, FE 3001 trả 200; điều này chỉ xác nhận readiness, không thay nghiệm thu dữ liệu hay tính năng mới trên DB demo.

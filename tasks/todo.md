@@ -30,7 +30,7 @@ Khi thực hiện, mỗi task bổ sung cột/ngày ghi nhận: `commit FE/BE �
   - Kiểm: validation/RBAC/conflict E2E. Phụ thuộc R01; BE `career-roles` service/controller/DTO/tests.
   - PASS local 23/10: 6 API SQL test và 33 test gồm hồi quy tuyển dụng/question bank/đăng ký; 625 unit BE, lint/build đạt. API giữ snapshot/audit, xử lý concurrent update 200/409; catalog chỉ published/đang tuyển. R03 chưa xong.
 - [ ] R03. Admin quản trị role và chuyển consumer khỏi enum cố định.
-  - Đã triển khai/kiểm: Admin UI, onboarding và question bank dùng catalog; bắt đầu nghề mới với 10 câu; prompt/validator gợi ý nghề lấy catalog đang tuyển (v5), không tự gán nghề nếu không có lựa chọn. BE 629 unit/34 SQL E2E; FE 549 unit và browser role mới đạt. Còn filter phân công giảng viên và DTO/consumer template có enum 6 nghề; chưa tick toàn bộ R03.
+  - Đã triển khai/kiểm: Admin UI, onboarding và question bank dùng catalog; nghề mới đi qua 10 câu/trả lời/nộp/chấm lưu SQL trong harness; prompt/validator gợi ý nghề lấy catalog đang tuyển (v5), không tự gán nghề nếu không có lựa chọn. BE 629 unit/34 SQL E2E; FE 549 unit, 22 Node contract. Cặp app `6e6e9c9`/`ecc1cb8` qua quality và đủ 14 bước + catalog trên GitHub; script mở rộng `291f870` local đạt, CI mới đang chạy. Còn filter phân công giảng viên và DTO/consumer template có enum 6 nghề; chưa tick toàn bộ R03.
   - Đạt khi: thêm role thứ 6 từ UI; API/FE đọc được mà không sửa danh sách mã.
   - Kiểm: FE form/route và một contract test role mới. Phụ thuộc R02; tách từng consumer khi vượt 5 file.
 - [ ] K01. Phiên bản và quyền kho tri thức chung.
