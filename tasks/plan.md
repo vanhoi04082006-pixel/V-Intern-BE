@@ -1,8 +1,8 @@
 # V-INTERN — Kế hoạch mở rộng nền tảng Agent và tuyển thực tập
 
-> **Bản đề xuất để duyệt — 23/10/2026. Chưa bắt đầu viết code chức năng của đợt này.**
+> **Người dùng đã duyệt ngày 23/10/2026. Đang thực hiện G0/M00.**
 >
-> Đây là bản đồ phạm vi và kế hoạch nghiệm thu. Các hợp đồng API, migration và đặc tả từng module sẽ được chốt theo bản đồ này sau khi người dùng duyệt. Không coi một hạng mục là hoàn thành chỉ vì đã tạo file hoặc gọi được mô hình.
+> Đây là bản đồ phạm vi và kế hoạch nghiệm thu đã được duyệt. Hợp đồng API, migration và đặc tả từng module được cụ thể hóa theo thứ tự phụ thuộc. Không coi một hạng mục là hoàn thành chỉ vì đã tạo file hoặc gọi được mô hình.
 
 **Đọc theo thứ tự:** tình trạng hiện tại → hành trình mới → bảng hạng mục → tiêu chí chi tiết → [checklist triển khai](todo.md).
 

@@ -1,6 +1,6 @@
 # Theo dõi triển khai — nền tảng Agent và tuyển thực tập
 
-> 23/10/2026 — **đề xuất, chưa triển khai**. Các task bên dưới chưa được tick. Audit source/CI và lựa chọn nghiệp vụ đã ghi ở [kế hoạch](plan.md); không đánh đồng audit với nghiệm thu tính năng.
+> 23/10/2026 — **đã được người dùng duyệt; đang xử lý G0/M00**. Các task chỉ được tick khi có bằng chứng. Audit source/CI và lựa chọn nghiệp vụ đã ghi ở [kế hoạch](plan.md); không đánh đồng audit với nghiệm thu tính năng.
 
 Khi thực hiện, mỗi task bổ sung cột/ngày ghi nhận: `commit FE/BE • test • expected/actual • PASS/FAIL/BLOCKED • evidence`. Chỉ tick khi đủ bằng chứng. Nhóm file là phạm vi dự kiến; tách nhỏ thêm nếu một task cần hơn khoảng 5 file.
 
