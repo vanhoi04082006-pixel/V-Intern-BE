@@ -46,15 +46,18 @@
     "dejavu-fonts-ttf": "^2.37.3",
     "dotenv": "^17.2.0",
     "exceljs": "^4.4.0",
+    "fast-xml-parser": "5.11.2",
     "helmet": "^8.1.0",
     "langchain": "1.5.19",
     "langsmith": "0.11.1",
     "mssql": "^11.0.1",
     "nodemailer": "10.2.1",
+    "pdfjs-dist": "6.4.299",
     "pdfkit": "^0.15.2",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2",
     "typeorm": "^0.3.27",
+    "yauzl": "3.4.0",
     "zod": "4.6.7"
   },
   "devDependencies": {
