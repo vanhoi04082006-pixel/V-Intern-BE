@@ -4,7 +4,8 @@ import { RbacModule } from '../rbac/rbac.module';
 import { KnowledgeStore } from './knowledge.store';
 import { KnowledgeController } from './knowledge.controller';
 import { KnowledgeImportService } from './knowledge-import.service';
+import { KnowledgeRetrievalService } from './knowledge-retrieval.service';
 
-/** Authoring/publication only. Retrieval is a separate server-scoped capability. */
-@Module({ imports: [RbacModule, CareerRolesModule], controllers: [KnowledgeController], providers: [KnowledgeStore, KnowledgeImportService], exports: [KnowledgeStore] })
+/** Authoring HTTP and internal server-scoped retrieval use separate permission boundaries. */
+@Module({ imports: [RbacModule, CareerRolesModule], controllers: [KnowledgeController], providers: [KnowledgeStore, KnowledgeImportService, KnowledgeRetrievalService], exports: [KnowledgeStore, KnowledgeRetrievalService] })
 export class KnowledgeModule {}

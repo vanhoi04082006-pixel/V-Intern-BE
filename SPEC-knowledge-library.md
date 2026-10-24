@@ -64,7 +64,7 @@ Migration chỉ tạo bảng/constraint/trigger/index, không seed hay sửa d�
 | K01 SQL | Bảo toàn dữ liệu cũ; lưu/sửa/lịch sử; conflict; rollback transaction; quyền Admin; revision bất biến | Đạt local, có lifecycle K02; nguồn trong báo cáo |
 | K02 API | Validation, quyền HTTP, nhiều đáp án đúng/rubric, publish/archive/restore/import dry-run | Đạt local + CI: 22 SQL/HTTP tổng cộng, thêm 15 unit publication; đã kích hoạt hai API, nguồn trong báo cáo |
 | K03 UI | CRUD, preview, trạng thái Agent được dùng, tìm/lọc/history/keyboard | Đạt local + CI, kích hoạt runtime; [nguồn 24/10](docs/reports/knowledge-ui-20261024.md). Nêu rõ kho chưa nối vào Agent; không xóa vật lý revision |
-| K04 retrieval | Chỉ nội dung đã duyệt, scope trước ranking, citation/version, chống lộ rubric và prompt injection | Chưa triển khai |
+| K04 retrieval | Chỉ nội dung đã duyệt, scope trước ranking, citation/version, chống lộ rubric và prompt injection | Cổng nội bộ đã đạt local: 13 policy + 8 SQL; [hợp đồng và giới hạn](docs/KNOWLEDGE-RETRIEVAL.md). CI/runtime G1 chưa chốt |
 
 Các kết quả phải ghi lệnh, commit, giờ kiểm và nguồn log. Không dùng số test M01 để tick K01.
 
