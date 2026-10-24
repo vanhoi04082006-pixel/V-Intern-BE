@@ -341,7 +341,7 @@ jobs:
           set -euo pipefail
           npm run db:create:e2e
           npm run migration:run
-          npm run test:e2e -- --testRegex='(applications|communications).sql-spec.ts$'
+          npm run test:e2e -- --testRegex='(applications|communications|scheduled-interviews).sql-spec.ts$'
 
       - name: G3 additive migration and protected rollback — empty database
         env:
@@ -354,6 +354,18 @@ jobs:
           set -euo pipefail
           npm run db:create:e2e
           npm run test:e2e -- --testRegex=applications-migration.sql-spec.ts$
+
+      - name: G4 admission migration — empty schema and protected history rollback
+        env:
+          DB_NAME: VIntern_E2E_CI_${{ github.run_id }}_${{ github.run_attempt }}94
+          E2E_DB_NAME: VIntern_E2E_CI_${{ github.run_id }}_${{ github.run_attempt }}94
+          DB_ADMIN_USERNAME: sa
+          DB_ADMIN_PASSWORD: ${{ env.SA_PASSWORD }}
+          DB_PASSWORD: ${{ env.APP_PASSWORD }}
+        run: |
+          set -euo pipefail
+          npm run db:create:e2e
+          npm run test:e2e -- --testRegex=interview-admission-migration.sql-spec.ts$
 
       # The full current schema uses the entire migration registry. Reverting its latest row
       # does NOT remove Phase6. Preserve historical rollback gates on a

@@ -1,5 +1,7 @@
 # V-Intern Backend
 
+**G4 — phỏng vấn theo lịch:** [phòng chờ, mốc 15 phút, ba lượt và hẹn lại có audit](docs/SCHEDULED-INTERVIEWS.md) · [kiểm chứng và giới hạn](docs/reports/g4-completion-20261025.md).
+
 **G3 — nhận CV và lịch hẹn:** [hướng dẫn sử dụng, Agent, tài khoản và email local](docs/CV-AND-INTERVIEW-SCHEDULING.md) · [nghiệm thu và giới hạn](docs/reports/g3-completion-20261024.md).
 
 **G2 — bài nhỏ và bảy Agent:** [hướng dẫn từ đầu đến vận hành](docs/AGENTS-AND-MINI-PROJECTS.md) · [nghiệm thu và giới hạn](docs/reports/g2-completion-20261024.md).

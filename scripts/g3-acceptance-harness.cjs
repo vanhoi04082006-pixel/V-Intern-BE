@@ -25,6 +25,9 @@ const {
   {
     CommunicationsService,
   } = require("../dist/communications/communications.service");
+const {
+  InterviewAdmissionsService,
+} = require("../dist/recruitment/interview-admissions.service");
 const provider = {
   name: "explicit-g3-fixture",
   model: "fixture",
@@ -57,7 +60,9 @@ const provider = {
               }
             : request.task === "interview-coordination"
               ? { slotId: input.slots[0].id, reason: "Earliest offered slot" }
-              : null;
+              : request.task === "interview_next_question"
+                ? { message: `Chào bạn. ${input.plannedQuestion}` }
+                : null;
     if (!raw) throw Error("Unsupported G3 fixture task");
     return {
       data: request.validate(raw),
@@ -77,15 +82,13 @@ const provider = {
   for (const role of ["instructor", "admin"]) {
     const password = randomBytes(18).toString("base64url"),
       email = `g3-${role}-${randomUUID().slice(0, 8)}@vintern.test`;
-    const user = await db
-      .getRepository(User)
-      .save({
-        email,
-        username: randomUUID(),
-        displayName: role === "instructor" ? "Giảng viên G3" : "Admin G3",
-        status: "active",
-        passwordHash: await hash(password, 10),
-      });
+    const user = await db.getRepository(User).save({
+      email,
+      username: randomUUID(),
+      displayName: role === "instructor" ? "Giảng viên G3" : "Admin G3",
+      status: "active",
+      passwordHash: await hash(password, 10),
+    });
     await db.query(
       "INSERT INTO user_roles(userId,roleId) SELECT @0,id FROM roles WHERE code=@1",
       [user.id, role],
@@ -149,6 +152,63 @@ const provider = {
       res.status(500).json({ code: "G3_DUE_FAILED" });
     }
   });
+  if (process.env.G4_ACCEPTANCE === "true") {
+    const admissions = app.get(InterviewAdmissionsService),
+      realNow = admissions.now.bind(admissions);
+    express.post("/__g4/clock", async (req, res) => {
+      try {
+        if (req.query.reset === "true") {
+          admissions.now = realNow;
+          return res.json({ controlled: false });
+        }
+        const email = String(req.query.email ?? ""),
+          offset = Number(req.query.offset);
+        if (
+          !/^[a-z0-9.+_-]+@vintern\.test$/i.test(email) ||
+          !Number.isInteger(offset) ||
+          offset < -3600000 ||
+          offset > 86400000
+        )
+          return res.status(400).json({ code: "INVALID_FIXTURE_CLOCK" });
+        const [slot] = await app
+          .get(DataSource)
+          .query(
+            "SELECT s.startsAt FROM cv_applications a JOIN interview_bookings b ON b.applicationId=a.id JOIN interview_slots s ON s.id=b.slotId WHERE a.email=@0",
+            [email],
+          );
+        if (!slot) return res.sendStatus(404);
+        const at = slot.startsAt.getTime() + offset;
+        admissions.now = () => new Date(at);
+        res.json({ controlled: true });
+      } catch {
+        res.status(500).json({ code: "G4_CLOCK_FAILED" });
+      }
+    });
+    express.post("/__g4/sweep", async (_req, res) => {
+      try {
+        await admissions.sweep();
+        res.json({ swept: true });
+      } catch {
+        res.status(500).json({ code: "G4_SWEEP_FAILED" });
+      }
+    });
+    express.post("/__g4/expire-session", async (req, res) => {
+      try {
+        const email = String(req.query.email ?? "");
+        if (!/^[a-z0-9.+_-]+@vintern\.test$/i.test(email))
+          return res.sendStatus(400);
+        await app
+          .get(DataSource)
+          .query(
+            "UPDATE i SET expiresAt=DATEADD(second,-1,SYSUTCDATETIME()) FROM interview_sessions i JOIN recruitment_profiles p ON p.currentInterviewSessionId=i.id JOIN users u ON u.id=p.userId WHERE u.email=@0 AND i.status='in_progress'",
+            [email],
+          );
+        res.json({ expiredClock: true });
+      } catch {
+        res.status(500).json({ code: "G4_EXPIRY_FIXTURE_FAILED" });
+      }
+    });
+  }
   await app.listen(8083, "127.0.0.1");
   process.on("SIGTERM", () => {
     void app.close().then(() => process.exit());
