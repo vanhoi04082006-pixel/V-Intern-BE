@@ -183,16 +183,16 @@ export class SharingService {
     // The consent row stays locked for this short read so concurrent revoke cannot
     // race between authorization and collecting the snapshot. No network/AI calls.
     return this.db.transaction(async (em) => {
-      const rows: Array<AccessRow & { currentOwnerId: string | null }> =
+      const rows: Array<AccessRow & { currentOwnerId: string | null; serverNow: Date }> =
         await em.query(
-          `SELECT a.*,s.leadInstructorId currentOwnerId FROM session_access_requests a WITH(HOLDLOCK)
+          `SELECT a.*,s.leadInstructorId currentOwnerId,SYSUTCDATETIME() serverNow FROM session_access_requests a WITH(HOLDLOCK)
         LEFT JOIN internship_sessions s WITH(HOLDLOCK) ON s.id=a.sessionId WHERE a.id=@0 AND a.requesterId=@1`,
           [id, actorId],
         );
       if (!rows.length)
         throw new NotFoundException("Không tìm thấy quyền xem.");
       const grant = rows[0];
-      assertSharedRead(grant, actorId, grant.currentOwnerId);
+      assertSharedRead(grant, actorId, grant.currentOwnerId, grant.serverNow);
       const session = (
         await em.query(
           "SELECT id,code,name,description,status,startDate,endDate FROM internship_sessions WHERE id=@0",

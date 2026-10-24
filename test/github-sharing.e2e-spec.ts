@@ -21,6 +21,8 @@ import { GithubClient } from "../src/github/github-client";
 import { GithubApiError } from '../src/github/github-client';
 import { GithubRepositoryAccountService } from '../src/github/github-repository-account.service';
 import { GithubRepositoriesService } from '../src/github/github-repositories.service';
+import { GithubInvitationsService } from '../src/github/github-invitations.service';
+import { CommunicationsService } from '../src/communications/communications.service';
 import { GithubWebhookService } from '../src/github/github-webhook.service';
 import { sealToken } from '../src/github/github-security';
 
@@ -293,19 +295,21 @@ describe("consent and OAuth persistence on the current SQL schema", () => {
         remote = { id: studentId + 1, name: body!.name, owner: centralIdentity, private: false, description: body!.description, html_url: `https://github.com/platform-owner/${body!.name}`, default_branch: 'main' };
         return remote;
       }
-      if (path.includes('/collaborators/') && method === 'PUT') return {};
+      if (path.includes('/collaborators/') && method === 'PUT') return undefined;
+      if (path.includes('/invitations?')) return [];
+      if (path.includes('/collaborators/')) throw new GithubApiError(404);
       if (path.startsWith('/repos/')) { if (!remote) throw new GithubApiError(404); return remote; }
       throw new Error('Unexpected fixture GitHub API request');
     }) };
-    const repos = new GithubRepositoriesService(db, centralAuth, client as unknown as GithubClient, permissions, { register: jest.fn() } as unknown as GithubWebhookService, centralAccount);
+    const repos = new GithubRepositoriesService(db, centralAuth, client as unknown as GithubClient, permissions, { register: jest.fn() } as unknown as GithubWebhookService, centralAccount, new GithubInvitationsService(db, client as unknown as GithubClient, { ready: () => false } as unknown as CommunicationsService));
     await repos.provision(sessionId, owner.id);
     const repo = await repos.read(sessionId);
     expect(repo?.ownerUserId.toLowerCase()).toBe(admin.id.toLowerCase());
     expect(repo?.repoName).toBe(`vintern-project-lop-do-an-01-20261019-${sessionId.slice(0, 8).toLowerCase()}`);
-    expect(calls.filter(call => call.includes('/collaborators/'))).toHaveLength(2);
+    expect(calls.filter(call => call.startsWith('PUT ') && call.includes('/collaborators/'))).toHaveLength(2);
     const members = await db.query('SELECT userId,status FROM session_repo_members WHERE sessionId=@0', [sessionId]);
     expect(members).toHaveLength(2);
-    expect(members.every((member: { status: string }) => member.status === 'invited')).toBe(true);
+    expect(members.every((member: { status: string }) => member.status === 'accepted')).toBe(true);
     await repos.provision(sessionId, owner.id);
     expect(calls.filter(call => call === 'POST /user/repos')).toHaveLength(1);
   });

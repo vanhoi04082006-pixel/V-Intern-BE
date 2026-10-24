@@ -126,6 +126,17 @@ export class GithubController {
   ) {
     return this.repos.invite(id, userId, true);
   }
+  @Post('sessions/:id/github/members/:userId/invite')
+  @RequirePermissions('sessions.manage')
+  @Throttle({ default: { limit: 3, ttl: 60000 } })
+  inviteMember(@Param('id', ParseUUIDPipe) id: string, @Param('userId', ParseUUIDPipe) memberId: string, @CurrentUser('userId') actorId: string) {
+    return this.repos.invite(id, actorId, true, memberId);
+  }
+  @Post('sessions/:id/github/reconcile')
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
+  reconcile(@Param('id', ParseUUIDPipe) id: string, @CurrentUser('userId') actorId: string) {
+    return this.repos.reconcile(id, actorId);
+  }
   @Post('sessions/:id/github/webhook')
   @RequirePermissions('sessions.manage')
   @Throttle({ default: { limit: 3, ttl: 60000 } })

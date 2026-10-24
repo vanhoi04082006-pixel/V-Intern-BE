@@ -9,10 +9,13 @@ import { GithubController } from "./github.controller";
 import { GithubRepositoriesService } from "./github-repositories.service";
 import { GithubRepositoryAccountService } from './github-repository-account.service';
 import { GithubRepositorySyncService } from './github-repository-sync.service';
+import { GithubInvitationsService } from './github-invitations.service';
+import { CommunicationsModule } from '../communications/communications.module';
 @Module({
-  imports: [RbacModule],
+  imports: [RbacModule, CommunicationsModule],
   controllers: [GithubController, GithubWebhookController],
   providers: [
+    GithubInvitationsService,
     GithubRepositorySyncService,
     GithubRepositoryAccountService,
     GithubEvidenceService,

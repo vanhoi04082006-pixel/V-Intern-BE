@@ -1,13 +1,15 @@
 import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto';
 
 export interface MailContent {
-  kind: 'verify' | 'schedule' | 'credentials' | 'existing-account' | 'cancelled';
+  kind: 'verify' | 'schedule' | 'credentials' | 'existing-account' | 'cancelled' | 'github-invitation';
   name: string;
   ctaPath: string;
   role?: string;
   when?: string;
   username?: string;
   password?: string;
+  session?: string;
+  repository?: string;
 }
 const escape = (v: string) => v.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
 export function renderMail(content: MailContent, origin: string) {
@@ -17,10 +19,11 @@ export function renderMail(content: MailContent, origin: string) {
   const link = new URL(content.ctaPath, base);
   if (link.origin !== base.origin) throw Error('MAIL_CTA_INVALID');
   const schedule = content.kind === 'schedule';
-  const title = content.kind === 'verify' ? 'Xác minh email ứng tuyển' : schedule ? 'Lịch phỏng vấn của bạn' : content.kind === 'cancelled' ? 'Lịch phỏng vấn đã được hủy' : 'Thông tin đăng nhập phỏng vấn của bạn';
+  const title = content.kind === 'github-invitation' ? 'Lời mời cộng tác dự án GitHub' : content.kind === 'verify' ? 'Xác minh email ứng tuyển' : schedule ? 'Lịch phỏng vấn của bạn' : content.kind === 'cancelled' ? 'Lịch phỏng vấn đã được hủy' : 'Thông tin đăng nhập phỏng vấn của bạn';
   const subject = `[V-Intern] ${schedule ? `Lịch phỏng vấn • ${content.role ?? ''} • ${content.when ?? ''}` : title}`.replace(/[\r\n]/g, ' ').slice(0, 240);
   const paragraphs = [
     `Xin chào ${content.name},`,
+    content.kind === 'github-invitation' ? `Phiên thực tập: ${content.session}. Repository: ${content.repository}. Lời mời có hiệu lực đến ${content.when}. Mở V-Intern để kiểm tra đúng tài khoản GitHub đã liên kết, sau đó chấp nhận lời mời trên GitHub. Nếu lời mời hết hạn hoặc không mở được, liên hệ giảng viên để được mời lại. Email này là thông báo của V-Intern; email mời gốc của GitHub được gửi riêng và không thể tùy chỉnh.` :
     content.kind === 'verify' ? 'Bạn vừa nộp hồ sơ tại V-Intern. Xác minh email để chúng tôi phân tích CV và xếp lịch trong các khung giờ đang mở. Liên kết có hiệu lực 24 giờ và chỉ được dùng một lần.' :
     schedule ? `Vai trò: ${content.role}. Thời gian: ${content.when}. Chuẩn bị CV, máy tính và kết nối mạng ổn định. Đến trễ từ 15 phút khi chưa bắt đầu: hồ sơ được hoãn sang đợt sau. Thông tin đăng nhập được gửi bằng một email riêng trước giờ phỏng vấn.` :
     content.kind === 'credentials' ? `Tài khoản: ${content.username}\nMật khẩu tạm: ${content.password}\nBạn phải đổi mật khẩu ngay lần đăng nhập đầu tiên. Không chia sẻ email này.` :
