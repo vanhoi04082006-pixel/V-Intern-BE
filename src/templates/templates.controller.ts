@@ -12,6 +12,8 @@ import { ChangeRequestDto, CreateTemplateDto, QueryTemplatesDto, StartTemplateDt
 @ApiTags('project templates') @ApiBearerAuth() @Controller()
 export class TemplatesController {
   constructor(private readonly service: TemplatesService, private readonly permissions: PermissionsService, private readonly revisions: TemplateRevisionsStore) {}
+  @Get('intern/me/projects/:id/learning-package') @RequirePermissions('intern.workspace.view')
+  ownPackage(@Param('id', ParseUUIDPipe) id: string, @CurrentUser('userId') actor: string) { return this.service.ownLearningPackage(id, actor); }
   @Get('project-templates/:id/revisions') @RequirePermissions('projects.manage')
   history(@Param('id', ParseUUIDPipe) id: string, @Query() query: PaginationQueryDto) { return this.revisions.history(id, query.page, query.pageSize); }
   @Get('project-templates/:id/revisions/:version') @RequirePermissions('projects.manage')

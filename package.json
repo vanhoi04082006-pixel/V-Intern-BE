@@ -24,7 +24,8 @@
     "seed:recruitment": "ts-node src/scripts/seed-recruitment-questions.ts",
     "seed:library": "ts-node src/scripts/seed-learning-library.ts",
     "seed:mini-projects": "ts-node src/scripts/seed-mini-projects.ts",
-    "export:mini-knowledge": "ts-node src/scripts/export-mini-knowledge.ts"
+    "export:mini-knowledge": "ts-node src/scripts/export-mini-knowledge.ts",
+    "seed:g2-content": "ts-node src/scripts/seed-g2-content.ts"
   },
   "dependencies": {
     "@langchain/core": "1.3.0",

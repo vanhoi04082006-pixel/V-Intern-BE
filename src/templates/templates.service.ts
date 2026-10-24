@@ -303,6 +303,13 @@ export class TemplatesService {
     const rows: { snapshotJson: string; templateVersion: number }[] = await this.db.query('SELECT snapshotJson,templateVersion FROM template_runs WHERE projectId=@0',[projectId]);
     return rows.length ? { definition: JSON.parse(rows[0].snapshotJson) as object, templateVersion: rows[0].templateVersion } : null;
   }
+  async ownLearningPackage(projectId: string, actor: string) {
+    if (!await this.permissions.hasRole(actor, 'intern')) throw new ForbiddenException('Chỉ sinh viên được đọc gói bài chính chủ.');
+    const [run]: Array<{ snapshotJson: string; templateVersion: number; code: string }> = await this.db.query("SELECT r.snapshotJson,r.templateVersion,t.code FROM assignments a JOIN template_runs r ON r.projectId=a.projectId AND r.sessionId=a.sessionId JOIN project_templates t ON t.id=r.templateId WHERE a.internId=@0 AND a.projectId=@1 AND a.status IN ('active','completed')", [actor, projectId]);
+    if (!run) throw new NotFoundException('Không tìm thấy gói bài của bạn.');
+    const definition = publicTemplateDefinition(JSON.parse(run.snapshotJson) as CreateTemplateDto);
+    return { templateCode: run.code, templateVersion: run.templateVersion, learningPackage: definition.learningPackage ?? null };
+  }
   async projectAssessment(projectId: string, actor: string) {
     await this.revisions.authorizeAssessment(actor, 'read');
     await this.assertProjectAccess(this.db, projectId, actor);

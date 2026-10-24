@@ -15,20 +15,21 @@ import { MINI_PROJECT_LIBRARY } from '../src/templates/mini-project-catalog';
 import { ensureMiniProjectLibrary } from '../src/templates/mini-project-seed';
 import { MINI_PROJECT_KNOWLEDGE } from '../src/knowledge/mini-project-knowledge';
 import { ensureMiniProjectAssessments } from '../src/templates/mini-project-assessment-seed';
+import { Assignment } from '../src/assignments/entities/assignment.entity';
 
-let db: DataSource, app: INestApplication, actor: string, token: string, adminToken: string;
+let db: DataSource, app: INestApplication, actor: string, token: string, adminToken: string, student: string, studentId: string;
 beforeAll(async () => {
   const database = process.env.E2E_DB_NAME ?? '';
   if (!/^VIntern_E2E_CI_\d+_\d+$/.test(database) || source.options.type !== 'mssql') throw Error('Fresh disposable SQL database required.');
   db = new DataSource({ ...source.options, database }); await db.initialize(); await db.runMigrations({ transaction: 'all' }); await ensureRbac(db);
   const module = await Test.createTestingModule({ imports: [AppModule] }).overrideProvider(DataSource).useValue(db).compile();
   app = module.createNestApplication(); app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true })); await app.init();
-  for (const code of ['admin', 'instructor']) {
+  for (const code of ['admin', 'instructor', 'intern']) {
     const id = randomUUID(), role = await db.getRepository(Role).findOneByOrFail({ code });
     await db.getRepository(User).insert({ id, email: `${id}@mini.test`, username: id, displayName: 'Mini library verification', passwordHash: 'not-a-login-hash', status: 'active' });
     await db.getRepository(UserRole).insert({ userId: id, roleId: role.id });
     const jwt = module.get(JwtService).sign({ sub: id });
-    if (code === 'admin') { actor = id; adminToken = jwt; } else token = jwt;
+    if (code === 'admin') { actor = id; adminToken = jwt; } else if (code === 'instructor') token = jwt; else { student = jwt; studentId = id; }
   }
   await ensureLearningLibrary(db, actor);
 }, 120000);
@@ -83,4 +84,17 @@ it('adds private references as a new version without touching an edited template
   const [run] = await db.query('SELECT projectId FROM template_runs WHERE templateId=@0 AND templateVersion=1', [blog.id]);
   const pinned = await request(app.getHttpServer()).get(`/projects/${run.projectId}/template-assessment`).auth(token, { type: 'bearer' }).expect(200);
   expect(pinned.body).toMatchObject({ version: 1, assessment: null });
+});
+it('lets a student read only the public package pinned to their active or completed assignment', async () => {
+  const [run] = await db.query("SELECT r.projectId,r.sessionId FROM template_runs r JOIN project_templates t ON t.id=r.templateId WHERE t.code='MINI-CART-V1'");
+  const route = `/intern/me/projects/${run.projectId}/learning-package`;
+  await request(app.getHttpServer()).get(route).auth(student, { type: 'bearer' }).expect(404);
+  const assignment = await db.getRepository(Assignment).save({ internId: studentId, projectId: run.projectId, sessionId: run.sessionId, status: 'active', assignedAt: new Date() });
+  const read = await request(app.getHttpServer()).get(route).auth(student, { type: 'bearer' }).expect(200);
+  expect(read.body).toMatchObject({ templateCode: 'MINI-CART-V1', templateVersion: 1, learningPackage: { schemaVersion: 1 } });
+  expect(JSON.stringify(read.body)).not.toMatch(/solutionFiles|hiddenTestFiles|rubric|validAnswers/);
+  await db.getRepository(Assignment).update(assignment.id, { status: 'completed', completedAt: new Date() });
+  await request(app.getHttpServer()).get(route).auth(student, { type: 'bearer' }).expect(200);
+  await db.getRepository(Assignment).update(assignment.id, { status: 'cancelled' });
+  await request(app.getHttpServer()).get(route).auth(student, { type: 'bearer' }).expect(404);
 });
