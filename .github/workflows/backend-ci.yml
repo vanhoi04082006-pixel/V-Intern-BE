@@ -288,7 +288,21 @@ jobs:
       - name: E2E — platform + academic + sprint/task + recruitment + evaluation/performance/kpi/salary/certificates + concurrency
         env:
           DB_PASSWORD: ${{ env.APP_PASSWORD }}
-        run: npm run test:e2e
+        # Retrieval fixtures contain immutable published knowledge. Keep them off the shared
+        # database whose knowledge-storage suite proves an initially empty content library.
+        run: npm run test:e2e -- --testPathIgnorePatterns=knowledge-retrieval.e2e-spec.ts
+
+      - name: Retrieval scope and provenance — isolated SQL Server 2019 database
+        env:
+          DB_NAME: VIntern_E2E_CI_${{ github.run_id }}_${{ github.run_attempt }}99
+          E2E_DB_NAME: VIntern_E2E_CI_${{ github.run_id }}_${{ github.run_attempt }}99
+          DB_ADMIN_USERNAME: sa
+          DB_ADMIN_PASSWORD: ${{ env.SA_PASSWORD }}
+          DB_PASSWORD: ${{ env.APP_PASSWORD }}
+        run: |
+          set -euo pipefail
+          npm run db:create:e2e
+          npm run test:e2e -- --runTestsByPath test/knowledge-retrieval.e2e-spec.ts
 
       # ── Migration rollback verification (spec 16 + Phase 6 §79) ────────
       # The full current schema uses the entire migration registry. Reverting its latest row

@@ -63,6 +63,8 @@ export class AiService {
     resourceType: string;
     resourceId: string;
     promptVersion: string;
+    /** Agent runtimes may lower the configured retry cap; existing callers retain their policy. */
+    maxRetries?: number;
     request: AiStructuredRequest<T>;
   }): Promise<{ data: T; run: AiRun; result: AiStructuredResult<T> }> {
     if (!this.provider) {
@@ -92,7 +94,8 @@ export class AiService {
     try {
       const result = await withBoundedRetries(
         () => provider.generateStructured(params.request),
-        { maxRetries: configured?.policy.maxRetries ?? this.config.get<number>('ai.maxRetries', 2) },
+        { maxRetries: params.maxRetries === undefined ? (configured?.policy.maxRetries ?? this.config.get<number>('ai.maxRetries', 2))
+          : Math.min(configured?.policy.maxRetries ?? this.config.get<number>('ai.maxRetries', 2), params.maxRetries) },
       );
       await this.runs.update(run.id, {
         status: 'succeeded',
