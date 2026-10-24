@@ -6,6 +6,7 @@ import { AgentsController } from './agents.controller';
 import { AgentRuntimeService } from './runtime/agent-runtime.service';
 import { KnowledgeAgentTools } from './runtime/knowledge-agent.tools';
 import { AgentPersistenceModule } from './persistence.module';
-@Module({ imports: [AiModule, KnowledgeModule, RbacModule, AgentPersistenceModule], controllers: [AgentsController],
+import { BusinessAgentMonitorController } from './business-agent-monitor.controller';
+@Module({ imports: [AiModule, KnowledgeModule, RbacModule, AgentPersistenceModule], controllers: [AgentsController, BusinessAgentMonitorController],
   providers: [AgentRuntimeService, KnowledgeAgentTools], exports: [AgentRuntimeService] })
 export class AgentsModule {}

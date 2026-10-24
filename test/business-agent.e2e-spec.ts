@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { INestApplication } from "@nestjs/common";
+import { INestApplication, ValidationPipe } from "@nestjs/common";
 import { Test } from "@nestjs/testing";
 import { DataSource } from "typeorm";
 import source from "../src/database/data-source";
@@ -26,6 +26,8 @@ import { businessAgent } from "../src/agents/definitions/business-agents";
 import { KnowledgeRetrievalService } from "../src/knowledge/knowledge-retrieval.service";
 import { ensureMiniProjectKnowledge } from "../src/knowledge/mini-project-knowledge-seed";
 import { AiProviderError } from "../src/ai/ai-errors";
+import { JwtService } from "@nestjs/jwt";
+import request from "supertest";
 let db: DataSource,
   app: INestApplication,
   ai: AiService,
@@ -89,6 +91,13 @@ async function boot() {
     .useValue(provider)
     .compile();
   app = module.createNestApplication();
+  app.useGlobalPipes(
+    new ValidationPipe({
+      transform: true,
+      whitelist: true,
+      forbidNonWhitelisted: true,
+    }),
+  );
   await app.init();
   ai = module.get(AiService);
 }
@@ -141,29 +150,25 @@ beforeAll(async () => {
   for (const code of ["admin", "intern", "intern"]) {
     const id = randomUUID(),
       role = await db.getRepository(Role).findOneByOrFail({ code });
-    await db
-      .getRepository(User)
-      .insert({
-        id,
-        email: `${id}@g2.test`,
-        username: id,
-        displayName: "G2 workflow test",
-        passwordHash: "not-a-login-hash",
-        status: "active",
-      });
+    await db.getRepository(User).insert({
+      id,
+      email: `${id}@g2.test`,
+      username: id,
+      displayName: "G2 workflow test",
+      passwordHash: "not-a-login-hash",
+      status: "active",
+    });
     await db.getRepository(UserRole).insert({ userId: id, roleId: role.id });
     ids.push(id);
   }
   [admin, intern, foreign] = ids;
   conversation = randomUUID();
-  await db
-    .getRepository(AiMentorConversation)
-    .insert({
-      id: conversation,
-      userId: intern,
-      status: "active",
-      title: "G2 scope",
-    });
+  await db.getRepository(AiMentorConversation).insert({
+    id: conversation,
+    userId: intern,
+    status: "active",
+    title: "G2 scope",
+  });
   const store = app.get(KnowledgeStore),
     guide = MINI_PROJECT_KNOWLEDGE.find(
       (row) => row.code === "mini-debug-with-evidence",
@@ -380,4 +385,38 @@ it("publishes the curated eighteen documents with immutable revisions and verifi
         /validAnswers|weakAnswerExamples|hiddenTestFiles/,
       );
   }
+});
+it("shows Admin the actual business Agent inventory and run metadata without inputs, outputs or secrets", async () => {
+  const jwt = app.get(JwtService),
+    route = "/admin/agents/business-runs";
+  await request(app.getHttpServer()).get(route).expect(401);
+  await request(app.getHttpServer())
+    .get(route)
+    .auth(jwt.sign({ sub: intern }), { type: "bearer" })
+    .expect(403);
+  const response = await request(app.getHttpServer())
+    .get(route)
+    .auth(jwt.sign({ sub: admin }), { type: "bearer" })
+    .expect(200);
+  expect(response.body.definitions).toHaveLength(7);
+  expect(response.body.total).toBeGreaterThan(0);
+  expect(response.body.items[0]).toEqual(
+    expect.objectContaining({
+      agentId: expect.any(String),
+      agentVersion: "1",
+      id: expect.any(String),
+      status: expect.any(String),
+    }),
+  );
+  expect(JSON.stringify(response.body)).not.toMatch(
+    /outputJson|inputJson|userMessage|Synthetic provider|passwordHash|followUps|toolArgs/,
+  );
+  await request(app.getHttpServer())
+    .get(route + "?pageSize=101")
+    .auth(jwt.sign({ sub: admin }), { type: "bearer" })
+    .expect(400);
+  await request(app.getHttpServer())
+    .get(route + "?agentId=unknown")
+    .auth(jwt.sign({ sub: admin }), { type: "bearer" })
+    .expect(400);
 });
