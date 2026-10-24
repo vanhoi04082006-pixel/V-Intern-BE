@@ -1,6 +1,7 @@
 import { CreateApplications1763241600000 } from './migrations/1763241600000-CreateApplications';
 import { CreateInterviewAdmissions1763328000000 } from './migrations/1763328000000-CreateInterviewAdmissions';
 import { TrackGithubInvitations1763414400000 } from './migrations/1763414400000-TrackGithubInvitations';
+import { CreateParticipation1763500800000 } from './migrations/1763500800000-CreateParticipation';
 import { CreateCommunications1763155200000 } from './migrations/1763155200000-CreateCommunications';
 import { CreateCareerRoles1762636800000 } from './migrations/1762636800000-CreateCareerRoles';
 import { CreateKnowledgeLibrary1762809600000 } from './migrations/1762809600000-CreateKnowledgeLibrary';
@@ -109,5 +110,6 @@ export default new DataSource({
     CreateApplications1763241600000,
     CreateInterviewAdmissions1763328000000,
     TrackGithubInvitations1763414400000,
+    CreateParticipation1763500800000,
   ],
 });

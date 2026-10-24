@@ -17,6 +17,7 @@ import { GradingRunnerService } from '../src/code-review/grading-runner.service'
 import { AiService } from '../src/ai/ai.service';
 import { CodeReviewService } from '../src/code-review/code-review.service';
 import { SubmissionsService } from '../src/submissions/submissions.service';
+import { ParticipationLedger } from '../src/participation/participation-ledger.service';
 import { notifySubmissionReviewer } from '../src/submissions/submission-notifications';
 
 // Actual SQL/services/transactions; only external GitHub, runner and AI calls are fixtures.
@@ -48,7 +49,7 @@ beforeAll(async () => {
   await db.query("INSERT INTO session_repositories(sessionId,ownerUserId,githubOwnerId,ownerLogin,repoName,repoId,status,leaseId) VALUES(@0,@1,12345,'fixture','fixture',@2,'ready',@3)", [session.id, owner.id, fixtureRepositoryId, randomUUID()]);
   const tasks = { getOneDetailed: async (id: string) => db.getRepository(Task).findOneByOrFail({ id }) } as unknown as TasksService;
   const permissions = { hasRole: async () => false } as unknown as PermissionsService;
-  submissions = new SubmissionsService(db, tasks, permissions, github as unknown as GithubEvidenceService);
+  submissions = new SubmissionsService(db, tasks, permissions, github as unknown as GithubEvidenceService, new ParticipationLedger(db));
   review = new CodeReviewService(db, tasks, permissions, github as unknown as GithubEvidenceService, runner as unknown as GradingRunnerService, ai as unknown as AiService);
 }, 120000);
 beforeEach(async () => {

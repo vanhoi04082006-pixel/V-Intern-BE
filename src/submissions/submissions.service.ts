@@ -18,11 +18,14 @@ import { ActorContext } from '../users/users.service';
 import { PermissionsService } from '../rbac/permissions.service';
 import { ReviewSubmissionDto, SubmitTaskDto } from './submission.dto';
 import { assertSubmissionOwner, scoreSubmission, validatePullRequestUrl } from './submission-policy';
+import { ParticipationLedger } from '../participation/participation-ledger.service';
+import { adjustedSubmissionScore } from '../participation/participation-policy';
 export interface Submission {
   id: string; taskId: string; internId: string; prUrl: string; summary: string;
   status: 'submitted' | 'approved' | 'rework' | 'withdrawn'; score: number | null; rubricJson: string | null;
   rubricVersion: string; feedback: string | null; reviewerId: string | null;
   submittedAt: Date; reviewedAt: Date | null;
+  baseScore?: number | null; latePenalty?: number | null; participationIncidentId?: string | null;
   headSha?: string; baseSha?: string; repositoryId?: string | number; sourceKind?: SubmissionSnapshot['sourceKind']; sourceRef?: string; pullNumber?: number | null;
 }
 @Injectable()
@@ -32,6 +35,7 @@ export class SubmissionsService {
     private readonly tasks: TasksService,
     private readonly permissions: PermissionsService,
     private readonly github: GithubEvidenceService,
+    private readonly participation: ParticipationLedger,
   ) {}
   async list(taskId: string, principal: RequestPrincipal): Promise<Submission[]> {
     await this.tasks.getOneDetailed(taskId, principal);
@@ -101,14 +105,15 @@ export class SubmissionsService {
     });
   }
   async review(id: string, dto: ReviewSubmissionDto, ctx: ActorContext): Promise<Submission> {
-    const score = scoreSubmission(dto.rubric);
+    const baseScore = scoreSubmission(dto.rubric);
     if (!ctx.actorId) throw new ForbiddenException('Authentication required.');
     const before: Submission[] = await this.db.query('SELECT * FROM task_submissions WHERE id=@0', [id]);
     if (!before.length) throw new NotFoundException('Submission not found.');
     const visible = await this.tasks.getOneDetailed(before[0].taskId, { userId: ctx.actorId, email: '' });
     await assertReviewerScope(this.db, this.permissions, visible, ctx.actorId);
-    if (before[0].headSha && score >= 70) await this.github.assertFresh(before[0].taskId, before[0] as SubmissionSnapshot);
+    if (before[0].headSha && baseScore >= 70) await this.github.assertFresh(before[0].taskId, before[0] as SubmissionSnapshot);
     return this.db.transaction(async em => {
+      await this.participation.lockScope(em, before[0].taskId);
       const found: Submission[] = await em.query('SELECT * FROM task_submissions WHERE id=@0', [id]);
       if (!found.length) throw new NotFoundException('Submission not found.');
       const task = await this.lockedTask(em, found[0].taskId);
@@ -119,6 +124,10 @@ export class SubmissionsService {
       await assertReviewerScope(em, this.permissions, task, ctx.actorId);
       if (item.status !== 'submitted') return item;
       if (task.assigneeId !== item.internId || task.status !== 'review' || task.version !== dto.taskVersion) throw new ConflictException('Task changed. Reload before reviewing.');
+      const incident = await this.participation.synchronize(em, task.id);
+      const adjustment = adjustedSubmissionScore(baseScore, incident?.status === 'active' ? Number(incident.points) : 0);
+      if (adjustment.latePenalty > 0 && dto.confirmedLatePenalty !== adjustment.latePenalty) throw new ConflictException({ code: 'PARTICIPATION_PENALTY_CONFIRM_REQUIRED', message: 'Xem điểm rubric gốc và điểm trừ do nộp trễ trước khi xác nhận.', details: { ...adjustment, incidentId: incident?.id, policyVersion: incident?.policyVersion, deadlineVersion: incident?.deadlineVersion } });
+      const score = adjustment.score;
       if (item.headSha && score >= 70) {
         if (item.headSha !== before[0].headSha) throw new ConflictException('Commit changed.');
         const reviews: Array<{ status: string; headSha: string }> = await em.query('SELECT TOP(1) status,headSha FROM submission_code_reviews WHERE submissionId=@0 ORDER BY createdAt DESC,id DESC', [id]);
@@ -127,13 +136,13 @@ export class SubmissionsService {
         if (review?.status === 'running') throw new ConflictException('Chờ AI chấm xong trước khi xác nhận.');
       }
       const status = score >= 70 ? 'approved' : 'rework';
-      await em.query('UPDATE task_submissions SET status=@1,score=@2,rubricJson=@3,feedback=@4,reviewerId=@5,reviewedAt=SYSUTCDATETIME() WHERE id=@0', [id, status, score, JSON.stringify(dto.rubric), dto.feedback, ctx.actorId]);
+      await em.query('UPDATE task_submissions SET status=@1,score=@2,rubricJson=@3,feedback=@4,reviewerId=@5,reviewedAt=SYSUTCDATETIME(),baseScore=@6,latePenalty=@7,participationIncidentId=@8 WHERE id=@0', [id, status, score, JSON.stringify(dto.rubric), dto.feedback, ctx.actorId, baseScore, adjustment.latePenalty, incident?.id ?? null]);
       await this.changeTask(em, task, status === 'approved' ? 'done' : 'doing', ctx, `${status}: ${score}/100; ${dto.feedback}`.slice(0, 512));
-      await this.record(em, ctx, id, 'submission.review', { taskId: task.id, status, score, rubricVersion: 'task-review-v1', rubric: dto.rubric, headSha: item.headSha ?? null, manualOverrideReason: dto.overrideReason?.trim() ?? null });
+      await this.record(em, ctx, id, 'submission.review', { taskId: task.id, status, score, baseScore, latePenalty: adjustment.latePenalty, participationIncidentId: incident?.id ?? null, rubricVersion: 'task-review-v1', rubric: dto.rubric, headSha: item.headSha ?? null, manualOverrideReason: dto.overrideReason?.trim() ?? null });
       await notifyInTransaction(em, [item.internId], {
         category: 'task', type: 'task.reviewed',
         title: status === 'approved' ? `Đã duyệt bài: ${task.code}` : `Cần làm lại: ${task.code}`,
-        body: `${score}/100 · ${dto.feedback}`, linkUrl: `/intern/work/${task.id}`,
+        body: `${score}/100${adjustment.latePenalty ? ` · Rubric ${baseScore}, trừ trễ hạn ${adjustment.latePenalty}` : ''} · ${dto.feedback}`, linkUrl: `/intern/work/${task.id}`,
       });
       const result: Submission[] = await em.query('SELECT * FROM task_submissions WHERE id=@0', [id]);
       return result[0];

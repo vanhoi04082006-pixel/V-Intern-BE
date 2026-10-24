@@ -5,5 +5,6 @@ import { TasksModule } from '../tasks/tasks.module';
 import { RbacModule } from '../rbac/rbac.module';
 import { SubmissionsController } from './submissions.controller';
 import { SubmissionsService } from './submissions.service';
-@Module({ imports: [TasksModule, RbacModule, GithubModule, CodeReviewModule], controllers: [SubmissionsController], providers: [SubmissionsService] })
+import { ParticipationModule } from '../participation/participation.module';
+@Module({ imports: [TasksModule, RbacModule, GithubModule, CodeReviewModule, ParticipationModule], controllers: [SubmissionsController], providers: [SubmissionsService] })
 export class SubmissionsModule {}
