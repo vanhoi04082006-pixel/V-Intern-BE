@@ -22,7 +22,9 @@
     "db:create:e2e": "ts-node src/scripts/create-e2e-database.ts",
     "audit:schema": "ts-node src/scripts/audit-schema.ts",
     "seed:recruitment": "ts-node src/scripts/seed-recruitment-questions.ts",
-    "seed:library": "ts-node src/scripts/seed-learning-library.ts"
+    "seed:library": "ts-node src/scripts/seed-learning-library.ts",
+    "seed:mini-projects": "ts-node src/scripts/seed-mini-projects.ts",
+    "export:mini-knowledge": "ts-node src/scripts/export-mini-knowledge.ts"
   },
   "dependencies": {
     "@langchain/core": "1.3.0",
