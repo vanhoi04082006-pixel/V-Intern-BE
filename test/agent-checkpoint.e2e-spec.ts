@@ -56,3 +56,18 @@ it('refuses a different thread, stale lease, deleted history and corrupted snaps
   await store.cancel(actor,run.id);
   await expect(saver.putWrites(saved,[['result','late']],'task')).rejects.toMatchObject({code:'AGENT_LEASE_LOST'});
 });
+it('atomically batches mixed writes, preserving ordinary values and replacing reserved channels',async()=>{
+  const {lease,config}=await setup(),saver=new SqlAgentCheckpointer(store,lease);
+  const saved=await saver.put(config,emptyCheckpoint(),{source:'input',step:-1,parents:{}},{});
+  await saver.putWrites(saved,[['result','first'],['other',{value:2}],['__error__','old error']],'mixed');
+  await saver.putWrites(saved,[['result','ignored'],['other',{value:99}],['__error__','new error']],'mixed');
+  const tuple=await saver.getTuple(saved);
+  expect(tuple?.pendingWrites).toEqual(expect.arrayContaining([
+    ['mixed','result','first'],['mixed','other',{value:2}],['mixed','__error__','new error'],
+  ]));
+  expect(tuple?.pendingWrites).toHaveLength(3);
+  const writes=Array.from({length:128},(_,index)=>['result',index] as [string,unknown]);
+  await saver.putWrites(saved,writes,'wide');
+  const restored=await new SqlAgentCheckpointer(store,lease).getTuple(saved);
+  expect(restored?.pendingWrites?.filter(write=>write[0]==='wide').map(write=>write[2])).toEqual(writes.map(write=>write[1]));
+});

@@ -88,12 +88,19 @@ export class SqlAgentCheckpointer extends BaseCheckpointSaver {
     }));
     await this.state.db.transaction(async em=>{
       await this.state.assertLease(this.lease,em);
+      const parameters:unknown[]=[],statements:string[]=[];
       for(const write of prepared){
-        const parameters=[this.lease.runId,namespace,id,taskId,write.index,taskPath,write.channel,write.valueJson,stateHash(write.valueJson)];
-        const [old]:Array<{present:number}>=await em.query('SELECT 1 present FROM agent_checkpoint_writes WITH(UPDLOCK,HOLDLOCK) WHERE runId=@0 AND namespace=@1 AND checkpointId=@2 AND taskId=@3 AND writeIndex=@4',parameters.slice(0,5));
-        if(old){if(write.index<0)await em.query('UPDATE agent_checkpoint_writes SET taskPath=@5,channel=@6,valueJson=@7,valueHash=@8 WHERE runId=@0 AND namespace=@1 AND checkpointId=@2 AND taskId=@3 AND writeIndex=@4',parameters);}
-        else await em.query('INSERT INTO agent_checkpoint_writes(runId,namespace,checkpointId,taskId,writeIndex,taskPath,channel,valueJson,valueHash) VALUES(@0,@1,@2,@3,@4,@5,@6,@7,@8)',parameters);
+        const offset=parameters.length,p=Array.from({length:9},(_,i)=>`@${offset+i}`);
+        parameters.push(this.lease.runId,namespace,id,taskId,write.index,taskPath,write.channel,write.valueJson,stateHash(write.valueJson));
+        const where=`runId=${p[0]} AND namespace=${p[1]} AND checkpointId=${p[2]} AND taskId=${p[3]} AND writeIndex=${p[4]}`;
+        const insert=`INSERT INTO agent_checkpoint_writes(runId,namespace,checkpointId,taskId,writeIndex,taskPath,channel,valueJson,valueHash) VALUES(${p.join(',')});`;
+        statements.push(write.index<0
+          ? `IF EXISTS(SELECT 1 FROM agent_checkpoint_writes WITH(UPDLOCK,HOLDLOCK) WHERE ${where}) UPDATE agent_checkpoint_writes SET taskPath=${p[5]},channel=${p[6]},valueJson=${p[7]},valueHash=${p[8]} WHERE ${where}; ELSE ${insert}`
+          : `IF NOT EXISTS(SELECT 1 FROM agent_checkpoint_writes WITH(UPDLOCK,HOLDLOCK) WHERE ${where}) ${insert}`);
       }
+      // At most 1152 parameters (128 × 9), below SQL Server's 2100 limit.
+      // Keep lease/range locks and all writes in this transaction while avoiding 2N network round trips.
+      if(statements.length)await em.query(statements.join('\n'),parameters);
     });
   }
   async deleteThread(threadId:string):Promise<void> {

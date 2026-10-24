@@ -40,10 +40,21 @@ export class PermissionsService {
 
   /** True when the user holds the named role DIRECTLY or via a group. */
   async accessSnapshot(userId: string) {
-    const roleIds = await this.getEffectiveRoleIds(userId);
-    if (!roleIds.length) return { roles: new Set<string>(), permissions: new Set<string>() };
-    const [roles, grants] = await Promise.all([this.roles.find({ where: roleIds.map(id => ({ id })) }), this.getRolePermissionCodes(roleIds)]);
-    return { roles: new Set(roles.map(role => role.code)), permissions: new Set([...grants.values()].flatMap(codes => [...codes])) };
+    // One fresh statement avoids repeated network/ORM work at every Agent boundary.
+    // UNION keeps direct + group-inherited roles; LEFT JOIN preserves roles without grants.
+    const rows: Array<{ roleCode: string; permissionCode: string | null }> = await this.userRoles.query(`
+      SELECT DISTINCT r.code roleCode,p.code permissionCode
+      FROM (
+        SELECT roleId FROM user_roles WHERE userId=@0
+        UNION
+        SELECT gr.roleId FROM group_members gm JOIN group_roles gr ON gr.groupId=gm.groupId WHERE gm.userId=@0
+      ) effective JOIN roles r ON r.id=effective.roleId
+      LEFT JOIN role_permissions rp ON rp.roleId=r.id
+      LEFT JOIN permissions p ON p.id=rp.permissionId`, [userId]);
+    return {
+      roles: new Set(rows.map(row => row.roleCode)),
+      permissions: new Set(rows.flatMap(row => row.permissionCode ? [row.permissionCode] : [])),
+    };
   }
 
   /** True when the user holds the named role DIRECTLY or via a group. */
