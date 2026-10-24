@@ -1,6 +1,6 @@
 # Theo dõi triển khai — nền tảng Agent và tuyển thực tập
 
-> Cập nhật 24/10/2026 — **đã được người dùng duyệt; M00/M01 và K01–K03 đạt local + CI, đã kích hoạt runtime chính, dữ liệu giữ nguyên; tiếp theo K04**. Các task chỉ được tick khi có bằng chứng. Audit source/CI và lựa chọn nghiệp vụ đã ghi ở [kế hoạch](plan.md); không đánh đồng audit với nghiệm thu tính năng.
+> Cập nhật 24/10/2026 — **đã được người dùng duyệt; M00/M01 và toàn G1 đạt local + CI, đã kích hoạt runtime chính, dữ liệu giữ nguyên; tiếp theo G2**. Các task chỉ được tick khi có bằng chứng. Audit source/CI và lựa chọn nghiệp vụ đã ghi ở [kế hoạch](plan.md); không đánh đồng audit với nghiệm thu tính năng.
 
 Khi thực hiện, mỗi task bổ sung cột/ngày ghi nhận: `commit FE/BE • test • expected/actual • PASS/FAIL/BLOCKED • evidence`. Chỉ tick khi đủ bằng chứng. Nhóm file là phạm vi dự kiến; tách nhỏ thêm nếu một task cần hơn khoảng 5 file.
 
@@ -45,27 +45,29 @@ Khi thực hiện, mỗi task bổ sung cột/ngày ghi nhận: `commit FE/BE �
   - PASS 24/10 local + CI + runtime: FE `17f4370`/`70d5e97`, BE `bf31186`; 579 FE test, 22 Node contracts, 669 BE unit, 23 SQL/HTTP, 24 browser viewport checks và native read-only smoke. 14 gate cũ + career + knowledge xanh; số liệu hai DB/lượt/tài khoản giữ nguyên. [Kết quả, CI và giới hạn](../docs/reports/knowledge-ui-20261024.md).
   - Đạt khi: quản trị viên biết mục nào Agent được dùng; trạng thái/loading/error đầy đủ.
   - Kiểm: thao tác CRUD/publish bằng browser và keyboard. Phụ thuộc K02; FE questions/knowledge API và UI.
-- [ ] K04. Retrieval theo scope và nguồn.
+- [x] K04. Retrieval theo scope và nguồn.
   - Đạt khi: chỉ lấy tài liệu đã publish được phép; có ID/version/source; Mentor không đọc hidden rubric.
   - Kiểm: retrieval test đúng/sai scope, injection và stale index. Phụ thuộc K02; BE retrieval/policy/tests.
-- [ ] A01. Spike LangChain/LangGraph/SDK tương thích BE.
+- [x] A01. Spike LangChain/LangGraph/SDK tương thích BE.
   - Đạt khi: ghi ADR chọn version sau kiểm docs/advisory, chạy tool và structured output trên NestJS hiện tại.
   - Kiểm: Node/ESM/CommonJS/build/provider adapter; mọi package/cache trong project. File: BE adapter spike/tests/ADR/package lock.
-- [ ] A02. Registry, contracts và tool permissions.
+- [x] A02. Registry, contracts và tool permissions.
   - Đạt khi: định nghĩa Agent rõ input/output/tools/budget, actor/resource scope do server cấp.
   - Kiểm: tool cấm/giả actor/cross-user bị chặn; allowlist được kiểm ở service. Phụ thuộc A01; BE agents contracts/runtime/tests.
-- [ ] A03. Durable state, leases và resume.
+- [x] A03. Durable state, leases và resume.
   - Đạt khi: restart giữa model/tool không mất run hoặc nhân đôi mutation; không dùng RAM làm persistence cuối.
   - Kiểm: process restart, concurrent workers, retry và idempotency. Phụ thuộc A02; state port/adapter/migration/tests.
-- [ ] A04. Timeout, step/token budget, cancellation và lỗi có nguồn.
+- [x] A04. Timeout, step/token budget, cancellation và lỗi có nguồn.
   - Đạt khi: vòng lặp hữu hạn, provider/schema/tool errors được phân biệt; không có fake fallback.
   - Kiểm: timeout/invalid JSON/rate limit/cancel/resume. Phụ thuộc A03; runtime middleware/tests.
-- [ ] O01. LangSmith adapter và redaction.
+- [x] O01. LangSmith adapter và redaction.
   - Đạt khi: run có correlation/prompt/knowledge version; password, key, raw CV không xuất hiện trong trace.
   - Kiểm: trace payload tests; live trace nếu đã có key, thiếu key ghi BLOCKED cho live. Phụ thuộc A02; telemetry adapter/config/tests.
-- [ ] O02. Dataset eval tách holdout và báo cáo chất lượng.
+- [x] O02. Dataset eval tách holdout và báo cáo chất lượng.
   - Đạt khi: ít nhất 10 case/Agent, có adversarial và human rubric; không lấy cùng đáp án retrieval làm toàn bộ bài eval.
   - Kiểm: offline reproducible eval; live model report riêng. Phụ thuộc K04/A04/O01; datasets/eval runner/docs.
+
+> G1 PASS 24/10: BE code `e87166e`, 709 unit, 32 SQL local; CI 40055214366 đạt (293 SQL/HTTP chung và 8 retrieval riêng); 11 ca Gemini/65 trace delivery, cloud read-back; hai DB migrate và 7 identity login giữ nguyên. O02 tick cho Agent G1 đang có; mỗi Agent G2 phải có dataset/eval riêng. [Bằng chứng chi tiết](../docs/reports/agent-foundation-20261024.md).
 
 ## G2. Dự án nhỏ và chuyển toàn bộ AI — M03/M06
 
@@ -205,7 +207,7 @@ Khi thực hiện, mỗi task bổ sung cột/ngày ghi nhận: `commit FE/BE �
 ## Checkpoint bắt buộc
 
 - [ ] G0: CI FE cùng SHA xanh đầy đủ.
-- [ ] G1: role động + retrieval scope + Agent tool/state/trace được chứng minh.
+- [x] G1: role động + retrieval scope + Agent tool/state/trace được chứng minh. Code `e87166e`; [ma trận nghiệm thu, số liệu và giới hạn](../docs/reports/agent-foundation-20261024.md).
 - [ ] G2: nội dung/mẫu nhỏ được kiểm; toàn bộ AI cũ đã map và regression.
 - [ ] G3: CV→role→slot→hai email, đúng identity và không trùng tác dụng phụ.
 - [ ] G4: lịch, mốc 15 phút, 3 lượt và ranh giới 50/70 đạt.

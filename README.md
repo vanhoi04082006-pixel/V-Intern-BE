@@ -21,6 +21,7 @@ API cho hệ thống thực tập theo dự án: tuyển dụng bằng hội tho
 | Tiếp nhận các nhánh source | [GIT-WORKFLOW](docs/GIT-WORKFLOW.md) |
 | Quản trị nghề nghiệp động | [Hợp đồng M01](SPEC-career-roles.md), [tiến độ và kiểm chứng](docs/reports/career-roles-20261023.md) |
 | Biên soạn tri thức cho Agent | [Hướng dẫn kho tri thức](docs/KNOWLEDGE-LIBRARY.md), [đặc tả](SPEC-knowledge-library.md), [kết quả K01–K03, UI/CI/runtime và phần còn lại](docs/reports/knowledge-ui-20261024.md) |
+| Hiểu và vận hành Agent G1 | [Luồng chạy, API, giới hạn, phục hồi và trace](docs/AGENT-RUNTIME.md), [bằng chứng G1](docs/reports/agent-foundation-20261024.md) |
 | Xử lý lỗi vận hành | [TROUBLESHOOTING](docs/TROUBLESHOOTING.md) |
 
 ## Công nghệ

@@ -1,6 +1,6 @@
 # ADR 0001 — LangGraph trên NestJS và checkpoint SQL Server
 
-Ngày: 24/10/2026. Trạng thái: chọn SDK sau spike local; runtime/durable/live trace chưa được coi là đạt chỉ từ ADR này.
+Ngày: 24/10/2026. Trạng thái: SDK được chấp nhận; runtime/checkpoint/trace đã qua nghiệm thu G1. ADR giải thích lựa chọn; số liệu và nguồn ở [báo cáo G1](../reports/agent-foundation-20261024.md).
 
 ## Bối cảnh và lựa chọn
 
@@ -10,13 +10,13 @@ Ghim `@langchain/langgraph 1.5.2`, `@langchain/langgraph-checkpoint 1.2.1`, `@la
 
 LangGraph dùng StateGraph quyết định → tool → quyết định, với quyền/budget nằm ở server. Giữ provider Gemini và structured-output transport đã có qua adapter; không đưa vendor HTTP vào domain service. Structured decision được validate trước khi chọn tool. Không cần thêm SDK model/vendor mới chỉ để thay transport đang hoạt động.
 
-Checkpoint adapter sẽ theo BaseCheckpointSaver của đúng package đã ghim, gồm checkpoint, metadata, parent và pending writes có thứ tự. SQL Server lưu trạng thái; lease/fencing và tool receipt phải được kiểm bằng SQL/restart test riêng. Chưa tuyên bố exactly-once cho HTTP/service ngoài không hỗ trợ idempotency. Không cấp arbitrary mutation tool trong Agent nghiệm thu G1.
+Checkpoint adapter theo BaseCheckpointSaver của đúng package đã ghim, gồm checkpoint, metadata, parent và pending writes có thứ tự. SQL Server lưu trạng thái; lease/fencing và tool receipt đã được kiểm bằng SQL và child process bị SIGKILL rồi chạy tiếp. Không tuyên bố exactly-once cho model hoặc HTTP/service ngoài không hỗ trợ idempotency. Không cấp arbitrary mutation tool trong Agent nghiệm thu G1.
 
 ## Trace và dữ liệu riêng tư
 
 Không bật auto tracing trên graph có raw query/context. Spike xác minh AsyncLocalStorage context `tracingEnabled:false` có hiệu lực mà không đổi env toàn cục. Runtime sẽ gửi payload allowlist qua LangSmith adapter riêng: correlation/version, số lượng, độ trễ, token, code lỗi và hash tham chiếu; không gửi password/key/raw CV/câu hỏi nguyên văn. Trace local tồn tại độc lập; cloud lỗi không làm mất run.
 
-Key/service workspace phải có quyền ingest ở đúng vùng. Probe hiện trả 403, kể cả gửi một trace cấu hình không có dữ liệu riêng tư. Đây là giới hạn live cần giải quyết, không phải bằng chứng tracing đã hoạt động. Credential chỉ nằm trong project-private storage; script cấu hình dùng secure prompt, không chứa key trong source.
+Key/service workspace phải có quyền ingest ở đúng vùng. Probe ban đầu trả 403 do chưa chỉ định workspace. Sau cấu hình workspace US, 65/65 event của 11 ca live được chấp nhận và API đã đọc lại root trace success. Adapter chuẩn hóa UUID chữ thường và dotted order; payload tests giữ redaction. Credential chỉ nằm trong project-private storage/.env ignored, script cấu hình dùng secure prompt.
 
 ## Advisory và lockfile
 
@@ -31,4 +31,4 @@ Audit mới phát hiện high trong dependency HTTP/Azure đã có, không nằm
 - [LangSmith cấu hình tracing](https://docs.langchain.com/langsmith/trace-without-env-vars), [API keys/workspaces/regions](https://docs.langchain.com/langsmith/create-account-api-key).
 - Advisory: [MSAL auth-code](https://github.com/advisories/GHSA-xcx6-jx8p-x3h5), [body-parser](https://github.com/advisories/GHSA-27r3-jxmh-p828), [multer](https://github.com/advisories/GHSA-q7qp-rjg7-q26m). Metadata/version lấy từ registry npm, không từ trí nhớ hoặc bài viết bên thứ ba.
 
-Evidence project-local: `manual-runtime/knowledge-library-20261024/g1-{install,sdk-spike,audit-final,increment-unit}.*`, cùng các log retrieval SQL. 684 unit hiện đạt trong working tree (669 nền + 13 retrieval + 2 spike); các phép thử runtime tiếp theo sẽ tăng số liệu. CI cuối G1 phải ghi đúng SHA tương thích và số liệu mới.
+Evidence project-local: `manual-runtime/knowledge-library-20261024/`. Mốc cuối G1: 709 unit; 32 SQL G1/K04 local; CI code `e87166e` đạt (293 SQL/HTTP chung và 8 retrieval riêng); 11 ca provider thật, 65/65 cloud delivery và read-back. Xem [báo cáo](../reports/agent-foundation-20261024.md) để phân biệt các lượt và nguồn, không cộng lẫn số liệu.
