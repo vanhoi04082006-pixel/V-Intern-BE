@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseIntPipe, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { RequirePermissions } from '../common/decorators/permissions.decorator';
@@ -6,10 +6,22 @@ import { RequestPrincipal } from '../common/types/request-principal';
 import { PermissionsService } from '../rbac/permissions.service';
 import { resolveOwnership } from '../rbac/ownership';
 import { TemplatesService } from './templates.service';
+import { TemplateRevisionsStore } from './template-revisions.store';
+import { PaginationQueryDto } from '../common/pagination/pagination-query.dto';
 import { ChangeRequestDto, CreateTemplateDto, QueryTemplatesDto, StartTemplateDto, UpdateTemplateDto } from './template.dto';
 @ApiTags('project templates') @ApiBearerAuth() @Controller()
 export class TemplatesController {
-  constructor(private readonly service: TemplatesService, private readonly permissions: PermissionsService) {}
+  constructor(private readonly service: TemplatesService, private readonly permissions: PermissionsService, private readonly revisions: TemplateRevisionsStore) {}
+  @Get('project-templates/:id/revisions') @RequirePermissions('projects.manage')
+  history(@Param('id', ParseUUIDPipe) id: string, @Query() query: PaginationQueryDto) { return this.revisions.history(id, query.page, query.pageSize); }
+  @Get('project-templates/:id/revisions/:version') @RequirePermissions('projects.manage')
+  revision(@Param('id', ParseUUIDPipe) id: string, @Param('version', ParseIntPipe) version: number) { return this.revisions.revision(id, version); }
+  @Get('project-templates/:id/revisions/:version/assessment') @RequirePermissions('projects.manage', 'templates.assessment.read')
+  revisionAssessment(@Param('id', ParseUUIDPipe) id: string, @Param('version', ParseIntPipe) version: number, @CurrentUser('userId') actor: string) { return this.revisions.assessment(id, actor, version); }
+  @Get('project-templates/:id/assessment') @RequirePermissions('projects.manage', 'templates.assessment.read')
+  assessment(@Param('id', ParseUUIDPipe) id: string, @CurrentUser('userId') actor: string) { return this.revisions.assessment(id, actor); }
+  @Get('projects/:id/template-assessment') @RequirePermissions('projects.manage', 'templates.assessment.read')
+  projectAssessment(@Param('id', ParseUUIDPipe) id: string, @CurrentUser('userId') actor: string) { return this.service.projectAssessment(id, actor); }
   @Get('project-templates') @RequirePermissions('projects.manage')
   list(@Query() query: QueryTemplatesDto) { return this.service.list(query); }
   @Post('project-templates') @RequirePermissions('projects.manage')

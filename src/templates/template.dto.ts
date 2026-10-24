@@ -1,5 +1,7 @@
 import { Type } from 'class-transformer';
-import { ArrayMaxSize, ArrayMinSize, ArrayUnique, IsArray, IsDateString, IsIn, IsInt, IsOptional, IsString, IsUUID, Length, Matches, Max, MaxLength, Min, ValidateNested } from 'class-validator';
+import { ArrayMaxSize, ArrayMinSize, ArrayUnique, IsArray, IsDateString, IsIn, IsInt, IsObject, IsOptional, IsString, IsUUID, Length, Matches, Max, MaxLength, Min, ValidateNested } from 'class-validator';
+import { ApiPropertyOptional } from '@nestjs/swagger';
+import type { SmallProjectPackage, TemplateAssessment } from './template-package';
 import { PaginationQueryDto } from '../common/pagination/pagination-query.dto';
 export class TemplateTaskDto {
   @IsOptional() @IsString() @Length(1, 64) key?: string;
@@ -57,7 +59,9 @@ export class TemplateAcceptanceDto {
   @IsOptional() @IsArray() @ArrayMaxSize(30) @IsString({ each: true }) @MaxLength(512, { each: true }) definitionOfDone?: string[];
   @IsOptional() @IsArray() @ArrayMaxSize(20) @IsString({ each: true }) @MaxLength(512, { each: true }) qualityGates?: string[];
 }
-export class CreateTemplateDto {
+export class TemplateDefinitionDto {
+  @ApiPropertyOptional({ type: 'object', additionalProperties: true, description: 'Public small-project package v1: prerequisites/setup/run/starterFiles/sampleData. Strict domain schema; see SPEC-small-project-library.md.' })
+  @IsOptional() @IsObject() learningPackage?: SmallProjectPackage;
   @IsOptional() @IsString() @Length(2, 128) slug?: string;
   @IsOptional() @IsInt() @Min(1) @Max(1620) estimatedDurationDays?: number;
   @IsOptional() @IsInt() @Min(1) @Max(50) recommendedTeamSize?: number;
@@ -88,6 +92,10 @@ export class CreateTemplateDto {
   @IsOptional() @ValidateNested() @Type(() => TemplateOutputsDto) expectedOutputs?: TemplateOutputsDto;
   @IsOptional() @ValidateNested() @Type(() => TemplateAcceptanceDto) acceptance?: TemplateAcceptanceDto;
 }
+export class CreateTemplateDto extends TemplateDefinitionDto {
+  @ApiPropertyOptional({ type: 'object', nullable: true, additionalProperties: true, writeOnly: true, description: 'Staff-only assessment v1. Persisted separately, never in public definition or run snapshot.' })
+  @IsOptional() @IsObject() assessment?: TemplateAssessment | null;
+}
 export class StartTemplateDto {
   @IsString() @Length(2, 256) name!: string;
   @IsDateString() startDate!: string;
@@ -102,12 +110,14 @@ export class QueryTemplatesDto extends PaginationQueryDto {
   @IsOptional() @IsIn(['createdAt', 'name', 'code']) sort?: string;
 }
 export class UpdateTemplateDto {
+  @ApiPropertyOptional({ type: 'object', nullable: true, additionalProperties: true, writeOnly: true, description: 'Omit to preserve, set null to remove only in the new version. Requires templates.assessment.manage.' })
+  @IsOptional() @IsObject() assessment?: TemplateAssessment | null;
   @IsOptional() @IsInt() @Min(1) expectedVersion?: number;
   @IsOptional() @IsString() @Length(2, 256) name?: string;
   @IsOptional() @IsString() @MaxLength(64) category?: string;
   @IsOptional() @IsIn(['beginner', 'intermediate', 'advanced']) difficulty?: string;
   @IsOptional() @IsIn(['active', 'archived']) status?: string;
-  @IsOptional() @ValidateNested() @Type(() => CreateTemplateDto) definition?: CreateTemplateDto;
+  @IsOptional() @ValidateNested() @Type(() => TemplateDefinitionDto) definition?: TemplateDefinitionDto;
 }
 export class ChangeRequestDto {
   @IsString() @Length(2, 256) title!: string;
