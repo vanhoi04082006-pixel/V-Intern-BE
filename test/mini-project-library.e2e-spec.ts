@@ -14,6 +14,7 @@ import { ensureLearningLibrary } from '../src/templates/learning-library-seed';
 import { MINI_PROJECT_LIBRARY } from '../src/templates/mini-project-catalog';
 import { ensureMiniProjectLibrary } from '../src/templates/mini-project-seed';
 import { MINI_PROJECT_KNOWLEDGE } from '../src/knowledge/mini-project-knowledge';
+import { ensureMiniProjectAssessments } from '../src/templates/mini-project-assessment-seed';
 
 let db: DataSource, app: INestApplication, actor: string, token: string, adminToken: string;
 beforeAll(async () => {
@@ -68,4 +69,18 @@ it('accepts all eighteen knowledge rows through the existing Admin dry-run witho
   const response = await request(app.getHttpServer()).post('/admin/knowledge/import/dry-run').auth(adminToken, { type: 'bearer' }).send({ entries: MINI_PROJECT_KNOWLEDGE }).expect(200);
   expect(response.body).toMatchObject({ total: 18, validDrafts: 18, publishable: 18, mutationsPerformed: 0 });
   const [after] = await db.query('SELECT COUNT(*) total FROM knowledge_entries'); expect(after).toEqual(before);
+});
+it('adds private references as a new version without touching an edited template or the v1 sessions', async () => {
+  const before = await db.query('SELECT id,templateVersion,snapshotJson FROM template_runs ORDER BY id');
+  expect(await ensureMiniProjectAssessments(db, actor)).toEqual({ upgraded: 5, preserved: 1 });
+  expect(await ensureMiniProjectAssessments(db, actor)).toEqual({ upgraded: 0, preserved: 6 });
+  expect(await db.query('SELECT id,templateVersion,snapshotJson FROM template_runs ORDER BY id')).toEqual(before);
+  const [blog] = await db.query("SELECT id,version FROM project_templates WHERE code='MINI-BLOG-V1'"); expect(blog.version).toBe(2);
+  const assessment = await request(app.getHttpServer()).get(`/project-templates/${blog.id}/assessment`).auth(token, { type: 'bearer' }).expect(200);
+  expect(assessment.body.assessment.solutionFiles[0].path).toBe('src/model.cjs');
+  const detail = await request(app.getHttpServer()).get(`/project-templates/${blog.id}`).auth(token, { type: 'bearer' }).expect(200);
+  expect(JSON.stringify(detail.body)).not.toMatch(/solutionFiles|hiddenTestFiles/);
+  const [run] = await db.query('SELECT projectId FROM template_runs WHERE templateId=@0 AND templateVersion=1', [blog.id]);
+  const pinned = await request(app.getHttpServer()).get(`/projects/${run.projectId}/template-assessment`).auth(token, { type: 'bearer' }).expect(200);
+  expect(pinned.body).toMatchObject({ version: 1, assessment: null });
 });

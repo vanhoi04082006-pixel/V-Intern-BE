@@ -24,7 +24,7 @@ try {
 }
 await symlink("/opt/runtime/node_modules", "/work/node_modules", "dir");
 const profile = process.argv[2] ?? 'vite';
-if (!['vite', 'node-http'].includes(profile)) process.exit(1);
+if (!['vite', 'node-http', 'mini-module'].includes(profile)) process.exit(1);
 let executable = '/opt/runtime/node_modules/.bin/vite';
 let args = ['--config', '/opt/runtime/vite.config.mjs', '--configLoader', 'runner', '--host', '0.0.0.0', '--port', '3000', '--strictPort'];
 if (profile === 'node-http') {
@@ -34,6 +34,7 @@ if (profile === 'node-http') {
   if (!resolved.startsWith('/work/') || !(await lstat(resolved)).isFile()) process.exit(1);
   executable = process.execPath; args = [resolved];
 }
+if (profile === 'mini-module') { executable = process.execPath; args = ['/runner/mini-module.mjs']; }
 const child = spawn(
   executable,
   args,
