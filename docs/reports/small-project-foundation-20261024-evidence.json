@@ -1,0 +1,174 @@
+{
+  "schemaVersion": 1,
+  "checkedAt": "2026-10-24T04:25:12.676Z",
+  "scope": "G2/P01 only; P02-P04 and AI migration remain open",
+  "implementationSourceSha": "fdd23054d3222ea793c924b18da3f3b34436f238",
+  "codeCi": {
+    "url": "https://github.com/vanhoi04082006-pixel/V-Intern-BE/actions/runs/40061277022",
+    "conclusion": "success"
+  },
+  "localChecks": {
+    "unitSuites": 87,
+    "unitTests": 725,
+    "packageSecurityCasesIncludedInUnit": 16,
+    "sqlRegression": {
+      "suites": 3,
+      "tests": 30,
+      "includesMaterialTests": 11
+    },
+    "isolatedMigrationTests": 4,
+    "lintErrors": 0,
+    "existingWarnings": 15,
+    "build": "passed"
+  },
+  "remoteChecks": {
+    "sharedSql": {
+      "suites": 32,
+      "tests": 304
+    },
+    "isolatedRetrievalTests": 8,
+    "isolatedMaterialMigrationTests": 4,
+    "isolatedCareerMigrationTests": 5
+  },
+  "activation": {
+    "checkedAt": "2026-10-24T04:18:31.816Z",
+    "databases": [
+      {
+        "database": "VIntern_M2_BROWSER",
+        "applied": [
+          "CreateTemplateMaterials1763068800000"
+        ],
+        "pending": false,
+        "publicRevisions": 6,
+        "privateAssessments": 0,
+        "businessCounts": {
+          "users": 9,
+          "recruitment_profiles": 4,
+          "interview_sessions": 4,
+          "interview_answers": 34,
+          "interview_questions": 185,
+          "assignments": 2,
+          "project_templates": 6,
+          "template_runs": 2,
+          "certificates": 0,
+          "knowledge_entries": 0,
+          "knowledge_revisions": 0,
+          "agent_runs": 0,
+          "attempts": 4
+        },
+        "businessIdentitiesTemplatesAndRunsPreserved": true,
+        "databaseFilesVerifiedProjectLocal": true
+      },
+      {
+        "database": "VIntern_Test_Learning_20261014",
+        "applied": [
+          "CreateTemplateMaterials1763068800000"
+        ],
+        "pending": false,
+        "publicRevisions": 7,
+        "privateAssessments": 0,
+        "businessCounts": {
+          "users": 16,
+          "recruitment_profiles": 10,
+          "interview_sessions": 10,
+          "interview_answers": 59,
+          "interview_questions": 70,
+          "assignments": 5,
+          "project_templates": 7,
+          "template_runs": 4,
+          "certificates": 2,
+          "knowledge_entries": 0,
+          "knowledge_revisions": 0,
+          "agent_runs": 0,
+          "attempts": 11
+        },
+        "businessIdentitiesTemplatesAndRunsPreserved": true,
+        "databaseFilesVerifiedProjectLocal": true
+      }
+    ]
+  },
+  "readiness": {
+    "checkedAt": "2026-10-24T04:21:25.159Z",
+    "services": [
+      {
+        "port": 8080,
+        "health": "ok",
+        "materialReadOperations": 5,
+        "anonymous": 401
+      },
+      {
+        "port": 8081,
+        "health": "ok",
+        "materialReadOperations": 5,
+        "anonymous": 401
+      },
+      {
+        "route": "/login",
+        "status": 200
+      },
+      {
+        "route": "/instructor/projects",
+        "status": 200
+      },
+      {
+        "route": "/intern",
+        "status": 200
+      }
+    ],
+    "identityChecks": [
+      {
+        "group": "blank-accounts-20261014",
+        "role": "admin",
+        "login": "passed",
+        "libraryScope": 200
+      },
+      {
+        "group": "blank-accounts-20261014",
+        "role": "instructor",
+        "login": "passed",
+        "libraryScope": 200
+      },
+      {
+        "group": "blank-accounts-20261014",
+        "role": "intern",
+        "login": "passed",
+        "libraryScope": 403
+      },
+      {
+        "group": "demo-accounts-20261023",
+        "role": "instructor",
+        "login": "passed",
+        "libraryScope": 200
+      },
+      {
+        "group": "demo-accounts-20261023",
+        "role": "intern",
+        "login": "passed",
+        "libraryScope": 403
+      },
+      {
+        "group": "defense-accounts-20261023",
+        "role": "instructor",
+        "login": "passed",
+        "libraryScope": 200
+      },
+      {
+        "group": "defense-accounts-20261023",
+        "role": "intern",
+        "login": "passed",
+        "libraryScope": 403
+      }
+    ]
+  },
+  "sourceSha256": {
+    "src/templates/template-package.ts": "0844ca73e57377a6dc5993f80187441a6c442de959d48dd3e5506afcbb148cdd",
+    "src/templates/template-revisions.store.ts": "e796dad635b1782b1c0866cc119e093cd307db4d462320ed840043c0e4427de6",
+    "src/templates/templates.service.ts": "ca8d6d09a819e54fad933f4241f14b39e41cc4cf3d5040c091a27b01e7a50e7c",
+    "src/templates/templates.controller.ts": "6f278f6b5210ba1561510a6dfe48d17ab947ab89bb1b809d0c4939810fd1012f",
+    "src/templates/template.dto.ts": "272ccdf58539085294979d2cd71bb0d70bd4f0829ebec5f2b9fd9305d25dfbe6",
+    "src/templates/learning-library-seed.ts": "744d3e11944ff1aab6acfd32029f5f6018356cb74db13cca9537c61c5de10021",
+    "src/database/migrations/1763068800000-CreateTemplateMaterials.ts": "8c4f2c5500e0dc102cf53d81c45897eb51089b86b3d98a0c6b9a342f4b8a01af",
+    "src/bootstrap/ensure-rbac.ts": "75dd59902c62a0f2656b052ede1ede3d6eadab0f7dddfd1c31bbd9df444bbb00",
+    ".github/workflows/backend-ci.yml": "02c41cad763493525a52baf71e2ad7200dc14c8f1b830ab725d334a27918a438"
+  }
+}

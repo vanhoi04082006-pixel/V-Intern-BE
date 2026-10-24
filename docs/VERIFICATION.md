@@ -1,5 +1,7 @@
 # Kiểm chứng Backend — 24/10/2026
 
+**G2/P01:** code `fdd2305` đạt 725 unit, build/lint; 30 SQL regression và 4 migration test local là hai lượt riêng. CI [40061277022](https://github.com/vanhoi04082006-pixel/V-Intern-BE/actions/runs/40061277022) đạt: 304 SQL/HTTP chung, 8 retrieval riêng, 4 material migration riêng và gate nghề nghiệp/rollback hiện hữu. Hai DB local giữ count/digest và tài khoản gốc; readiness 04:21:25 UTC đạt. [Ma trận và phần G2 còn lại](reports/small-project-foundation-20261024.md).
+
 **G1:** code `e87166e` đạt 709 unit và 32 SQL G1/K04 local. CI [40055214366](https://github.com/vanhoi04082006-pixel/V-Intern-BE/actions/runs/40055214366) đạt: 293 SQL/HTTP chung, 8 retrieval riêng. 11 ca Gemini thật và 65/65 trace delivery đạt; đã đọc lại root trace trên cloud. Hai API local đã kích hoạt migration; dữ liệu và ba tài khoản trắng giữ nguyên. [Ma trận, mốc giờ, nguồn và giới hạn](reports/agent-foundation-20261024.md). Số liệu lịch sử phía dưới giữ nguyên phạm vi/ngày kiểm của từng mốc.
 
 **Mốc mới nhất K01/K02:** 80 suite / 669 unit BE; lint/build đạt; SQL/HTTP kho tri thức 22 test và hồi quy M01 47 test là hai lượt riêng. [Báo cáo tri thức](reports/knowledge-library-20261023.md) gắn source API `7cb3a46`/OpenAPI `b3a1ef7`; CI Backend SQL 2019 và acceptance của bản cuối đều đạt. Hai DB chính đã nhận M02, số liệu/tài khoản giữ nguyên; readiness lúc 16:19 UTC. Kết quả chưa chứng minh UI/retrieval/Agent runtime hay bộ nội dung được duyệt; không lấy mốc M01 phía dưới thay thế.

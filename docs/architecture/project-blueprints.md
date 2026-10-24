@@ -1,5 +1,7 @@
 # Dự án mẫu và phiên bản đề bài
 
+G2/P01 bổ sung learningPackage v1, revision bất biến và assessment riêng theo version. [Hướng dẫn đầy đủ](../SMALL-PROJECT-LIBRARY.md) giải thích public/private, permissions, API, migration và ranh giới P02–P04; các blueprint cũ bên dưới tiếp tục hoạt động.
+
 ## Blueprint dùng để làm gì?
 
 Một blueprint mô tả một dự án có thể tổ chức nhiều lần: mục tiêu, phạm vi, công nghệ, đội hình, lộ trình và tiêu chí nghiệm thu. Nó không phải một dự án sinh viên đã hoàn thành. Giảng viên đọc blueprint để biết cần giao gì và đánh giá trên căn cứ nào.

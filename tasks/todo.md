@@ -71,7 +71,8 @@ Khi thực hiện, mỗi task bổ sung cột/ngày ghi nhận: `commit FE/BE �
 
 ## G2. Dự án nhỏ và chuyển toàn bộ AI — M03/M06
 
-- [ ] P01. Schema mẫu dự án nhỏ có version và phân quyền lời giải.
+- [x] P01. Schema mẫu dự án nhỏ có version và phân quyền lời giải.
+  - PASS 24/10: code `fdd2305`, 725 unit; 30 SQL regression và 4 migration test local riêng; CI 40061277022 đạt (304 SQL/HTTP + 8 retrieval + 4 material migration ở các step riêng). Native hai DB backfill 6/7 revision, 0 assessment, counts/digest và 7 identity login giữ nguyên. [Báo cáo/giới hạn P01](../docs/reports/small-project-foundation-20261024.md). P02–P04 và các Agent G2 còn mở.
   - Đạt khi: snapshot mẫu/role/task/test mapping được giữ; lời giải/hidden tests tách khỏi student view.
   - Kiểm: template validate/access/snapshot tests. Phụ thuộc K02/R02; BE templates schema/service/tests.
 - [ ] P02. Bộ mẫu nhỏ và nội dung tri thức đã duyệt.
