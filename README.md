@@ -1,5 +1,7 @@
 # V-Intern Backend
 
+**G3 — nhận CV và lịch hẹn:** [hướng dẫn sử dụng, Agent, tài khoản và email local](docs/CV-AND-INTERVIEW-SCHEDULING.md) · [nghiệm thu và giới hạn](docs/reports/g3-completion-20261024.md).
+
 **G2 — bài nhỏ và bảy Agent:** [hướng dẫn từ đầu đến vận hành](docs/AGENTS-AND-MINI-PROJECTS.md) · [nghiệm thu và giới hạn](docs/reports/g2-completion-20261024.md).
 
 Chuẩn bị bảo vệ: **[kịch bản ngắn](docs/DEMO-CHECKLIST.md)** · [hướng dẫn demo từng bước](docs/DEMO-GUIDE.md) · [nghiệm thu hai vai trò](docs/ROLEPLAY-ACCEPTANCE.md). Thông tin đăng nhập được bàn giao riêng.

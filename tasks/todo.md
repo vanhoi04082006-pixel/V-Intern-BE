@@ -110,37 +110,37 @@ Khi thực hiện, mỗi task bổ sung cột/ngày ghi nhận: `commit FE/BE �
 
 ## G3. CV, mail và lịch — M07/M08/M09/M10
 
-- [ ] E01. Outbox, mail transport và delivery receipt.
+- [x] E01. Outbox, mail transport và delivery receipt.
   - Đạt khi: queue bền vững, scheduled send, retry/cooldown/dead-letter; timeout không đánh dấu sent giả.
   - Kiểm: transport fake + SMTP dev; gửi thật riêng khi cấu hình. File: BE communications contracts/entity/migration/worker/tests.
-- [ ] E02. Template email V-Intern và notification renderer.
+- [x] E02. Template email V-Intern và notification renderer.
   - Đạt khi: HTML/text, mobile, subject/CTA rõ, template variables được encode và link allowlist.
   - Kiểm: snapshot nội dung + preview ở desktop/mobile. Phụ thuộc E01; templates/render/tests.
-- [ ] E03. Admin preview, trạng thái gửi và gửi lại.
+- [x] E03. Admin preview, trạng thái gửi và gửi lại.
   - Đạt khi: phân quyền rõ, lỗi có thể xử lý, không lộ credential; resend không đổi mật khẩu ngầm.
   - Kiểm: UI success/error/disabled/cooldown, bấm đôi. Phụ thuộc E02; FE communication API/UI/tests.
-- [ ] V01. Nộp hồ sơ công khai theo đợt và xác minh email.
+- [x] V01. Nộp hồ sơ công khai theo đợt và xác minh email.
   - Đạt khi: chưa có tài khoản vẫn nộp được; đúng đợt, chống trùng/spam, token xác minh một lần.
   - Kiểm: invalid/duplicate email, token expiry/replay, consent. Phụ thuộc E01; chia API/schema và FE thành lát kế tiếp.
-- [ ] V02. Lưu và đọc CV an toàn.
+- [x] V02. Lưu và đọc CV an toàn.
   - Đạt khi: PDF/DOCX hợp lệ đọc được; quá giới hạn/MIME giả/bomb bị chặn; scan báo cần bổ sung.
   - Kiểm: parser fixture an toàn và giới hạn tài nguyên; không đưa file test độc hại thực lên DB chính. Phụ thuộc V01.
-- [ ] V03. Theo dõi hồ sơ/bổ sung và quyền giảng viên/Admin.
+- [x] V03. Theo dõi hồ sơ/bổ sung và quyền giảng viên/Admin.
   - Đạt khi: timeline, trạng thái phân tích, xem/bổ sung có kiểm quyền; không lộ CV người khác.
   - Kiểm: cross-candidate IDOR, upload retry và empty/error. Phụ thuộc V02; FE applications/detail + BE query.
-- [ ] V04. CV Analyst Agent và Role Matcher Agent.
+- [x] V04. CV Analyst Agent và Role Matcher Agent.
   - Đạt khi: facts kèm đoạn/trang, role đang tuyển, missing skills/confidence; thiếu thông tin không bịa.
   - Kiểm: CV phù hợp/lệch/ít thông tin/injection; role thứ 6 và archived role. Phụ thuộc K04/A04/V02/R03; chia hai Agent riêng.
-- [ ] S01. Quản trị đợt tuyển và slot/capacity/timezone.
+- [x] S01. Quản trị đợt tuyển và slot/capacity/timezone.
   - Đạt khi: mở/đóng slot hợp lệ; role sẵn sàng; không nhận lịch đã qua hoặc thiếu chuẩn bị.
   - Kiểm: date/time/capacity validation, ownership. Phụ thuộc R02; BE contracts/migration/service/tests rồi FE.
-- [ ] S02. Coordinator Agent đặt lịch tự động.
+- [x] S02. Coordinator Agent đặt lịch tự động.
   - Đạt khi: chỉ dùng slot đã mở, transaction không overbook, hết slot vào waitlist.
   - Kiểm: hai ứng viên tranh chỗ cuối, retry/replay/cancel. Phụ thuộc V04/S01/A04.
-- [ ] S03. Tài khoản mới và credential tạm.
+- [x] S03. Tài khoản mới và credential tạm.
   - Đạt khi: email xác minh; hash password, TTL/force change; tài khoản cũ không reset ngầm.
   - Kiểm: first login/change/expiry, existing identity, credential redaction. Phụ thuộc V01; auth/users migration/service/tests chia nhỏ.
-- [ ] S04. Hai email theo lịch và recovery.
+- [x] S04. Hai email theo lịch và recovery.
   - Đạt khi: lịch và quyền đăng nhập là hai mail riêng; gửi đúng mốc; sửa lịch không gửi job cũ.
   - Kiểm: fake clock, cancel/reschedule, SMTP timeout, duplicate worker; inbox thật khi cấu hình. Phụ thuộc E02/S02/S03.
 
@@ -212,7 +212,7 @@ Khi thực hiện, mỗi task bổ sung cột/ngày ghi nhận: `commit FE/BE �
 - [x] G0: CI FE cùng SHA xanh đầy đủ. Cặp G2 `958691a` / `bb67573` giữ toàn bộ gate và đạt lại.
 - [x] G1: role động + retrieval scope + Agent tool/state/trace được chứng minh. Code `e87166e`; [ma trận nghiệm thu, số liệu và giới hạn](../docs/reports/agent-foundation-20261024.md).
 - [x] G2: nội dung/mẫu nhỏ được kiểm; toàn bộ AI cũ đã map và regression. BE `bb67573` / FE `958691a`; [báo cáo và giới hạn](../docs/reports/g2-completion-20261024.md).
-- [ ] G3: CV→role→slot→hai email, đúng identity và không trùng tác dụng phụ.
+- [x] G3 local: CV→role→slot→hai email, đúng identity và không trùng tác dụng phụ. [Kết quả và giới hạn](../docs/reports/g3-completion-20261024.md); provider ngoài/mail ngoài chưa nghiệm thu.
 - [ ] G4: lịch, mốc 15 phút, 3 lượt và ranh giới 50/70 đạt.
 - [ ] G5: mời/nhận/mời lại GitHub, branded mail và webhook live đạt hoặc ghi BLOCKED rõ.
 - [ ] G6: policy đúng và giảng viên tự quyết thay người; dữ liệu/quyền repo giữ nhất quán.

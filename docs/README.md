@@ -1,5 +1,7 @@
 # Tài liệu V-Intern Backend
 
+[CV, ba Agent và lịch phỏng vấn — bàn giao G3](CV-AND-INTERVIEW-SCHEDULING.md) hướng dẫn mở đợt, nộp/xác minh/bổ sung hồ sơ, hai email, mật khẩu tạm và SMTP local.
+
 [Thư viện bài nhỏ và bảy Agent — bàn giao G2](AGENTS-AND-MINI-PROJECTS.md) giải thích version, nguồn tri thức, quyền, checkpoint, runner và cách cài nội dung mà giữ dữ liệu đang có.
 
 Demo trước giảng viên: [checklist ngắn](DEMO-CHECKLIST.md) → [hướng dẫn chi tiết](DEMO-GUIDE.md). Bản GitHub không chứa mật khẩu tài khoản bảo vệ.

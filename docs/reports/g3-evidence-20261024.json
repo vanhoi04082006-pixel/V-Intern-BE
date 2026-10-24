@@ -1,0 +1,76 @@
+{
+  "checkedAt": "2026-10-24T17:24:10.3877423Z",
+  "backendCodeCommit": "781b681d5ea5d92dca424c92a9b057aac6c0b5b8",
+  "frontendCodeCommit": "93ac52773d0f16d91e58d904bc8ea3937dad1c16",
+  "groups": {
+    "sqlMigration": {
+      "tests": 2
+    },
+    "frontendUnit": {
+      "tests": 599,
+      "files": 96
+    },
+    "sqlShared": {
+      "tests": 318,
+      "suites": 34
+    },
+    "backendUnit": {
+      "tests": 768,
+      "suites": 100
+    },
+    "sqlAgentAndAccess": {
+      "tests": 10,
+      "suites": 2
+    },
+    "sqlG3": {
+      "tests": 19,
+      "suites": 2
+    },
+    "browser": {
+      "timestamp": "2026-10-24T16:52:02.16Z",
+      "flows": 7,
+      "model": "explicit deterministic transport; real Agent graphs and SQL",
+      "pageErrors": 0,
+      "smtp": "real SMTP protocol to local-only sink, not inbox delivery"
+    }
+  },
+  "sources": [
+    {
+      "path": ".runtime/g3-be-unit-final.log",
+      "sha256": "b44ce0a7c8e2371f1cbc24674b82dded8a21e9ce1955d473307a11ae1f5ea701"
+    },
+    {
+      "path": ".runtime/g3-be-shared-sql-verified.log",
+      "sha256": "9e26bf13acf890a08904f3d3ffdba4f8d0b40d87b5cceec09c6a40f4c1d1f147"
+    },
+    {
+      "path": ".runtime/g3-domain-sql-verified.log",
+      "sha256": "d2f287df8bb5ecac141d92911348e78a9c4f355000414313f725d108d5197a28"
+    },
+    {
+      "path": ".runtime/g3-migration-final.log",
+      "sha256": "eb6846b75789827dbf67121962b086c844e62d8f2f0b4eee7a068892b991d0ac"
+    },
+    {
+      "path": ".runtime/g3-scope-business-green.log",
+      "sha256": "19dd8ee9bd9d11651664c2247b0428799e0c4bec56e7f7f351182cc3107879e8"
+    },
+    {
+      "path": ".runtime/g3-fe-unit-final.log",
+      "sha256": "9e4311ed6bcbf041a264ef8c9a877227c5c4228b26e5576c0f27681552b19798"
+    },
+    {
+      "path": ".runtime/g3-fe-focused-verified.log",
+      "sha256": "6c804e9bbac0ccae58687eedfae9624a7240c2cce2fb01812b820f444d2736b1"
+    },
+    {
+      "path": ".runtime/g3-fe-build-verified.log",
+      "sha256": "60679cec6489cf07628fb22e9f4cb1fe62a68c9f66446fcb35fd2be87acba27f"
+    },
+    {
+      "path": ".runtime/g3-native-final-preservation.log",
+      "sha256": "dedff93791e656e3ee1155fe1ade12b43642cb6ac82742f77069c7bb51d6ea6d"
+    }
+  ],
+  "note": "Independent runs; deterministic model and local SMTP. No external delivery/provider acceptance claim."
+}

@@ -21,17 +21,17 @@ Agent chỉ đọc dữ liệu đã giới hạn và đề xuất có schema. Do
 
 | Mục | Kết quả cần đạt | Kiểm chứng bắt buộc | Trạng thái |
 |---|---|---|---|
-| E01 | Outbox SQL, lease, retry, lịch gửi, receipt, dead letter | Hai worker; lỗi chắc chắn/không chắc chắn; khôi phục lease | Chưa làm |
-| E02 | Email HTML/text V-Intern; CTA cùng origin; encode | Nội dung độc hại; mobile/desktop | Chưa làm |
-| E03 | Admin xem/gửi lại; cooldown; không trả bí mật | Quyền, bấm đôi, credential không reset | Chưa làm |
-| V01 | Đợt mở, consent, chống trùng; token xác minh TTL | Sai email, token hết hạn/lặp, spam | Chưa làm |
-| V02 | CV PDF/DOCX ≤5MB; đọc có giới hạn | MIME giả, zip bomb, scan, timeout | Chưa làm |
-| V03 | Theo dõi, timeline, bổ sung; staff đúng phạm vi | IDOR, lỗi/tải lại | Chưa làm |
-| V04 | Hai Agent riêng; dữ kiện có trang/đoạn, role động | Injection, nghề thứ 6, archived, ít dữ kiện | Chưa làm |
-| S01 | Đợt/slot, capacity, timezone, chuẩn bị | Owner, giờ quá khứ, readiness | Chưa làm |
-| S02 | Coordinator + giữ chỗ atomic + waitlist | Tranh chỗ cuối, retry, cancel | Chưa làm |
-| S03 | Email verified; mật khẩu tạm hash/TTL/đổi lần đầu | Không reset người cũ; chống rò credential | Chưa làm |
-| S04 | Hai email riêng; lịch sửa/hủy vô hiệu job cũ | Fake clock, timeout, nhiều worker | Chưa làm |
+| E01 | Outbox SQL, lease, retry, lịch gửi, receipt, dead letter | Hai worker; lỗi chắc chắn/không chắc chắn; khôi phục lease | Đạt local |
+| E02 | Email HTML/text V-Intern; CTA cùng origin; encode | Nội dung độc hại; mobile/desktop | Đạt local |
+| E03 | Admin xem/gửi lại; cooldown; không trả bí mật | Quyền, bấm đôi, credential không reset | Đạt local |
+| V01 | Đợt mở, consent, chống trùng; token xác minh TTL | Sai email, token hết hạn/lặp, spam | Đạt local |
+| V02 | CV PDF/DOCX ≤5MB; đọc có giới hạn | MIME giả, zip bomb, scan, timeout | Đạt local |
+| V03 | Theo dõi, timeline, bổ sung; staff đúng phạm vi | IDOR, lỗi/tải lại | Đạt local |
+| V04 | Hai Agent riêng; dữ kiện có trang/đoạn, role động | Injection, nghề thứ 6, archived, ít dữ kiện | Đạt local |
+| S01 | Đợt/slot, capacity, timezone, chuẩn bị | Owner, giờ quá khứ, readiness | Đạt local |
+| S02 | Coordinator + giữ chỗ atomic + waitlist | Tranh chỗ cuối, retry, cancel | Đạt local |
+| S03 | Email verified; mật khẩu tạm hash/TTL/đổi lần đầu | Không reset người cũ; chống rò credential | Đạt local |
+| S04 | Hai email riêng; lịch sửa/hủy vô hiệu job cũ | Fake clock, timeout, nhiều worker | Đạt local |
 
 ## Chính sách vận hành
 
@@ -43,4 +43,4 @@ Agent chỉ đọc dữ liệu đã giới hạn và đề xuất có schema. Do
 
 ## Bằng chứng
 
-Mỗi hàng chỉ đánh dấu hoàn thành khi ghi rõ command, thời điểm, SHA và kết quả. Không cộng các nhóm test ở DB khác nhau thành một lần chạy toàn bộ. Chưa có bằng chứng G3 tại thời điểm tạo tài liệu này.
+Mỗi hàng chỉ đánh dấu hoàn thành khi ghi rõ command, thời điểm, SHA và kết quả. Không cộng các nhóm test ở DB khác nhau thành một lần chạy toàn bộ. Đã kiểm local; xem [báo cáo, nguồn log và giới hạn](../docs/reports/g3-completion-20261024.md), [manifest hash](../docs/reports/g3-evidence-20261024.json). Provider ngoài và SMTP hộp thư thật chưa được chứng minh.
