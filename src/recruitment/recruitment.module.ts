@@ -23,6 +23,7 @@ import { RecruitmentService } from './recruitment.service';
 import { QuestionBankController } from './question-bank.controller';
 import { QuestionBankService } from './question-bank.service';
 import { RbacModule } from '../rbac/rbac.module';
+import { InterviewAdmissionsService } from './interview-admissions.service';
 
 /**
  * Phase 4 — Recruitment + AI interview module (spec 3).
@@ -49,7 +50,7 @@ import { RbacModule } from '../rbac/rbac.module';
     ]),
   ],
   controllers: [RecruitmentController, QuestionBankController],
-  providers: [QuestionBankService, InterviewFollowUpService, InterviewConversationService, RecruitmentService, InterviewService, RecruitmentEvaluationService, RecruitmentRateLimitGuard],
+  providers: [QuestionBankService, InterviewFollowUpService, InterviewConversationService, RecruitmentService, InterviewService, RecruitmentEvaluationService, RecruitmentRateLimitGuard, InterviewAdmissionsService],
   exports: [RecruitmentService, InterviewService],
 })
 export class RecruitmentModule {}

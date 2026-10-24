@@ -14,7 +14,9 @@
  *   is a SESSION state (evaluation_failed) while the profile stays
  *   evaluation_pending so evaluation can be retried without the candidate
  *   redoing answers (spec 39/40).
- * - Starting a NEW attempt after an expired/cancelled session keeps the
+ * - G4 scheduled CV retakes can prepare role_selected through the staff command
+ *   only after proving the previous session expired/cancelled. Active sessions remain locked.
+ * - Starting a NEW legacy attempt after an expired/cancelled session keeps the
  *   profile at interview_in_progress (session pointer swap, not a machine
  *   transition) — the service validates that semantically.
  * Illegal transitions are rejected by the service — never trusted to the
@@ -36,7 +38,7 @@ export const RECRUITMENT_PROFILE_TRANSITIONS: Record<
 > = {
   not_started: ['role_selected'],
   role_selected: ['interview_in_progress'],
-  interview_in_progress: ['evaluation_pending'],
+  interview_in_progress: ['evaluation_pending', 'role_selected'],
   evaluation_pending: ['passed', 'failed'],
   failed: ['role_selected', 'interview_in_progress'],
   passed: [],

@@ -13,6 +13,7 @@ import {
 } from './recruitment.constants';
 import { CareerRolesService } from '../career-roles/career-roles.service';
 import { computeAttemptGate, recruitmentAttemptLimit } from './attempt-policy';
+import { InterviewAdmissionsService, ScheduledInterview } from './interview-admissions.service';
 import { RecruitmentProfileStatus } from './recruitment-status.machine';
 import { learningAssessment } from './learning-assessment';
 import { PermissionsService } from '../rbac/permissions.service';
@@ -22,6 +23,7 @@ const candidateVisibility = (actor: string) => `(a.id IS NULL OR EXISTS(SELECT 1
 
 /** Public shape of GET /recruitment/me (spec 41/19). */
 export interface RecruitmentMeResponse {
+  interviewSchedule?: ScheduledInterview;
   status: RecruitmentProfileStatus;
   selectedRole: string | null;
   selectedRoleLabel: string | null;
@@ -101,6 +103,7 @@ export class RecruitmentService {
     @InjectDataSource() private readonly dataSource: DataSource,
     private readonly permissions: PermissionsService,
     private readonly careerRoles: CareerRolesService,
+    readonly admissions: InterviewAdmissionsService,
   ) {}
 
   /** Latest result for the profile, if any. */
@@ -127,6 +130,7 @@ export class RecruitmentService {
 
   /** GET /recruitment/me — current principal only (spec 41). */
   async me(userId: string): Promise<RecruitmentMeResponse> {
+    const interviewSchedule = await this.admissions.view(userId);
     const profile = await this.profiles.findOne({ where: { userId } });
     if (!profile) {
       return {
@@ -139,6 +143,7 @@ export class RecruitmentService {
         currentInterviewSessionId: null,
         recruitedAt: null,
         result: null,
+        interviewSchedule,
       };
     }
     const gate = computeAttemptGate(
@@ -163,6 +168,7 @@ export class RecruitmentService {
       currentInterviewSessionId: profile.currentInterviewSessionId,
       recruitedAt: profile.recruitedAt,
       result: latest ? toResultResponse(latest) : null,
+      interviewSchedule,
     };
   }
 
@@ -176,6 +182,9 @@ export class RecruitmentService {
     ctx: { actorId?: string | null; ip?: string | null; userAgent?: string | null },
   ): Promise<RecruitmentMeResponse> {
     return this.dataSource.transaction(async (em) => {
+      if (await this.admissions.entry(em, userId, true)) throw new ConflictException({
+        code: 'RECRUITMENT_SCHEDULE_ROLE_LOCKED', message: 'Nghề phỏng vấn đã được xếp từ hồ sơ CV. Liên hệ giảng viên nếu cần lịch hoặc định hướng mới.',
+      });
       // Serialize concurrent role selections per user.
       const profile = await this.lockOrCreateProfile(em, userId);
       if (profile.status === 'passed') {

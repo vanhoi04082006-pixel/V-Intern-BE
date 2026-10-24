@@ -28,6 +28,7 @@ import {
   VerifyApplicationDto,
   RescheduleDto,
   ResendCredentialsDto,
+  RetakeBookingDto,
 } from "./application.dto";
 import { InterviewBookingsService } from "./interview-bookings.service";
 import { ApplicationWorkflow } from "./application-workflow.service";
@@ -64,6 +65,20 @@ export class ApplicationsController {
   @Throttle({ default: { limit: 3, ttl: 60000 } })
   access(@Body() dto: AccessRequestDto) {
     return this.apps.requestAccess(dto.roundId, dto.email);
+  }
+  @Post("leave") async leave(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    await this.apps.leaveCandidateCapability(req.cookies?.[candidateCookie]);
+    res.clearCookie(candidateCookie, {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      path: "/api/v1/applications",
+    });
+    res.setHeader("Cache-Control", "no-store");
+    return { cleared: true };
   }
   @Post("verify")
   @Throttle({ default: { limit: 10, ttl: 60000 } })
@@ -211,6 +226,14 @@ export class RecruitmentRoundsController {
       application,
       dto.acknowledgeUncertain,
     );
+  }
+  @Post(":id/applications/:applicationId/retake") retake(
+    @CurrentUser("userId") actor: string,
+    @Param("id", ParseUUIDPipe) id: string,
+    @Param("applicationId", ParseUUIDPipe) application: string,
+    @Body() dto: RetakeBookingDto,
+  ) {
+    return this.bookings.retake(actor, id, application, dto.slotId, dto.reason);
   }
   @Get(":id/applications/:applicationId/cv") async cv(
     @CurrentUser("userId") actor: string,

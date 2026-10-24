@@ -52,3 +52,6 @@ export class ApplicationPageDto {
 export class RescheduleDto {
   @IsUUID() slotId!: string;
 }
+export class RetakeBookingDto extends RescheduleDto {
+  @IsString() @Length(10, 1000) reason!: string;
+}

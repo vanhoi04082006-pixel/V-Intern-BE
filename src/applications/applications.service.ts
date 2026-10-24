@@ -11,6 +11,9 @@ import { CommunicationsService } from "../communications/communications.service"
 import { ApplyDto } from "./application.dto";
 import { CvStorage } from "./cv-storage";
 import { RecruitmentRoundsService } from "./recruitment-rounds.service";
+import { RecruitmentService } from "../recruitment/recruitment.service";
+import { RecruitmentProfile } from "../recruitment/entities/recruitment-profile.entity";
+import { computeAttemptGate } from "../recruitment/attempt-policy";
 export const digest = (value: string) =>
   createHash("sha256").update(value).digest("hex");
 export interface CandidateApplication {
@@ -34,6 +37,7 @@ export class ApplicationsService {
     private readonly mail: CommunicationsService,
     private readonly storage: CvStorage,
     private readonly rounds: RecruitmentRoundsService,
+    private readonly recruitment: RecruitmentService,
   ) {}
   async event(em: EntityManager, id: string, kind: string, message: string) {
     await em.query(
@@ -218,6 +222,13 @@ export class ApplicationsService {
     if (!app) throw new UnauthorizedException();
     return app;
   }
+  async leaveCandidateCapability(token: unknown) {
+    if (typeof token === "string" && /^[\w-]{43}$/.test(token))
+      await this.db.query(
+        "UPDATE cv_applications SET capabilityHash=NULL,capabilityExpiresAt=NULL WHERE capabilityHash=@0",
+        [digest(token)],
+      );
+  }
   async view(app: CandidateApplication) {
     const timeline = await this.db.query(
       "SELECT kind,message,createdAt FROM application_events WHERE applicationId=@0 ORDER BY createdAt,id",
@@ -326,6 +337,86 @@ export class ApplicationsService {
         facts: analysis.factsJson ? JSON.parse(analysis.factsJson) : null,
         match: analysis.matchJson ? JSON.parse(analysis.matchJson) : null,
       },
+      interviewPolicy: await this.interviewPolicy(application),
+    };
+  }
+  private async interviewPolicy(application: CandidateApplication) {
+    if (!application.userId) return null;
+    const profile = await this.db
+      .getRepository(RecruitmentProfile)
+      .findOneBy({ userId: application.userId });
+    if (!profile) return null;
+    const serverNow = this.recruitment.admissions.now();
+    const gate = computeAttemptGate(
+      {
+        profileStatus: profile.status,
+        attemptCount: profile.attemptCount,
+        lastFailedAt: await this.recruitment.latestFailedResultAt(profile.id),
+      },
+      this.recruitment.attemptConfig(),
+      serverNow,
+    );
+    const [booking]: Array<{ id: string; version: number; createdAt: Date }> =
+      await this.db.query(
+        "SELECT id,version,createdAt FROM interview_bookings WHERE applicationId=@0",
+        [application.id],
+      );
+    const consumed = booking
+      ? await this.db.query(
+          "SELECT bookingId FROM interview_admissions WHERE bookingId=@0 AND bookingVersion=@1",
+          [booking.id, booking.version],
+        )
+      : [];
+    const sessions: Array<{ status: string; startedAt: Date | null }> =
+      profile.currentInterviewSessionId
+        ? await this.db.query(
+            "SELECT status,startedAt FROM interview_sessions WHERE id=@0",
+            [profile.currentInterviewSessionId],
+          )
+        : [];
+    const current = sessions[0],
+      active =
+        current &&
+        [
+          "created",
+          "in_progress",
+          "submitted",
+          "evaluating",
+          "evaluation_failed",
+        ].includes(current.status);
+    // Only an outcome tied to this CV may reveal its recommended career to this round's staff.
+    const [result]: Array<{
+      recommendedRole: string | null;
+      overallScore: number;
+    }> = await this.db.query(
+      "SELECT TOP(1) r.recommendedRole,r.overallScore FROM recruitment_results r JOIN interview_admissions a ON a.sessionId=r.sessionId WHERE a.applicationId=@0 AND r.decision='failed' ORDER BY r.evaluatedAt DESC,r.createdAt DESC",
+      [application.id],
+    );
+    const alternate =
+      result && result.overallScore >= 50 && result.overallScore <= 70
+        ? result.recommendedRole
+        : null;
+    return {
+      serverNow: serverNow.toISOString(),
+      attemptsUsed: profile.attemptCount,
+      attemptsRemaining: gate.attemptsRemaining,
+      nextEligibleAt: gate.nextEligibleAt,
+      allowedRoleCodes: [
+        ...new Set(
+          [application.matchedRole, alternate].filter(
+            (role): role is string => !!role,
+          ),
+        ),
+      ],
+      canRebook: Boolean(
+        booking &&
+        ["booked", "deferred"].includes(application.status) &&
+        profile.status !== "passed" &&
+        !active &&
+        gate.attemptsRemaining > 0 &&
+        (consumed.length ||
+          (current?.startedAt && current.startedAt >= booking.createdAt)),
+      ),
     };
   }
 }

@@ -59,6 +59,7 @@ export interface SanitizedSessionView {
   serverNow: string;
   secondsRemaining: number | null;
 }
+type StartInterviewResponse = { session: SanitizedSessionView; questions: SanitizedSessionQuestion[] };
 
 export type EvaluationFn = (
   sessionId: string,
@@ -115,8 +116,9 @@ export class InterviewService {
     ctx: { actorId?: string | null; ip?: string | null; userAgent?: string | null },
   ): Promise<{ session: SanitizedSessionView; questions: SanitizedSessionQuestion[] }> {
     const durationMinutes = this.durationMinutes();
-    return this.dataSource.transaction(async (em) => {
-      // (1) Lock the profile — serializes concurrent starts (spec 57).
+    const outcome = await this.dataSource.transaction<StartInterviewResponse | { blocked: { code: string; message: string } }>(async (em) => {
+      const admission = await this.recruitmentService.admissions.entry(em,userId,true);
+      // CV, when present, is locked first; then the profile serializes concurrent starts.
       const profile = await em
         .getRepository(RecruitmentProfile)
         .createQueryBuilder('p')
@@ -159,6 +161,20 @@ export class InterviewService {
             { sessionId: current.id },
           );
         }
+      }
+
+      const admissionNow = this.recruitmentService.admissions.now();
+      if (admission) {
+        const phase = this.recruitmentService.admissions.phase(admission,admissionNow);
+        if (phase === 'no_show') {
+          await this.recruitmentService.admissions.noShow(em,admission,admissionNow);
+          // Commit attendance before returning the HTTP conflict; throwing here would undo no-show.
+          return { blocked: { code: 'INTERVIEW_NO_SHOW', message: 'Bạn chưa bắt đầu trong 15 phút từ giờ hẹn. Hồ sơ chờ đợt tiếp theo; số lượt và lịch sử được giữ.' } };
+        }
+        if (phase === 'waiting') throw conflict('INTERVIEW_NOT_STARTED_YET','Chưa đến giờ phỏng vấn. Hãy đợi tại phòng chờ.',{startsAt:admission.booking?.startsAt,serverNow:admissionNow.toISOString()});
+        if (phase === 'started') throw conflict('INTERVIEW_SCHEDULE_USED','Lịch này đã được dùng. Lần phỏng vấn tiếp theo cần lịch hẹn mới.');
+        if (phase !== 'ready' || !admission.booking) throw conflict('INTERVIEW_SCHEDULE_REQUIRED','Chưa có lịch phỏng vấn đang hiệu lực. Liên hệ giảng viên.');
+        if (profile.selectedRole !== admission.booking.roleCode) throw conflict('RECRUITMENT_SCHEDULE_ROLE_LOCKED','Nghề trong hồ sơ khác lịch đã xếp. Cần giảng viên kiểm tra trước khi bắt đầu.');
       }
 
       // (3) Attempt + cooldown policy (spec 19) — under the profile lock.
@@ -205,7 +221,7 @@ export class InterviewService {
       }
 
       // (5) Create + activate the session (created → in_progress machine step).
-      const now = new Date();
+      const now = admissionNow;
       const expiresAt = new Date(now.getTime() + durationMinutes * 60_000);
       const session = await em.save(
         em.create(InterviewSession, {
@@ -248,6 +264,7 @@ export class InterviewService {
       profile.currentInterviewSessionId = session.id;
       profile.attemptCount += 1;
       await em.save(profile);
+      await this.recruitmentService.admissions.admit(em,admission,session.id,now);
 
       // (8) Audit (spec 75).
       await em.insert(AuditLog, {
@@ -267,6 +284,8 @@ export class InterviewService {
       const questions = await this.loadSanitizedQuestions(em, session, userId);
       return { session: this.toSessionView(session), questions: this.publicQuestions(questions, session) };
     });
+    if ('blocked' in outcome) throw conflict(outcome.blocked.code,outcome.blocked.message);
+    return outcome;
   }
 
   /** GET /recruitment/me/interviews/:id — own session only (404-safe). */
