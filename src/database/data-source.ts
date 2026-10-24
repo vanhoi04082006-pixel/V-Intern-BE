@@ -1,3 +1,4 @@
+import { CreateCommunications1763155200000 } from './migrations/1763155200000-CreateCommunications';
 import { CreateCareerRoles1762636800000 } from './migrations/1762636800000-CreateCareerRoles';
 import { CreateKnowledgeLibrary1762809600000 } from './migrations/1762809600000-CreateKnowledgeLibrary';
 import { AddKnowledgePermissions1762896000000 } from './migrations/1762896000000-AddKnowledgePermissions';
@@ -101,5 +102,6 @@ export default new DataSource({
     AddKnowledgePermissions1762896000000,
     CreateAgentRuntime1762982400000,
     CreateTemplateMaterials1763068800000,
+    CreateCommunications1763155200000,
   ],
 });
