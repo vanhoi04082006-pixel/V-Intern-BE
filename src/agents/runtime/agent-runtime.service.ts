@@ -68,7 +68,7 @@ export class AgentRuntimeService implements OnModuleInit, OnModuleDestroy {
             promptVersion: row.promptVersion, maxRetries: budget.maxRetries, request: { task: 'knowledge-agent-decision', systemPrompt: KNOWLEDGE_ASSISTANT_PROMPT,
               input: modelInput, schemaName: 'AgentDecision', outputSchema: agentDecisionJsonSchema, validate: validateAgentDecision, modelOptions: { temperature: 0.1, maxOutputTokens: budget.maxOutputTokens } } });
           await this.state.recordUsage(lease, result.result.inputTokens, result.result.outputTokens);
-          await this.telemetry.record(id, 'model', { model: this.ai.modelName, inputTokens: result.result.inputTokens, outputTokens: result.result.outputTokens, latencyMs: Date.now() - began });
+          await this.telemetry.record(id, 'model', { model: result.result.model, inputTokens: result.result.inputTokens, outputTokens: result.result.outputTokens, latencyMs: result.result.latencyMs });
           return { decision: validateAgentDecision(result.data) };
         })
         .addNode('read', async data => {

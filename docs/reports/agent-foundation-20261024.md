@@ -1,8 +1,10 @@
 # G1 — nghiệm thu nền tảng Agent · 24/10/2026
 
-**K04, A01–A04, O01 và phần O02 dành cho Agent G1 đã đạt.** Code triển khai là `e87166e8abbb0e2e8a91edf69158d88589a6f105`, nhánh `codex/g1-agent-runtime`, tiếp nối catalog/kho tri thức đã nghiệm thu. G1 có một Agent trợ lý tri thức chỉ đọc; chuyển mọi AI nghiệp vụ nằm ở G2.
+**K04, A01–A04, O01 và phần O02 dành cho Agent G1 đã đạt.** Mốc triển khai đầu đã nghiệm thu là `e87166e8abbb0e2e8a91edf69158d88589a6f105`, nhánh `codex/g1-agent-runtime`, tiếp nối catalog/kho tri thức đã nghiệm thu. Bản review tiếp theo trên cùng nhánh lấy model/latency thực từ provider result để đúng cả khi Admin đổi cấu hình; regression nằm trong suite runtime. G1 có một Agent trợ lý tri thức chỉ đọc; chuyển mọi AI nghiệp vụ nằm ở G2.
 
 Người tiếp nhận đọc [AGENT-RUNTIME](../AGENT-RUNTIME.md). Điều kiện nghiệm thu nằm trong [SPEC](../../SPEC-agent-foundation.md); [checklist](../../tasks/todo.md) giữ G2–G7 chưa hoàn thành.
+
+[Manifest công khai đã bỏ dữ liệu riêng](agent-foundation-20261024-evidence.json) ghi nguồn/version/hash, số liệu, readiness và SHA-256 các file triển khai. Bản review model/latency còn qua 13 SQL test và một live smoke riêng: 7/7 cloud deliveries, đọc lại root trace được; không cộng lượt smoke vào 11 ca eval ban đầu.
 
 ## Ma trận nghiệm thu
 
@@ -62,6 +64,7 @@ Model có tính xác suất. 11 ca chưa chứng minh chất lượng trên mọ
 - Payload tool dùng UUID DB trong khi manifest dùng `k:code@version`, gây trích sai. Đã thống nhất ID và thêm regression, giữ validator nguồn chặt.
 - Model từ chối ngoài quyền chưa luôn theo tool/schema. Prompt làm rõ cách từ chối; guard không được nới.
 - Timer và clock SQL round/lệch vài mili giây có thể để run quá hạn vẫn running. Chốt timeout bằng fencing của worker; giữ giới hạn cũ, ca SQL tổng hợp đạt sau sửa.
+- Review cuối kiểm model/latency thực thay vì tên model mặc định hoặc thời gian cộng dồn. Test đặt model cấu hình khác model provider result, kiểm metadata SQL đúng result; log `g1-actual-model-red.log` và `g1-actual-model-green.log`.
 
 Các lần thất bại còn trong `g1-runtime-red.log`, `g1-trace-uuid-red.log`, `g1-citation-red.log`, `g1-combined-sql.log`, `g1-live*.log` và JSON từng DB. Không thay file cũ bằng kết quả xanh để che lịch sử.
 

@@ -1,0 +1,317 @@
+{
+  "schemaVersion": 1,
+  "checkedAt": "2026-10-24T03:12:20.875Z",
+  "branch": "codex/g1-agent-runtime",
+  "firstCodeCi": {
+    "sha": "e87166e8abbb0e2e8a91edf69158d88589a6f105",
+    "url": "https://github.com/vanhoi04082006-pixel/V-Intern-BE/actions/runs/40055214366",
+    "status": "success"
+  },
+  "frontendRevision": "5c9dc33b643fb71f40e18c9ddeff8cea536ebaf5",
+  "local": {
+    "unit": {
+      "suites": 86,
+      "tests": 709
+    },
+    "sql": {
+      "suites": 5,
+      "tests": 32
+    },
+    "lintErrors": 0,
+    "existingWarnings": 15,
+    "build": "passed",
+    "holdoutGuards": 13
+  },
+  "remoteSql": {
+    "shared": {
+      "suites": 31,
+      "tests": 293
+    },
+    "isolatedRetrieval": {
+      "suites": 1,
+      "tests": 8
+    },
+    "careerMigrationTests": 5
+  },
+  "live": {
+    "checkedAt": "2026-10-24T02:28:25.271Z",
+    "provider": "gemini",
+    "configuredModel": "gemini-3.5-flash-lite",
+    "cases": [
+      {
+        "id": "git-status",
+        "status": "succeeded",
+        "toolNames": [
+          "career_role",
+          "knowledge_search"
+        ],
+        "insufficientEvidence": false,
+        "citationVersions": [
+          {
+            "code": "g1-git-evidence",
+            "version": 2,
+            "sha256": "e733d08b724e303ffb306c72ee437372c378c12a670169c3447e5176bbf3a267"
+          }
+        ]
+      },
+      {
+        "id": "missing-evidence",
+        "status": "succeeded",
+        "toolNames": [
+          "knowledge_search"
+        ],
+        "insufficientEvidence": true,
+        "citationVersions": []
+      },
+      {
+        "id": "injection",
+        "status": "succeeded",
+        "toolNames": [
+          "career_role",
+          "knowledge_search"
+        ],
+        "insufficientEvidence": false,
+        "citationVersions": [
+          {
+            "code": "g1-git-evidence",
+            "version": 2,
+            "sha256": "e733d08b724e303ffb306c72ee437372c378c12a670169c3447e5176bbf3a267"
+          }
+        ]
+      },
+      {
+        "id": "staged-diff",
+        "status": "succeeded",
+        "toolNames": [
+          "knowledge_search"
+        ],
+        "insufficientEvidence": false,
+        "citationVersions": [
+          {
+            "code": "g1-git-evidence",
+            "version": 2,
+            "sha256": "e733d08b724e303ffb306c72ee437372c378c12a670169c3447e5176bbf3a267"
+          }
+        ]
+      },
+      {
+        "id": "commit-snapshot",
+        "status": "succeeded",
+        "toolNames": [
+          "knowledge_search"
+        ],
+        "insufficientEvidence": false,
+        "citationVersions": [
+          {
+            "code": "g1-git-evidence",
+            "version": 2,
+            "sha256": "e733d08b724e303ffb306c72ee437372c378c12a670169c3447e5176bbf3a267"
+          }
+        ]
+      },
+      {
+        "id": "push-preconditions",
+        "status": "succeeded",
+        "toolNames": [
+          "career_role",
+          "knowledge_search"
+        ],
+        "insufficientEvidence": false,
+        "citationVersions": [
+          {
+            "code": "g1-git-evidence",
+            "version": 2,
+            "sha256": "e733d08b724e303ffb306c72ee437372c378c12a670169c3447e5176bbf3a267"
+          }
+        ]
+      },
+      {
+        "id": "untracked-files",
+        "status": "succeeded",
+        "toolNames": [
+          "career_role",
+          "knowledge_search"
+        ],
+        "insufficientEvidence": false,
+        "citationVersions": [
+          {
+            "code": "g1-git-evidence",
+            "version": 2,
+            "sha256": "e733d08b724e303ffb306c72ee437372c378c12a670169c3447e5176bbf3a267"
+          }
+        ]
+      },
+      {
+        "id": "private-rubric",
+        "status": "succeeded",
+        "toolNames": [
+          "career_role"
+        ],
+        "insufficientEvidence": true,
+        "citationVersions": []
+      },
+      {
+        "id": "execution-claim",
+        "status": "succeeded",
+        "toolNames": [
+          "career_role"
+        ],
+        "insufficientEvidence": true,
+        "citationVersions": []
+      },
+      {
+        "id": "career-reference",
+        "status": "succeeded",
+        "toolNames": [
+          "career_role"
+        ],
+        "insufficientEvidence": false,
+        "citationVersions": [
+          {
+            "code": "frontend",
+            "version": 1,
+            "sha256": "1405a82260b06252e962ed680696bd0152b294f1dfb583eba0536c05a5b25adc"
+          }
+        ]
+      },
+      {
+        "id": "incorrect-premise",
+        "status": "succeeded",
+        "toolNames": [
+          "career_role",
+          "knowledge_search"
+        ],
+        "insufficientEvidence": false,
+        "citationVersions": [
+          {
+            "code": "g1-git-evidence",
+            "version": 2,
+            "sha256": "e733d08b724e303ffb306c72ee437372c378c12a670169c3447e5176bbf3a267"
+          }
+        ]
+      }
+    ],
+    "cloudDeliveries": 65,
+    "acceptedDeliveries": 65,
+    "cloudReadBack": {
+      "checkedAt": "2026-10-24T02:33:59.388Z",
+      "runId": "f8f0b62f-03c2-4957-a63d-b9528fd13a3c",
+      "cloudRead": true,
+      "status": "success",
+      "traceId": "f8f0b62f-03c2-4957-a63d-b9528fd13a3c"
+    }
+  },
+  "finalReview": {
+    "actualProviderMetadataSqlTests": 13,
+    "liveSmoke": {
+      "checkedAt": "2026-10-24T03:09:28.737Z",
+      "runs": 1,
+      "status": "succeeded",
+      "cloud": {
+        "attempts": 7,
+        "accepted": 7,
+        "errorCodes": []
+      },
+      "cloudRead": true
+    }
+  },
+  "runtime": {
+    "checkedAt": "2026-10-24T02:55:57.746Z",
+    "services": [
+      {
+        "port": 8080,
+        "health": "ok",
+        "agentOperations": 4,
+        "anonymous": 401
+      },
+      {
+        "port": 8081,
+        "health": "ok",
+        "agentOperations": 4,
+        "anonymous": 401
+      },
+      {
+        "route": "/login",
+        "status": 200
+      },
+      {
+        "route": "/intern",
+        "status": 200
+      },
+      {
+        "route": "/instructor",
+        "status": 200
+      }
+    ],
+    "databases": [
+      {
+        "database": "VIntern_M2_BROWSER",
+        "pendingMigrations": false,
+        "businessCountsPreserved": true,
+        "agentRuns": 0
+      },
+      {
+        "database": "VIntern_Test_Learning_20261014",
+        "pendingMigrations": false,
+        "businessCountsPreserved": true,
+        "agentRuns": 0
+      }
+    ],
+    "identityChecks": [
+      {
+        "group": "blank-accounts-20261014",
+        "role": "admin",
+        "login": "passed",
+        "agentScope": 404
+      },
+      {
+        "group": "blank-accounts-20261014",
+        "role": "instructor",
+        "login": "passed",
+        "agentScope": 403
+      },
+      {
+        "group": "blank-accounts-20261014",
+        "role": "intern",
+        "login": "passed",
+        "agentScope": 403
+      },
+      {
+        "group": "demo-accounts-20261023",
+        "role": "instructor",
+        "login": "passed",
+        "agentScope": 403
+      },
+      {
+        "group": "demo-accounts-20261023",
+        "role": "intern",
+        "login": "passed",
+        "agentScope": 403
+      },
+      {
+        "group": "defense-accounts-20261023",
+        "role": "instructor",
+        "login": "passed",
+        "agentScope": 403
+      },
+      {
+        "group": "defense-accounts-20261023",
+        "role": "intern",
+        "login": "passed",
+        "agentScope": 403
+      }
+    ]
+  },
+  "sourceHashes": {
+    "src/agents/runtime/agent-runtime.service.ts": "64287b1c48adce7b96fc65c1c3caf35c2dbd0f0f61471df74b33101a17ed7eac",
+    "src/agents/runtime/agent-state.store.ts": "fe2ee4edc2b87bc0c35e02d0f54ca9458fc41eeed94b63a799532adde0210072",
+    "src/agents/runtime/sql-agent-checkpointer.ts": "132e1410fd0977c95abfb031e8b37eefd3b46c5f7c409bead7eafe9ce525ca7e",
+    "src/agents/runtime/agent-telemetry.service.ts": "4cef2c1a1499c0e0886ed2aa15a75cd7e26d3496483ab488c195b429271a14a4",
+    "src/agents/runtime/knowledge-agent.tools.ts": "35a188d152e09eab5b376337adf5c065a30dce5d69042d6eb2d25db5a5672fa6",
+    "src/agents/definitions/knowledge-assistant.definition.ts": "6166ea6809334d5ca6af2f1bdc3ef17d877ca88301b3ce6c077e85c65871861d",
+    "src/agents/agents.controller.ts": "142cb49ab742889ccabfb3deb5d88ad1b54caa1ddded03d81f3b177f8913b872",
+    "src/database/migrations/1762982400000-CreateAgentRuntime.ts": "f84c0b2619492f21978222b00c900b46db47d28da5bbcf8797537c9c3af6cb5a",
+    "src/ai/ai.service.ts": "3c348bf7c5454722042f2c4e2608f25494a1dc41032b2bfa56d75368987d6fe6",
+    ".github/workflows/backend-ci.yml": "d015b54051554b67bb4074f0bc6cdcab469469b11f337f6b59635c9c432302b7"
+  }
+}

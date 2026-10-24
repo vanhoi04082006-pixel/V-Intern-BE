@@ -41,7 +41,7 @@ beforeAll(async () => {
 }, 120000);
 afterAll(async () => { if (db?.isInitialized) await db.destroy(); });
 beforeEach(() => model.mockReset().mockImplementation(async ({ request }: { request: { validate: (raw: unknown) => unknown; input: { observations: unknown[] } } }) => ({
-  data: request.validate(request.input.observations.length ? answer : decision), result: { inputTokens: 20, outputTokens: 10 }, run: { id: randomUUID() },
+  data: request.validate(request.input.observations.length ? answer : decision), result: { inputTokens: 20, outputTokens: 10, model: 'gemini-selected-by-admin', latencyMs: 123 }, run: { id: randomUUID() },
 })));
 const start = () => runtime.create(admin, { requestId: randomUUID(), question: 'Giải thích Git dựa trên tài liệu.' });
 it('completes an actual durable graph, stores safe events and reuses an idempotent request', async () => {
@@ -52,6 +52,8 @@ it('completes an actual durable graph, stores safe events and reuses an idempote
   expect((await db.query('SELECT COUNT(*) count FROM agent_tool_receipts WHERE runId=@0', [run.id]))[0].count).toBe(1);
   const events = await db.query('SELECT metadataJson FROM agent_events WHERE runId=@0', [run.id]);
   expect(JSON.stringify(events)).not.toContain(input.question);
+  const spans = await db.query("SELECT metadataJson FROM agent_events WHERE runId=@0 AND eventType='model'", [run.id]);
+  expect(JSON.parse(spans[0].metadataJson)).toMatchObject({ model: 'gemini-selected-by-admin', latencyMs: 123 });
   expect(saved).not.toHaveProperty('inputJson'); expect(saved).not.toHaveProperty('leaseOwner');
 });
 it('rejects forged authority, students and cross-user reads/resume/cancel', async () => {
