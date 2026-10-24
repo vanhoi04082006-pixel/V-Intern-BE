@@ -6,7 +6,7 @@ import {
 } from "./business-agents";
 describe("G2 business Agent registry and model decisions", () => {
   it("maps every existing workflow to one bounded, versioned Agent without a legacy-model fallback", () => {
-    expect(BUSINESS_AGENTS).toHaveLength(7);
+    expect(BUSINESS_AGENTS).toHaveLength(10);
     for (const feature of [
       "interview_conversation",
       "interview_clarification",

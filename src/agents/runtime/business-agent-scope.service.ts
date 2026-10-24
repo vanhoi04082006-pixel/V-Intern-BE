@@ -44,7 +44,13 @@ export class BusinessAgentScope {
     )
       deny();
     let roleCodes: string[] = [];
-    if (definition.resource === "interview") {
+    if (definition.resource === "application") {
+      if (resourceType !== 'cv_application' || !staff) deny();
+      requirePermission('applications.manage');
+      const [application] = await this.db.query("SELECT a.roundId,r.ownerId FROM cv_applications a JOIN recruitment_rounds r ON r.id=a.roundId WHERE a.id=@0 AND a.verifiedAt IS NOT NULL AND a.status NOT IN('cancelled','deferred','unverified')", [id]);
+      if (!application || !admin && application.ownerId.toLowerCase() !== actor.toLowerCase()) deny();
+      roleCodes = (await this.db.query("SELECT DISTINCT s.roleCode FROM interview_slots s JOIN career_roles c ON c.code=s.roleCode WHERE s.roundId=@0 AND s.status='open' AND c.status='published' AND c.acceptingApplications=1", [application.roundId])).map((s: { roleCode: string }) => s.roleCode);
+    } else if (definition.resource === "interview") {
       if (resourceType !== "interview_session") deny();
       const [interview]: Array<{ userId: string; roleCode: string }> =
         await this.db.query(

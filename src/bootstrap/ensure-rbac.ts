@@ -11,6 +11,8 @@ import { RolePermission } from '../rbac/entities/role-permission.entity';
  * view+manage and intern.workspace.view.
  */
 export const PERMISSION_CATALOG: Array<{ code: string; name: string; description: string }> = [
+  { code: 'communications.manage', name: 'Quản lý hàng đợi email', description: 'Admin xem trạng thái và gửi lại email an toàn' },
+  { code: 'applications.manage', name: 'Quản lý hồ sơ và lịch tuyển', description: 'Quản lý đợt tuyển và hồ sơ trong phạm vi được giao' },
   { code: 'templates.assessment.read', name: 'Đọc tài liệu chấm mẫu', description: 'Đọc lời giải, hidden tests và rubric; dịch vụ còn kiểm vai trò giảng viên/quản trị' },
   { code: 'templates.assessment.manage', name: 'Biên soạn tài liệu chấm mẫu', description: 'Tạo phiên bản tài liệu chấm riêng với đề bài công khai' },
   { code: 'knowledge.read', name: 'Đọc kho tri thức nội bộ', description: 'Đọc nội dung và phiên bản biên soạn; dịch vụ còn yêu cầu vai trò Admin' },
@@ -100,6 +102,7 @@ export const ROLE_CATALOG: Array<{
     isSystem: true,
     grantCodes: [
       'classes.view',
+      'applications.manage',
       'classes.manage',
       'sessions.view',
       'sessions.manage',

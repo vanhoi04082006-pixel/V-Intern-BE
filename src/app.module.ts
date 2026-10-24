@@ -1,4 +1,5 @@
 import { CommunicationsModule } from './communications/communications.module';
+import { ApplicationsModule } from './applications/applications.module';
 import { GithubModule } from './github/github.module';
 import { CareerRolesModule } from './career-roles/career-roles.module';
 import { KnowledgeModule } from './knowledge/knowledge.module';
@@ -51,6 +52,7 @@ import { ReportsModule } from './reports/reports.module';
 @Module({
   imports: [
     CommunicationsModule,
+    ApplicationsModule,
     AdminSystemModule,
     ConfigModule.forRoot({ isGlobal: true, load: [() => appConfig(process.env)] }),
     ThrottlerModule.forRootAsync({

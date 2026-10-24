@@ -18,9 +18,10 @@ export class MailTransport {
   async send(id: string, envelope: MailEnvelope): Promise<MailOutcome> {
     if (!this.configured()) return { status: 'retry', code: 'SMTP_NOT_CONFIGURED' };
     const secure = this.config.get('SMTP_SECURE', 'true') === 'true';
+    const plainLocal = this.config.get('NODE_ENV') !== 'production' && this.config.get('SMTP_DEV_ALLOW_PLAIN', 'false') === 'true' && ['127.0.0.1', '::1', 'localhost'].includes(this.config.get<string>('SMTP_HOST', ''));
     const transport = nodemailer.createTransport({
       host: this.config.get<string>('SMTP_HOST'), port: Number(this.config.get('SMTP_PORT', secure ? '465' : '587')), secure,
-      requireTLS: !secure && this.config.get('SMTP_DEV_ALLOW_PLAIN', 'false') !== 'true',
+      requireTLS: !secure && !plainLocal,
       auth: this.config.get('SMTP_USER') ? { user: this.config.get<string>('SMTP_USER'), pass: this.config.get<string>('SMTP_PASSWORD') } : undefined,
       connectionTimeout: 10000, greetingTimeout: 10000, socketTimeout: 20000,
       disableFileAccess: true, disableUrlAccess: true, logger: false, debug: false,

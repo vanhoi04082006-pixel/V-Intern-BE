@@ -38,14 +38,15 @@ export class CommunicationsService implements OnApplicationBootstrap, OnModuleDe
   }
   onModuleDestroy() { if (this.timer) clearInterval(this.timer); }
   async tick(now = new Date()): Promise<number> {
-    if (this.running || !this.transport.configured()) return 0;
+    if (this.running) return 0;
     this.running = true;
     try {
-      this.key();
       // A crashed worker may have sent DATA. Preserve uncertainty instead of duplicating mail.
       const timestamp = now.toISOString();
       await this.db.query("UPDATE mail_outbox SET status='uncertain',lastCode='LEASE_EXPIRED',leaseToken=NULL,leaseUntil=NULL,updatedAt=@0 WHERE status='sending' AND leaseUntil<=@0", [timestamp]);
       await this.db.query("UPDATE mail_outbox SET status='expired',sealedPayload=NULL,updatedAt=@0 WHERE expiresAt<=@0 AND status IN('pending','uncertain','dead','cancelled','accepted')", [timestamp]);
+      if (!this.transport.configured()) return 0;
+      this.key();
       const lease = randomUUID();
       const jobs: MailRow[] = await this.db.query(`;WITH due AS(SELECT TOP(1) * FROM mail_outbox WITH(UPDLOCK,READPAST,ROWLOCK) WHERE status='pending' AND availableAt<=@0 AND expiresAt>@0 AND attempts<5 ORDER BY availableAt,createdAt)
         UPDATE due SET status='sending',attempts=attempts+1,leaseToken=@1,leaseUntil=DATEADD(second,90,CAST(@0 AS datetime2)),updatedAt=@0 OUTPUT inserted.*`, [timestamp, lease]);
@@ -74,7 +75,7 @@ export class CommunicationsService implements OnApplicationBootstrap, OnModuleDe
     const offset = (Math.max(1, Math.min(10000, page)) - 1) * 25;
     const items = await this.db.query('SELECT id,kind,recipientHint,status,attempts,availableAt,expiresAt,lastCode,createdAt FROM mail_outbox ORDER BY createdAt DESC,id OFFSET @0 ROWS FETCH NEXT 25 ROWS ONLY', [offset]);
     const [count] = await this.db.query('SELECT COUNT(*) total FROM mail_outbox');
-    return { items, total: count.total, page, pageSize: 25, transportConfigured: this.transport.configured() };
+    return { items, total: count.total, page, pageSize: 25, transportConfigured: this.transport.configured(), deliveryMode: this.config.get('MAIL_DELIVERY_MODE') === 'local' ? 'local' : 'smtp' };
   }
   async preview(id: string) {
     const [row]: MailRow[] = await this.db.query('SELECT id,kind,status,attempts,sealedPayload,sensitive,expiresAt FROM mail_outbox WHERE id=@0', [id]);
@@ -84,10 +85,17 @@ export class CommunicationsService implements OnApplicationBootstrap, OnModuleDe
     return { redacted: false, subject: mail.subject, text: mail.text, html: mail.html };
   }
   async resend(id: string, acknowledgeUncertain = false) {
+    return this.requeue(id, acknowledgeUncertain, false);
+  }
+  /** Domain callers bind the current booking and staff ownership. Never mutates a password. */
+  async resendCredentialFromDomain(id: string, acknowledgeUncertain = false) {
+    return this.requeue(id, acknowledgeUncertain, true);
+  }
+  private async requeue(id: string, acknowledgeUncertain: boolean, credential: boolean) {
     const rows = await this.db.query(`UPDATE mail_outbox WITH(UPDLOCK,ROWLOCK) SET status='pending',attempts=0,availableAt=SYSUTCDATETIME(),lastResendAt=SYSUTCDATETIME(),lastCode=NULL
-      OUTPUT inserted.id WHERE id=@0 AND sensitive=0 AND sealedPayload IS NOT NULL AND expiresAt>SYSUTCDATETIME()
+      OUTPUT inserted.id WHERE id=@0 AND (sensitive=0 OR @2=1 AND kind='credentials') AND sealedPayload IS NOT NULL AND expiresAt>SYSUTCDATETIME()
       AND status IN('dead','accepted','bounced','uncertain') AND (status<>'uncertain' OR @1=1)
-      AND (lastResendAt IS NULL OR lastResendAt<DATEADD(second,-60,SYSUTCDATETIME()))`, [id, acknowledgeUncertain]);
+      AND (lastResendAt IS NULL OR lastResendAt<DATEADD(second,-60,SYSUTCDATETIME()))`, [id, acknowledgeUncertain, credential]);
     if (!rows.length) throw new ConflictException({ code: 'MAIL_RESEND_UNAVAILABLE', message: 'Email đang xử lý, cần chờ 60 giây, đã hết hạn hoặc chứa dữ liệu chỉ được cấp lại từ hồ sơ. Với trạng thái chưa rõ, cần xác nhận nguy cơ gửi trùng.' });
     return { queued: true };
   }

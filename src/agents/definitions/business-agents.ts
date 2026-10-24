@@ -15,6 +15,7 @@ export interface BusinessAgentDefinition {
     | "submission"
     | "conversation"
     | "intern"
+    | "application"
     | "evaluation";
   tools: readonly ["context_bundle"];
   budget: {
@@ -47,6 +48,9 @@ const define = (
   });
 export const BUSINESS_AGENTS: readonly BusinessAgentDefinition[] =
   Object.freeze([
+    define("cv-analyst", ["cv-analysis"], "cv-analyst", "application"),
+    define("role-matcher", ["cv-role-match"], "role-matcher", "application"),
+    define("interview-coordinator", ["interview-coordination"], "coordinator", "application"),
     define(
       "interview-conversation",
       ["interview_conversation", "interview_clarification"],

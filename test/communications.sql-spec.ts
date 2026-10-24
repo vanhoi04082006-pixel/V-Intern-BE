@@ -8,7 +8,9 @@ import { MailTransport } from '../src/communications/mail-transport';
 
 let db: DataSource, server: Server, port: number;
 const received: string[] = [], sockets = new Set<Socket>();
-const config = (smtp = false) => new ConfigService({ MAIL_ENCRYPTION_KEY: Buffer.alloc(32, 3).toString('base64'), PUBLIC_WEB_ORIGIN: 'http://localhost:3001', ...(smtp ? { SMTP_HOST: '127.0.0.1', SMTP_PORT: port, SMTP_FROM: 'V-Intern <noreply@vintern.test>', SMTP_SECURE: 'false', SMTP_DEV_ALLOW_PLAIN: 'true' } : {}) });
+// ConfigService falls back to process.env for absent keys. Keep the unconfigured
+// fixture explicit so a developer's private SMTP settings can never send test mail.
+const config = (smtp = false) => new ConfigService({ MAIL_ENCRYPTION_KEY: Buffer.alloc(32, 3).toString('base64'), PUBLIC_WEB_ORIGIN: 'http://localhost:3001', SMTP_HOST: '', SMTP_PORT: 465, SMTP_FROM: '', SMTP_USER: '', SMTP_PASSWORD: '', SMTP_SECURE: 'true', SMTP_DEV_ALLOW_PLAIN: 'false', ...(smtp ? { SMTP_HOST: '127.0.0.1', SMTP_PORT: port, SMTP_FROM: 'V-Intern <noreply@vintern.test>', SMTP_SECURE: 'false', SMTP_DEV_ALLOW_PLAIN: 'true' } : {}) });
 const input = (extra: Partial<EnqueueMail> = {}): EnqueueMail => ({ eventKey: randomUUID(), to: 'candidate@vintern.test', content: { kind: 'schedule', name: 'Ứng viên', role: 'Backend', when: '25/10 09:00', ctaPath: '/login' }, availableAt: new Date(Date.now() - 1000), expiresAt: new Date(Date.now() + 86400000), ...extra });
 const worker = (send: MailTransport['send']) => new CommunicationsService(db, config(), { configured: () => true, send } as MailTransport);
 beforeAll(async () => {
@@ -44,6 +46,7 @@ describe('durable SQL mail queue', () => {
   it('does not consume attempts while SMTP is unconfigured', async () => {
     const w = new CommunicationsService(db, config(), new MailTransport(config())), id = await w.enqueue(input());
     expect(await w.tick()).toBe(0); expect((await row(id)).attempts).toBe(0);
+    await w.tick(new Date(Date.now() + 2 * 86400000)); expect(await row(id)).toMatchObject({ status: 'expired', sealedPayload: null, attempts: 0 });
     await db.query("UPDATE mail_outbox SET status='cancelled' WHERE id=@0", [id]);
   });
   it('obeys schedule, retries temporary rejection, then dead-letters at five attempts', async () => {

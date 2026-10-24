@@ -2,7 +2,7 @@ import { BadRequestException } from '@nestjs/common';
 import type { KnowledgeAudience, KnowledgeKind, KnowledgePurpose, KnowledgeSnapshot } from './knowledge.contracts';
 
 export const RETRIEVAL_POLICY_VERSION = 'knowledge-retrieval-v1';
-export const KNOWLEDGE_CONSUMERS = ['mentor', 'interviewer', 'advisor', 'planner', 'reviewer', 'interview-evaluator', 'evaluation-assistant', 'cv-analyst', 'coordinator', 'knowledge-assistant'] as const;
+export const KNOWLEDGE_CONSUMERS = ['mentor', 'interviewer', 'advisor', 'planner', 'reviewer', 'interview-evaluator', 'evaluation-assistant', 'cv-analyst', 'role-matcher', 'coordinator', 'knowledge-assistant'] as const;
 export type KnowledgeConsumer = typeof KNOWLEDGE_CONSUMERS[number];
 export interface RetrievalPolicy {
   purpose: KnowledgePurpose; audiences: KnowledgeAudience[]; kinds: KnowledgeKind[];
@@ -20,6 +20,7 @@ const policies: Record<KnowledgeConsumer, RetrievalPolicy> = {
   'interview-evaluator': { purpose: 'interview_evaluation', audiences: ['student_safe', 'staff_only', 'grading_only'], kinds: gradingKinds, permission: 'knowledge.read', resource: 'interview' },
   'evaluation-assistant': { purpose: 'evaluation_assistance', audiences: ['student_safe', 'staff_only', 'grading_only'], kinds: gradingKinds, permission: 'ai.evaluation.assist', resource: 'project' },
   'cv-analyst': { purpose: 'cv_screening', audiences: ['student_safe', 'staff_only'], kinds: staffKinds, permission: 'knowledge.read', resource: 'catalog' },
+  'role-matcher': { purpose: 'cv_screening', audiences: ['student_safe', 'staff_only'], kinds: staffKinds, permission: 'knowledge.read', resource: 'catalog' },
   coordinator: { purpose: 'communication', audiences: ['student_safe', 'staff_only'], kinds: staffKinds, permission: 'knowledge.read', resource: 'catalog' },
   'knowledge-assistant': { purpose: 'mentoring', audiences: ['student_safe'], kinds: studentKinds, permission: 'knowledge.read', resource: 'catalog' },
 };

@@ -398,7 +398,12 @@ it("shows Admin the actual business Agent inventory and run metadata without inp
     .get(route)
     .auth(jwt.sign({ sub: admin }), { type: "bearer" })
     .expect(200);
-  expect(response.body.definitions).toHaveLength(7);
+  expect(response.body.definitions).toHaveLength(10);
+  expect(response.body.definitions.map((definition: { id: string }) => definition.id)).toEqual(expect.arrayContaining([
+    'interview-conversation', 'interview-evaluator', 'project-planner', 'code-reviewer',
+    'learning-mentor', 'performance-advisor', 'instructor-assistant',
+    'cv-analyst', 'role-matcher', 'interview-coordinator',
+  ]));
   expect(response.body.total).toBeGreaterThan(0);
   expect(response.body.items[0]).toEqual(
     expect.objectContaining({
