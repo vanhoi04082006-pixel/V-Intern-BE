@@ -1,6 +1,6 @@
 # V-INTERN — Kế hoạch mở rộng nền tảng Agent và tuyển thực tập
 
-> **Người dùng đã duyệt ngày 23/10/2026. Cập nhật 24/10: M00/M01 và K01–K03 đạt local + CI; runtime chính đã nhận thay đổi, dữ liệu giữ nguyên. Tiếp theo K04 của M02.**
+> **Người dùng đã duyệt ngày 23/10/2026. Cập nhật 24/10: G1/K04 đã nghiệm thu và G2/P01 đã kích hoạt local. P02 có sáu starter + 18 draft tri thức và kiểm SQL/HTTP; xem [báo cáo P02](../docs/reports/mini-project-content-20261024.md) để biết trạng thái CI/runtime. P03/P04 và chuyển các AI nghiệp vụ vẫn mở.**
 >
 > Đây là bản đồ phạm vi và kế hoạch nghiệm thu đã được duyệt. Hợp đồng API, migration và đặc tả từng module được cụ thể hóa theo thứ tự phụ thuộc. Không coi một hạng mục là hoàn thành chỉ vì đã tạo file hoặc gọi được mô hình.
 
@@ -23,7 +23,7 @@
 
 ## 2. Kiểm tra code và CI hiện tại
 
-Đây là kết quả đọc source và kiểm trạng thái GitHub, **không phải lượt chạy lại toàn bộ kiểm thử**.
+Đây là **ảnh chụp audit ban đầu ngày 23/10**, giữ để giải thích lý do kế hoạch; các dòng “chưa có runtime/SDK” bên dưới không mô tả code sau G1. Kết quả hiện hành đọc ở [G1](../docs/reports/agent-foundation-20261024.md), [P01](../docs/reports/small-project-foundation-20261024.md) và [P02](../docs/reports/mini-project-content-20261024.md); không coi bảng lịch sử là lượt chạy lại kiểm thử.
 
 | Phần | Đã có trong source | Khoảng trống cần xử lý |
 |---|---|---|
@@ -77,10 +77,10 @@ Mã hạng mục giữ ổn định để gắn commit, PR, test và tài liệu
 |---|---|---|---|---|
 | M00 `ci-recovery` | Sửa dứt điểm CI FE, giữ toàn bộ 14 bước tích hợp | — | Quality và full-stack SQL 2019 cùng xanh trên cùng commit FE, ghim đúng BE | **Đạt 23/10**: FE `6b11d07`, quality và 14/14 SQL 2019 cùng xanh; [bằng chứng](../docs/reports/ci-recovery-20261023.md) |
 | M01 `career-roles` | Thư viện role nghề nghiệp động, năng lực, mức độ, trạng thái tuyển | — | Thêm role thứ 6 trên Admin; CV, câu hỏi, kế hoạch và dự án sử dụng được không sửa enum source | R01–R03 **đạt local + CI**, đã kích hoạt trên hai DB chính, giữ dữ liệu/tài khoản: catalog/API/UI, phỏng vấn, template và phân công nghề mới; [bằng chứng](../docs/reports/career-roles-20261023.md). CV dùng catalog được nghiệm thu khi M08–M11 tích hợp |
-| M02 `knowledge-library` | Tri thức chung, Q&A, lời giải, tiêu chí, provenance, phiên bản, phân quyền | M01 | Mỗi Agent lấy đúng tài liệu đã duyệt, đúng phiên bản, có nguồn; nội dung riêng tư không lộ | K01–K03 **đạt local + CI và runtime**: storage/API/UI, 669 BE unit, 23 SQL/HTTP, 579 FE test và browser; [nguồn 24/10](../docs/reports/knowledge-ui-20261024.md). Retrieval K04 và nội dung P02 chưa nghiệm thu; không coi cả M02 đã xong |
-| M03 `mini-projects` | Mẫu dự án nhỏ và bộ dữ liệu kiến thức cho Agent | M01, M02 | Tạo phiên từ mẫu; giới hạn phạm vi rõ; chạy được bài đúng và phát hiện bài sai | Thư viện cũ có; bộ mới **chưa kiểm** |
-| M04 `agent-runtime` | LangChain/LangGraph: registry, tools, state, retry, quyền, ngân sách | — | Agent gọi tool thật có scope; restart/resume không nhân đôi tác vụ; lỗi có trạng thái thật | **Chưa xây/kiểm** |
-| M05 `agent-observability` | Trace LangSmith, dữ liệu đánh giá, prompt version, rollback | M04 | Theo dõi được run/tool/retrieval; scrub dữ liệu nhạy cảm; có báo cáo eval từng Agent | **Chưa cấu hình/kiểm** |
+| M02 `knowledge-library` | Tri thức chung, Q&A, lời giải, tiêu chí, provenance, phiên bản, phân quyền | M01 | Mỗi Agent lấy đúng tài liệu đã duyệt, đúng phiên bản, có nguồn; nội dung riêng tư không lộ | K01–K04 đạt storage/API/UI/retrieval theo [G1](../docs/reports/agent-foundation-20261024.md); P02 có 18 draft theo [báo cáo](../docs/reports/mini-project-content-20261024.md). Chưa coi draft là nội dung đã publish/nghiệm thu với mọi Agent |
+| M03 `mini-projects` | Mẫu dự án nhỏ và bộ dữ liệu kiến thức cho Agent | M01, M02 | Tạo phiên từ mẫu; giới hạn phạm vi rõ; chạy được bài đúng và phát hiện bài sai | P01 version/private đạt; P02 có sáu starter và tạo phiên thật. P03 bài giải/faulty/trusted runner và P04 UI gói còn mở |
+| M04 `agent-runtime` | LangChain/LangGraph: registry, tools, state, retry, quyền, ngân sách | — | Agent gọi tool thật có scope; restart/resume không nhân đôi tác vụ; lỗi có trạng thái thật | G1 đã nghiệm thu runtime, checkpoint/resume/quyền/ngân sách cho Agent tri thức chỉ đọc; các Agent nghiệp vụ chuyển riêng ở G2 |
+| M05 `agent-observability` | Trace LangSmith, dữ liệu đánh giá, prompt version, rollback | M04 | Theo dõi được run/tool/retrieval; scrub dữ liệu nhạy cảm; có báo cáo eval từng Agent | G1 có trace local/cloud đã đọc lại, redaction và Gemini thật; eval/rollback từng Agent nghiệp vụ còn ở G2 |
 | M06 `agent-migration` | Chuyển từng chức năng AI hiện có sang Agent chuyên trách | M02, M03, M04 | Từng luồng cũ được so sánh và nghiệm thu; không chỉ đổi tên lớp thành Agent | **Chưa triển khai/kiểm** |
 | M07 `delivery-center` | Email theo chủ đề V-Intern, outbox, lịch gửi, retry, in-app | — | Preview đúng; gửi thật có receipt; lỗi/timeout không bị đánh dấu thành công giả | **Chưa xây/kiểm** |
 | M08 `cv-intake` | Nộp CV, xác nhận email liên hệ, đọc file, xử lý trùng/bổ sung | — | Hồ sơ lưu đúng đợt, file an toàn, trích xuất có nguồn, trạng thái theo dõi được | **Chưa xây/kiểm** |

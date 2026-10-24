@@ -33,6 +33,7 @@ flowchart LR
 | Tri thức Agent | [Cách biên soạn và duyệt phiên bản](KNOWLEDGE-LIBRARY.md) · [Đặc tả M02](../SPEC-knowledge-library.md) · [Kiểm chứng K01/K02](reports/knowledge-library-20261023.md) |
 | Runtime Agent G1 | [Luồng chạy, API, giới hạn, phục hồi và trace](AGENT-RUNTIME.md) · [Ma trận nghiệm thu](reports/agent-foundation-20261024.md) |
 | Mẫu nhỏ G2/P01 | [Public starter, revision và private assessment](SMALL-PROJECT-LIBRARY.md) · [Kết quả](reports/small-project-foundation-20261024.md) |
+| Nội dung G2/P02 | [Sáu bài, starter, bộ tri thức và cách duyệt](MINI-PROJECT-CONTENT.md) · [Bằng chứng](reports/mini-project-content-20261024.md) |
 | Chuẩn bị thực tập | [Dự án mẫu](architecture/project-blueprints.md) · [Phiên và đội hình](architecture/academic-core.md) · [Kế hoạch AI](architecture/learning-plans.md) |
 | Làm việc | [Sprint, task và bài nộp](architecture/sprint-task-core.md) · [AI Mentor](architecture/ai-mentor.md) |
 | Mã nguồn | [GitHub và review](architecture/github-code-review.md) · [Runner tin cậy](architecture/grading-runner.md) |

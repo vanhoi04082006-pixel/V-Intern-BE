@@ -23,6 +23,7 @@ API cho hệ thống thực tập theo dự án: tuyển dụng bằng hội tho
 | Biên soạn tri thức cho Agent | [Hướng dẫn kho tri thức](docs/KNOWLEDGE-LIBRARY.md), [đặc tả](SPEC-knowledge-library.md), [kết quả K01–K03, UI/CI/runtime và phần còn lại](docs/reports/knowledge-ui-20261024.md) |
 | Hiểu và vận hành Agent G1 | [Luồng chạy, API, giới hạn, phục hồi và trace](docs/AGENT-RUNTIME.md), [bằng chứng G1](docs/reports/agent-foundation-20261024.md) |
 | Tiếp nhận thư viện mẫu nhỏ G2/P01 | [Đề bài, phiên bản và tài liệu chấm riêng](docs/SMALL-PROJECT-LIBRARY.md), [đặc tả](SPEC-small-project-library.md) |
+| Chọn bài nhỏ và tri thức G2/P02 | [Sáu starter, cách chạy, seed an toàn và duyệt tri thức cho Agent](docs/MINI-PROJECT-CONTENT.md) |
 | Xử lý lỗi vận hành | [TROUBLESHOOTING](docs/TROUBLESHOOTING.md) |
 
 ## Công nghệ

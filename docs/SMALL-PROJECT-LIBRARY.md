@@ -2,7 +2,7 @@
 
 Tài liệu này giải thích nền tảng **G2/P01**. Đề bài và starter là phần có thể giao cho sinh viên; lời giải, hidden tests, rubric và mapping suite là phần dành cho người chấm. Hai phần cùng có version nhưng được lưu và đọc qua các đường riêng.
 
-P01 chưa biến sáu mẫu hiện tại thành bộ bài tập 3–7 ngày đã được chạy nghiệm thu. Bộ nội dung, starter/lời giải/biến thể sai, runner và giao diện thư viện mới nằm ở P02–P04. Những mẫu cũ 14 ngày vẫn hoạt động theo hợp đồng cũ.
+P01 không tự biến sáu mẫu 14 ngày thành bài 3–7 ngày. [P02 bổ sung sáu mã MINI riêng](MINI-PROJECT-CONTENT.md), starter và tri thức dùng chung; lời giải/biến thể sai/trusted runner ở P03, UI gói mới ở P04. Những mẫu cũ 14 ngày vẫn hoạt động theo hợp đồng cũ.
 
 ## 1. Hình dung bằng một ví dụ
 

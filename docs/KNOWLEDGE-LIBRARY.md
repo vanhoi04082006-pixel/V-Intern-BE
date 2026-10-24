@@ -1,6 +1,6 @@
 # Kho tri thức: soạn nội dung, duyệt phiên bản và giữ nguồn
 
-**Dành cho:** người quản trị nội dung và lập trình viên tiếp nhận Backend. Kho dùng chung cho các Agent đang được xây theo [lộ trình](../tasks/plan.md). K01–K03 đã có storage, API và giao diện, đạt local + CI và đang chạy local; [nguồn kiểm chứng](reports/knowledge-ui-20261024.md). Retrieval K04 chưa nghiệm thu. Một mục đã published chưa chứng minh các Agent hiện tại đã đọc mục đó.
+**Dành cho:** người quản trị nội dung và lập trình viên tiếp nhận Backend. Kho dùng chung cho các Agent theo [lộ trình](../tasks/plan.md). K01–K03 đã có storage/API/UI ([bằng chứng](reports/knowledge-ui-20261024.md)); K04 và Agent tri thức chỉ đọc đã nghiệm thu trong [G1](reports/agent-foundation-20261024.md). [P02 cung cấp 18 draft nội dung mẫu](MINI-PROJECT-CONTENT.md) cho nhiều consumer. Một mục đã published chưa chứng minh mọi AI nghiệp vụ hiện tại đã đọc mục đó hoặc đã được chuyển sang Agent.
 
 ## 1. Hiểu bằng một ví dụ
 
@@ -46,7 +46,7 @@ Chọn audience theo **nội dung**, không theo người đang đăng nhập:
 | `staff_only` | Nội dung vận hành nội bộ dành cho công việc của người quản lý |
 | `grading_only` | Có đáp án, lời giải hoặc rubric; bắt buộc với qa/solution/rubric |
 
-Phân loại này chưa tự cấp quyền gọi một Agent hoặc một tool. K04 sẽ xác định scope từ server, rồi lọc trạng thái/quyền trước khi tìm và xếp hạng nội dung.
+Phân loại này không tự cấp quyền gọi một Agent hoặc một tool. Retrieval K04 xác định scope từ server, rồi lọc trạng thái/quyền trước khi tìm và xếp hạng nội dung.
 
 ## 3. Thử API qua Swagger
 
@@ -81,7 +81,7 @@ Thực hiện theo thứ tự:
 }
 ```
 
-Ví dụ chỉ minh họa cấu trúc và thao tác; bộ nội dung chuyên môn dùng cho nghiệm thu sẽ được biên soạn/duyệt riêng ở P02. Không chạy các ví dụ tạo dữ liệu trên database muốn giữ trắng.
+Ví dụ chỉ minh họa cấu trúc và thao tác. [Bundle P02](MINI-PROJECT-CONTENT.md) có 18 draft đã kiểm cấu trúc để người phụ trách kiểm nguồn và duyệt riêng; export không tự publish. Không chạy các ví dụ tạo dữ liệu trên database muốn giữ trắng.
 
 ## 4. Soạn Q&A có nhiều hướng trả lời đúng
 
@@ -113,7 +113,7 @@ Draft cho phép chưa có nguồn hoặc chưa đủ Q&A để soạn tiếp. Pu
 | Lấy lại nội dung cũ | POST `/:code/restore` với `{version,sourceVersion}`. Chép nội dung cũ vào draft mới; không quay ngược số version |
 | Xuất bản lại bản archive | Restore thành draft, kiểm nội dung, rồi publish với version mới |
 
-Ví dụ: published 2 → sửa thành draft 3 → archive 4 → restore từ 2 thành draft 5 → publish 6. Revision 2 vẫn giữ nội dung và hash ban đầu. Khi K04 kết nối retrieval, run mới chỉ lấy current published; run đã chụp snapshot vẫn giữ nguồn của lần chạy trước.
+Ví dụ: published 2 → sửa thành draft 3 → archive 4 → restore từ 2 thành draft 5 → publish 6. Revision 2 vẫn giữ nội dung và hash ban đầu. Retrieval chỉ lấy current published cho lần đọc mới; run đã chụp snapshot vẫn giữ nguồn của lần chạy trước. Sửa thành draft không cho phép consumer tự đọc nội dung chưa duyệt.
 
 Nếu nhận **409 KNOWLEDGE_VERSION_CONFLICT**, người khác vừa sửa hoặc bạn đang giữ version cũ. Tải current, đối chiếu thay đổi rồi gửi lại version mới. Không tự ghi đè hoặc đổi version để bỏ qua nội dung người khác.
 

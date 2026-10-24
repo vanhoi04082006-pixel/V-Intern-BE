@@ -1,0 +1,79 @@
+{
+  "schemaVersion": 1,
+  "checkedAt": "2026-10-24T05:16:13.230Z",
+  "implementationSourceSha": "36393f3215c264fe6e18f7daf4bf44539b4a15ed",
+  "scope": "G2/P02 authored starter content and multi-Agent draft references; P03/P04 and business-Agent migration remain open",
+  "sourceHashes": {
+    "src/templates/mini-project-domains.ts": "35c44ecafc276d6e657d5d724bbe5cf9a298353d672b6e66edcd880cfe54e017",
+    "src/templates/mini-project-catalog.ts": "dd4b53d7dc0fe92d7a916c9bfeb1509d9c67ddce5ab6c6ad0e1d505491f18f02",
+    "src/templates/mini-project-seed.ts": "bbc6bdbf6edffe816e1a28502cb8a01f25005121c92bd6f8d9e05eeed00fec63",
+    "src/knowledge/mini-project-knowledge.ts": "f61186f893cea47bc34e12f44d6ebd438e6d23090d137516821ebdac9a3c6aa5"
+  },
+  "codeCi": {
+    "url": "https://github.com/vanhoi04082006-pixel/V-Intern-BE/actions/runs/40064643895",
+    "conclusion": "success",
+    "unitSuites": 90,
+    "unitTests": 734,
+    "commonSqlSuites": 33,
+    "commonSqlTests": 313,
+    "isolatedRetrievalTests": 8,
+    "isolatedMaterialMigrationTests": 4,
+    "isolatedCareerMigrationTests": 5
+  },
+  "localChecks": {
+    "unitSuites": 90,
+    "unitTests": 734,
+    "sqlSuites": 4,
+    "sqlTests": 39,
+    "newStarterSmokeCasesIncludedInUnit": 6,
+    "newSqlCasesIncludedInRegression": 9,
+    "build": "passed",
+    "lintErrors": 0,
+    "existingLintWarnings": 15,
+    "exportedKnowledgeDrafts": 18
+  },
+  "native": {
+    "activatedAt": "2026-10-24T05:09:18.267Z",
+    "readinessAt": "2026-10-24T05:14:38.722Z",
+    "databases": [
+      {
+        "database": "VIntern_M2_BROWSER",
+        "inserted": 6,
+        "miniTemplates": 6,
+        "miniRevisions": 6,
+        "assessments": 0,
+        "protectedCountsAndDigestsPreserved": true,
+        "filesProjectLocal": true
+      },
+      {
+        "database": "VIntern_Test_Learning_20261014",
+        "inserted": 6,
+        "miniTemplates": 6,
+        "miniRevisions": 6,
+        "assessments": 0,
+        "protectedCountsAndDigestsPreserved": true,
+        "filesProjectLocal": true
+      }
+    ],
+    "identitiesVerified": 7,
+    "originalBlankIdentitiesVerified": 3,
+    "identityScope": "Original and demo groups verified through password login on primary API; QA API health and both databases checked separately.",
+    "apiPortsHealthy": [
+      8080,
+      8081
+    ],
+    "frontendReadOnlySmoke": {
+      "port": 3001,
+      "route": "/instructor/projects",
+      "status": 200
+    },
+    "knowledgePublishedByThisChange": false
+  },
+  "limitations": [
+    "Starters intentionally contain exercise TODOs; not reference solutions.",
+    "No trusted solution/faulty-variant/hidden-suite execution in this slice.",
+    "No new package-authoring frontend UI.",
+    "No claim all business AIs use the exported knowledge or have been migrated.",
+    "Initial SQL-preview timeout and initial HTTP-login timeout are preserved; reruns passed unchanged."
+  ]
+}
