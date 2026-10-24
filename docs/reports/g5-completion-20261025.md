@@ -34,4 +34,6 @@ Kết nối thực tế của tài khoản chung `hbuivanhoi6-stack` cần đư�
 
 CI G4 trước đó đã xanh ở [BE #7](https://github.com/vanhoi04082006-pixel/V-Intern-BE/pull/7) và [FE #17](https://github.com/vanhoi04082006-pixel/V-Intern-FE/pull/17). G5 cần gate riêng trên cặp commit mới; không suy diễn từ G4.
 
+Lần CI G5 đầu phát hiện hai suite SMTP cùng dùng một outbox làm worker đọc nhầm fixture của suite khác. Gate G5 đã được tách sang DB disposable riêng (`96`), vẫn chạy bắt buộc cùng pipeline. Nhóm G3/G4/communications giữ nguyên; không bỏ assertion, giảm số test hoặc tăng timeout.
+
 Đọc [hướng dẫn GitHub](../GITHUB-INVITATIONS.md) để thao tác và [kế hoạch G5](../../tasks/g5-execution.md) để xem tiêu chí còn lại.
