@@ -382,8 +382,8 @@ jobs:
 
       - name: G5 invitation migration — populated legacy rows and protected audit rollback
         env:
-          DB_NAME: VIntern_E2E_CI_${{ github.run_id }}_${{ github.run_attempt }}95
-          E2E_DB_NAME: VIntern_E2E_CI_${{ github.run_id }}_${{ github.run_attempt }}95
+          DB_NAME: VIntern_E2E_CI_${{ github.run_id }}_${{ github.run_attempt }}97
+          E2E_DB_NAME: VIntern_E2E_CI_${{ github.run_id }}_${{ github.run_attempt }}97
           DB_ADMIN_USERNAME: sa
           DB_ADMIN_PASSWORD: ${{ env.SA_PASSWORD }}
           DB_PASSWORD: ${{ env.APP_PASSWORD }}
