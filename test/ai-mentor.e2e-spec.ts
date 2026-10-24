@@ -1,4 +1,6 @@
 import { createDatabaseSql } from '../src/database/create-database-sql';
+import { scriptedBusinessDecision } from './fixtures/business-agent-provider';
+import migrationSource from '../src/database/data-source';
 import { createConnection } from 'node:net';
 import { hash } from 'bcryptjs';
 import { INestApplication, ValidationPipe, VersioningType } from '@nestjs/common';
@@ -66,10 +68,12 @@ class ScriptableTestAiProvider implements AiProvider {
   }
 
   async generateStructured<T>(req: {
+    task: string;
     validate: (raw: unknown) => T;
     systemPrompt: string;
     input: Record<string, unknown>;
   }): Promise<{ data: T; provider: string; model: string; latencyMs: number; inputTokens: number | null; outputTokens: number | null }> {
+    const control = scriptedBusinessDecision(req, this.name, this.model); if (control) return control;
     const step = this.queue.shift();
     this.calls.push({ input: req.input, systemPrompt: req.systemPrompt });
     if (!step) throw new Error('TestAIProvider: no scripted step (test bug)');
@@ -169,6 +173,9 @@ beforeAll(async () => {
     synchronize: false, logging: false, entities: ENTITIES, migrationsRun: false,
   });
   await dataSource.initialize();
+  const migrationOptions = migrationSource.options; if (migrationOptions.type !== 'mssql') throw Error('SQL Server fixture required.');
+  const migrations = new DataSource({ ...migrationOptions, database: DB_NAME });
+  await migrations.initialize(); await migrations.runMigrations(); await migrations.destroy();
 
   testProvider = new ScriptableTestAiProvider();
 

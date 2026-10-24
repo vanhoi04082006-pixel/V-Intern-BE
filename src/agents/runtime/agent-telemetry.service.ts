@@ -4,6 +4,7 @@ import { randomUUID } from 'crypto';
 import { Client } from 'langsmith';
 import { AgentStateStore } from './agent-state.store';
 import { knowledgeAssistant } from '../definitions/knowledge-assistant.definition';
+import { BUSINESS_AGENTS } from '../definitions/business-agents';
 
 const events = ['started', 'model', 'tool', 'succeeded', 'failed', 'cancelled'] as const;
 type AgentEvent = typeof events[number];
@@ -19,8 +20,8 @@ export function safeAgentEvent(input: Record<string, unknown>): Record<string, u
   if (typeof input.status === 'string' && ['queued', 'running', 'succeeded', 'failed', 'cancelled'].includes(input.status)) safe.status = input.status;
   if (typeof input.errorCode === 'string' && /^(AGENT|AI|KNOWLEDGE)_[A-Z_]{1,55}$/.test(input.errorCode)) safe.errorCode = input.errorCode;
   if (typeof input.model === 'string' && /^gemini-[a-z0-9.-]{1,60}$/.test(input.model)) safe.model = input.model;
-  if (input.promptVersion === knowledgeAssistant.promptVersion) safe.promptVersion = input.promptVersion;
-  if (input.policyVersion === knowledgeAssistant.policyVersion) safe.policyVersion = input.policyVersion;
+  if (input.promptVersion === knowledgeAssistant.promptVersion || BUSINESS_AGENTS.some(agent => agent.promptVersion === input.promptVersion)) safe.promptVersion = input.promptVersion;
+  if ([knowledgeAssistant.policyVersion, 'business-agent-v1'].includes(String(input.policyVersion))) safe.policyVersion = input.policyVersion;
   if (Array.isArray(input.knowledgeHashes)) safe.knowledgeHashes = input.knowledgeHashes.filter((hash): hash is string => typeof hash === 'string' && /^[a-f0-9]{64}$/.test(hash)).slice(0, 15);
   return safe;
 }
@@ -44,11 +45,11 @@ export class AgentTelemetry {
     if (!this.client) return;
     let accepted = true, errorCode: string | null = null;
     try {
-      const [root]: Array<{ createdAt: Date; starts: number }> = await this.state.db.query("SELECT createdAt,(SELECT COUNT(*) FROM agent_events WHERE runId=@0 AND eventType='started') starts FROM agent_runs WHERE id=@0", [runId]);
+      const [root]: Array<{ createdAt: Date; starts: number; agentId: string; agentVersion: string }> = await this.state.db.query("SELECT createdAt,agentId,agentVersion,(SELECT COUNT(*) FROM agent_events WHERE runId=@0 AND eventType='started') starts FROM agent_runs WHERE id=@0", [runId]);
       const rootId = runId.toLowerCase(), rootOrder = traceOrder(new Date(root.createdAt).getTime(), rootId), isRoot = event === 'started' && root.starts === 1;
       await this.client.createRun({ id: isRoot ? rootId : id, trace_id: rootId, dotted_order: isRoot ? rootOrder : `${rootOrder}.${traceOrder(now, id)}`,
         ...(isRoot ? {} : { parent_run_id: rootId }), name: `vintern-agent-${event}`, run_type: 'chain', project_name: this.project,
-        inputs: { agent: knowledgeAssistant.id, version: knowledgeAssistant.version }, outputs: safe,
+        inputs: { agent: root.agentId, version: root.agentVersion }, outputs: safe,
         start_time: isRoot ? new Date(root.createdAt).getTime() : now, ...(isRoot ? {} : { end_time: now }), extra: { metadata: { correlationId: rootId, ...safe } } });
       if (['succeeded', 'failed', 'cancelled'].includes(event)) await this.client.updateRun(rootId, { end_time: now, outputs: safe });
     } catch (error) { accepted = false; errorCode = error && typeof error === 'object' && 'status' in error && typeof error.status === 'number' ? `HTTP_${error.status}` : 'TELEMETRY_UNAVAILABLE'; }

@@ -155,6 +155,7 @@ export class RecruitmentEvaluationService {
       const roleLabel = await this.careerRoles.label(session.roleCode);
       const aiResult = await this.aiService.generateStructuredWithRun<RecruitmentEvaluationData>({
         feature: RECRUITMENT_EVALUATION_TASK,
+        intentId: session.id,
         userId: session.userId,
         resourceType: 'interview_session',
         resourceId: session.id,

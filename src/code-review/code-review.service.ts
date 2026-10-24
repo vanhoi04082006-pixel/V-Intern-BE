@@ -190,7 +190,9 @@ export class CodeReviewService {
       );
       const output = await this.ai.generateStructuredWithRun({
         feature: "code_review",
+        intentId: reviewId,
         userId: submission.internId,
+        actorId: principal.userId,
         resourceType: "task_submission",
         resourceId: id,
         promptVersion: "code-review-v2",

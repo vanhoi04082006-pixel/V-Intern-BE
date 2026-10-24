@@ -1,4 +1,5 @@
 import { createDatabaseSql } from '../src/database/create-database-sql';
+import { scriptedBusinessDecision } from './fixtures/business-agent-provider';
 import { createConnection } from 'node:net';
 import { hash } from 'bcryptjs';
 import { randomUUID } from 'crypto';
@@ -33,6 +34,7 @@ class ScriptableTestAiProvider implements AiProvider {
     task: string;
     validate: (raw: unknown) => T;
   }): Promise<{ data: T; provider: string; model: string; latencyMs: number; inputTokens: number | null; outputTokens: number | null }> {
+    const control = scriptedBusinessDecision(req, this.name, this.model); if (control) return control;
     const step = this.steps.shift();
     if (!step) throw new Error('No scripted AI step left');
     if (step.wait) await step.wait;

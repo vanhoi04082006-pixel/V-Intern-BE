@@ -39,6 +39,14 @@ export class PermissionsService {
   }
 
   /** True when the user holds the named role DIRECTLY or via a group. */
+  async accessSnapshot(userId: string) {
+    const roleIds = await this.getEffectiveRoleIds(userId);
+    if (!roleIds.length) return { roles: new Set<string>(), permissions: new Set<string>() };
+    const [roles, grants] = await Promise.all([this.roles.find({ where: roleIds.map(id => ({ id })) }), this.getRolePermissionCodes(roleIds)]);
+    return { roles: new Set(roles.map(role => role.code)), permissions: new Set([...grants.values()].flatMap(codes => [...codes])) };
+  }
+
+  /** True when the user holds the named role DIRECTLY or via a group. */
   async hasRole(userId: string, roleCode: string): Promise<boolean> {
     const roleIds = await this.getEffectiveRoleIds(userId);
     if (roleIds.length === 0) return false;

@@ -1,4 +1,5 @@
 import { createDatabaseSql } from '../src/database/create-database-sql';
+import { scriptedBusinessDecision } from './fixtures/business-agent-provider';
 import { createConnection } from 'node:net';
 import { hash } from 'bcryptjs';
 import { INestApplication, ValidationPipe, VersioningType } from '@nestjs/common';
@@ -71,6 +72,7 @@ class ScriptableTestAiProvider implements AiProvider {
     systemPrompt: string;
     input: Record<string, unknown>;
   }): Promise<{ data: T; provider: string; model: string; latencyMs: number; inputTokens: number | null; outputTokens: number | null }> {
+    const control = scriptedBusinessDecision(req, this.name, this.model); if (control) return control;
     this.calls.push({ input: req.input, systemPrompt: req.systemPrompt });
     if (req.task === 'interview_follow_up') {
       const needsFollowUp = this.askFollowUp;

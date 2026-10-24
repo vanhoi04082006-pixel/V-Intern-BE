@@ -58,3 +58,11 @@ it('accepts a run, returns its real completion and blocks cross-user reads', asy
   await request(app.getHttpServer()).post(`${url}/${id}/resume`).auth(admin, { type: 'bearer' }).expect(409);
   expect(response.body).not.toHaveProperty('inputJson');
 });
+it('keeps knowledge-run HTTP operations isolated from business runs owned by the same Admin', async () => {
+  const actor = app.get(JwtService).verify<{ sub: string }>(admin).sub;
+  const state = app.get(AgentStateStore), row = await state.create({ actorId: actor, requestId: randomUUID(), agentId: 'code-reviewer', agentVersion: '1', promptVersion: 'business-code-reviewer-v1', policyVersion: 'business-agent-v1', input: { feature: 'code_review' } });
+  await request(app.getHttpServer()).get(`${url}/${row.id}`).auth(admin, { type: 'bearer' }).expect(404);
+  await request(app.getHttpServer()).post(`${url}/${row.id}/cancel`).auth(admin, { type: 'bearer' }).expect(404);
+  await request(app.getHttpServer()).post(`${url}/${row.id}/resume`).auth(admin, { type: 'bearer' }).expect(404);
+  expect((await state.get(actor, row.id)).status).toBe('queued');
+});

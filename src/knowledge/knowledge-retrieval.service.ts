@@ -9,7 +9,7 @@ import { RecruitmentProfile } from '../recruitment/entities/recruitment-profile.
 import { InterviewSession } from '../recruitment/entities/interview-session.entity';
 import { CareerRole } from '../career-roles/entities/career-role.entity';
 import type { KnowledgeSnapshot } from './knowledge.contracts';
-import { allowedKnowledge, packKnowledge, retrievalPolicy, retrievalQuery, type KnowledgeConsumer, type RetrievalCandidate } from './knowledge-retrieval.policy';
+import { allowedKnowledge, packKnowledge, retrievalPolicy, retrievalQuery, type KnowledgeConsumer, type RetrievalCandidate, type RetrievalPolicy } from './knowledge-retrieval.policy';
 
 export interface KnowledgeTarget { projectId?: string; interviewId?: string; roleCode?: string }
 const uuid = (value: unknown): value is string => typeof value === 'string' && /^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/i.test(value);
@@ -74,7 +74,12 @@ export class KnowledgeRetrievalService {
   }
 
   async search(actorId: string, consumer: KnowledgeConsumer, target: KnowledgeTarget, query: string) {
-    const { policy, roleCodes } = await this.resolve(actorId, consumer, target), { terms } = retrievalQuery(query);
+    const scope = await this.resolve(actorId, consumer, target);
+    return this.searchAuthorizedScope(scope, query);
+  }
+  /** Server-only port: business workflow has already revalidated actor/resource; never expose scope as HTTP/model arguments. */
+  async searchAuthorizedScope({ policy, roleCodes }: { policy: RetrievalPolicy; roleCodes: string[] }, query: string) {
+    const { terms } = retrievalQuery(query);
     const parameters: unknown[] = [JSON.stringify(policy.audiences), JSON.stringify(policy.kinds), policy.purpose, JSON.stringify(roleCodes)];
     const scores = terms.map(term => {
       const index = parameters.push(term) - 1;

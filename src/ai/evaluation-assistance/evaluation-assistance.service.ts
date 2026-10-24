@@ -191,6 +191,7 @@ export class EvaluationAssistanceService {
       const result = await generateSuggestionWithRepair(this.aiService, {
         feature: EVALUATION_ASSISTANCE_TASK,
         userId: evaluation.internId,
+        actorId: principal.userId,
         resourceType: 'evaluation',
         resourceId: evaluation.id,
         promptVersion: EVALUATION_ASSISTANCE_PROMPT_VERSION,

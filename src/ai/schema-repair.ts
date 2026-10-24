@@ -4,7 +4,7 @@ import { AiInvalidResponseError } from './ai-errors';
 
 /** Exactly one new audited call for malformed output; no timeout/auth retry multiplication. */
 export async function generateWithSchemaRepair<T>(ai: AiService, params: {
-  feature: string; userId: string | null; resourceType: string; resourceId: string; promptVersion: string;
+  feature: string; userId: string | null; actorId?: string; intentId?: string; resourceType: string; resourceId: string; promptVersion: string;
   request: AiStructuredRequest<T>;
 }, repairInstruction: string) {
   try { return await ai.generateStructuredWithRun<T>(params); }

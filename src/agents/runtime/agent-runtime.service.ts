@@ -36,8 +36,14 @@ export class AgentRuntimeService implements OnModuleInit, OnModuleDestroy {
       promptVersion: knowledgeAssistant.promptVersion, policyVersion: knowledgeAssistant.policyVersion, input: parsed.data });
     return this.view(row);
   }
-  async get(actor: string, id: string) { await this.tools.authorize(actor); return this.view(await this.state.get(actor, id)); }
-  async cancel(actor: string, id: string) { await this.tools.authorize(actor); return this.view(await this.state.cancel(actor, id)); }
+  private async knowledgeRun(actor: string, id: string) {
+    await this.tools.authorize(actor);
+    const row = await this.state.get(actor, id);
+    if (row.agentId !== knowledgeAssistant.id) throw new AgentRuntimeError('AGENT_RUN_NOT_FOUND');
+    return row;
+  }
+  async get(actor: string, id: string) { return this.view(await this.knowledgeRun(actor, id)); }
+  async cancel(actor: string, id: string) { await this.knowledgeRun(actor, id); return this.view(await this.state.cancel(actor, id)); }
   private view(row: AgentRunRecord) {
     return { id: row.id, requestId: row.requestId, agentId: row.agentId, agentVersion: row.agentVersion, status: row.status, steps: row.stepCount, attempts: row.attempts,
       inputTokens: row.inputTokens, outputTokens: row.outputTokens, errorCode: row.errorCode, retryable: row.retryable,

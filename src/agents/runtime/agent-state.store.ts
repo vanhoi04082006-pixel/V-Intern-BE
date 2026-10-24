@@ -122,6 +122,6 @@ export class AgentStateStore {
   }
   async recoverable() {
     await this.db.query("UPDATE agent_runs SET status='failed',errorCode='AGENT_RUN_EXPIRED',retryable=0,leaseOwner=NULL,leaseExpiresAt=NULL WHERE deadlineAt<=SYSUTCDATETIME() AND status IN('queued','running','paused')");
-    return this.db.query("SELECT TOP (4) id,actorId FROM agent_runs WHERE deadlineAt>SYSUTCDATETIME() AND (status='queued' OR (status='running' AND leaseExpiresAt<=SYSUTCDATETIME())) ORDER BY createdAt,id") as Promise<Array<{id:string;actorId:string}>>;
+    return this.db.query("SELECT TOP (4) id,actorId FROM agent_runs WHERE agentId='knowledge-assistant' AND deadlineAt>SYSUTCDATETIME() AND (status='queued' OR (status='running' AND leaseExpiresAt<=SYSUTCDATETIME())) ORDER BY createdAt,id") as Promise<Array<{id:string;actorId:string}>>;
   }
 }

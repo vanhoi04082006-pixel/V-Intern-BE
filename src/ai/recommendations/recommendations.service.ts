@@ -126,6 +126,7 @@ export class RecommendationsService {
       const result = await generateRecommendationWithRepair(this.aiService, {
         feature: RECOMMENDATION_TASK,
         userId: targetUserId,
+        actorId: principal.userId,
         resourceType: 'ai_recommendation_snapshot',
         resourceId: targetUserId,
         promptVersion: RECOMMENDATION_PROMPT_VERSION,
