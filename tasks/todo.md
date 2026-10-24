@@ -158,16 +158,17 @@ Khi thực hiện, mỗi task bổ sung cột/ngày ghi nhận: `commit FE/BE �
 
 ## G5. GitHub — M12
 
-- [ ] H01. Invitation state và đối chiếu collaborator thật.
+- [x] H01 local. Invitation state và đối chiếu collaborator theo hợp đồng GitHub; live đang chờ kết nối lại.
   - Đạt khi: tách pending/accepted/expired/failed/not_connected; lưu invitation ID và timestamp; bám numeric user ID.
   - Kiểm: GitHub contract 201/204/403/404/rate limit và identity mismatch. File: BE github contracts/migration/service/tests.
-- [ ] H02. Mời lại từng người và batch có giới hạn.
+- [x] H02 local. Mời lại từng người và batch có giới hạn; live đang chờ kết nối lại.
   - Đạt khi: pending không tạo trùng, accepted không spam, expired/lỗi có recovery; cooldown và audit.
   - Kiểm: double-click/concurrency/token đổi/owner đổi/invite hết hạn. Phụ thuộc H01.
-- [ ] H03. Email/in-app theo chủ đề và UI nhận/mời lại.
+- [x] H03 local. Email/in-app theo chủ đề và UI nhận/mời lại; SMTP loopback thật đã qua.
   - Đạt khi: đúng phiên/project/repo/người nhận; CTA chính xác; role sinh viên không tự mời người khác.
   - Kiểm: preview + FE/RBAC + SMTP live riêng; ghi rõ email native GitHub không tùy biến. Phụ thuộc H02/E02.
 - [ ] H04. Webhook live và đường đối chiếu khi mất event.
+  - Trạng thái 25/10: regression HMAC/dedup/scope đạt. GitHub tài khoản chung trả `GITHUB_RECONNECT_REQUIRED`; đã yêu cầu kết nối lại, chưa mở tunnel và chưa có delivery live G5. [Báo cáo và manifest](../docs/reports/g5-completion-20261025.md).
   - Đạt khi: HTTPS giới hạn route, HMAC, dedup, repo scope; có delivery GitHub thật và sự kiện BE.
   - Kiểm: unsigned/wrong repo/replay và live ping/event; không coi E2E ký tay là live. Phụ thuộc H01; cấu hình endpoint riêng, không mở API toàn bộ.
 
@@ -216,7 +217,7 @@ Khi thực hiện, mỗi task bổ sung cột/ngày ghi nhận: `commit FE/BE �
 - [x] G1: role động + retrieval scope + Agent tool/state/trace được chứng minh. Code `e87166e`; [ma trận nghiệm thu, số liệu và giới hạn](../docs/reports/agent-foundation-20261024.md).
 - [x] G2: nội dung/mẫu nhỏ được kiểm; toàn bộ AI cũ đã map và regression. BE `bb67573` / FE `958691a`; [báo cáo và giới hạn](../docs/reports/g2-completion-20261024.md).
 - [x] G3 local: CV→role→slot→hai email, đúng identity và không trùng tác dụng phụ. [Kết quả và giới hạn](../docs/reports/g3-completion-20261024.md); provider ngoài/mail ngoài chưa nghiệm thu.
-- [x] G4 local: lịch, mốc 15 phút, 3 lượt và ranh giới 50/70 đạt. [Báo cáo và nguồn kiểm chứng](../docs/reports/g4-completion-20261025.md); CI remote được theo dõi riêng, chưa merge.
+- [x] G4: lịch, mốc 15 phút, 3 lượt và ranh giới 50/70 đạt. [Báo cáo và nguồn kiểm chứng](../docs/reports/g4-completion-20261025.md); CI BE #7 và FE #17 (quality + SQL2019) xanh, chưa merge.
 - [ ] G5: mời/nhận/mời lại GitHub, branded mail và webhook live đạt hoặc ghi BLOCKED rõ.
 - [ ] G6: policy đúng và giảng viên tự quyết thay người; dữ liệu/quyền repo giữ nhất quán.
 - [ ] G7: tài liệu có nguồn, demo hai vai, code/doc đã push, CI/evidence cùng commit pair.

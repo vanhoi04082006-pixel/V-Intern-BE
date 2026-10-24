@@ -1,5 +1,7 @@
 # V-Intern Backend
 
+**G5 — GitHub:** [lời mời, quyền cộng tác và cách mời lại](docs/GITHUB-INVITATIONS.md) · [kết quả local và phụ thuộc live](docs/reports/g5-completion-20261025.md).
+
 **G4 — phỏng vấn theo lịch:** [phòng chờ, mốc 15 phút, ba lượt và hẹn lại có audit](docs/SCHEDULED-INTERVIEWS.md) · [kiểm chứng và giới hạn](docs/reports/g4-completion-20261025.md).
 
 **G3 — nhận CV và lịch hẹn:** [hướng dẫn sử dụng, Agent, tài khoản và email local](docs/CV-AND-INTERVIEW-SCHEDULING.md) · [nghiệm thu và giới hạn](docs/reports/g3-completion-20261024.md).

@@ -1,0 +1,108 @@
+{
+  "manifestCreatedAtUtc": "2026-10-24T22:52:08.843Z",
+  "userFacingDate": "25/10/2026 UTC+7",
+  "backendCodeCommit": "3fac5f1bae7f5d46e1e305c41c48216b1a550fd9",
+  "frontendCodeCommit": "f2b087b136ea93c23777dec6aaf153d5959140bc",
+  "groups": {
+    "backendUnit": {
+      "suites": 102,
+      "tests": 788
+    },
+    "githubSql": {
+      "suites": 3,
+      "tests": 29
+    },
+    "migration": {
+      "tests": 2
+    },
+    "frontendUnit": {
+      "files": 100,
+      "tests": 610
+    },
+    "browser": {
+      "flows": 3,
+      "pageErrors": 0,
+      "checkedAtUtc": "2026-10-24T22:50:43.049Z",
+      "widths": [
+        390,
+        768,
+        1440
+      ]
+    },
+    "smtp": "Real protocol to test-owned loopback sink; not external inbox delivery"
+  },
+  "githubLive": {
+    "status": "awaiting_reconnect",
+    "code": "GITHUB_RECONNECT_REQUIRED",
+    "owner": "hbuivanhoi6-stack",
+    "webhookLive": "Not accepted at G5; no signed test is presented as live delivery"
+  },
+  "remoteCI": "Pending G5 publication; G4 checks passed separately",
+  "sources": [
+    {
+      "path": ".runtime/g5-be-unit-final.log",
+      "sha256": "bd22e4c731c3c7ce0cae344ca202840c9d775fd6e33875f262bc798e7685fce6",
+      "lastModifiedAtUtc": "2026-10-24T22:17:47.539Z"
+    },
+    {
+      "path": ".runtime/g5-be-build-final.log",
+      "sha256": "7d3397f421b7573134296da1f550f75fb00da6deea3ef32bf14a326c566f4adc",
+      "lastModifiedAtUtc": "2026-10-24T22:17:48.306Z"
+    },
+    {
+      "path": ".runtime/g5-be-lint-final.log",
+      "sha256": "30076a1d7de6709d759fb55d6551c1ecd4f51839c91643f9c90595e41d9af26a",
+      "lastModifiedAtUtc": "2026-10-24T22:18:24.424Z"
+    },
+    {
+      "path": ".runtime/g5-domain-sql-final.log",
+      "sha256": "c6bb41ff183f1a34f3380dc3b69bf7231cf18eb9ea0e318aa3a3b407c2844c68",
+      "lastModifiedAtUtc": "2026-10-24T22:14:19.362Z"
+    },
+    {
+      "path": ".runtime/g5-migration.log",
+      "sha256": "51dc51952a98bcc063ab33de65b7f8d1a297b358e7a3cb4cba5d1b3cf9222a1f",
+      "lastModifiedAtUtc": "2026-10-24T22:06:36.789Z"
+    },
+    {
+      "path": ".runtime/g5-fe-unit-final.log",
+      "sha256": "b179cc75059b4da4d4e77949a07992cc5b6b1063d84f51623ef40e8fd80a9187",
+      "lastModifiedAtUtc": "2026-10-24T22:41:16.364Z"
+    },
+    {
+      "path": ".runtime/g5-fe-typecheck-final.log",
+      "sha256": "8041268fb6d70d4bda74549f8806ced8b30c7b022e35d0c9972ff60c0a7e360c",
+      "lastModifiedAtUtc": "2026-10-24T22:39:50.664Z"
+    },
+    {
+      "path": ".runtime/g5-fe-lint-final.log",
+      "sha256": "75d7fd14924d3a0e130f015263235d4e76e5a4e443bd324cdb7b5bf3ba912b1e",
+      "lastModifiedAtUtc": "2026-10-24T22:40:02.853Z"
+    },
+    {
+      "path": ".runtime/g5-fe-build-final.log",
+      "sha256": "7145a6f24074719f721a351a92333bc7e88c4a4aa901686de5f5230642899ca4",
+      "lastModifiedAtUtc": "2026-10-24T22:41:28.269Z"
+    },
+    {
+      "path": ".runtime/g5-browser-final.log",
+      "sha256": "3c6ed1e59bb61ce6d84134677876653597f1b7988840c8d7ee589fc6b9e4ec54",
+      "lastModifiedAtUtc": "2026-10-24T22:50:43.073Z"
+    },
+    {
+      "path": ".runtime/g5-github-live.log",
+      "sha256": "d6ab2f1c009dc9308edd1a27c86651f07bdae14df7dbd8d4aed0a05e9f23ec9d",
+      "lastModifiedAtUtc": "2026-10-24T22:23:26.871Z"
+    },
+    {
+      "path": "manual-runtime/g5-20261025/browser-result.json",
+      "sha256": "d6f8d522bcbe313e2f1840f5a67314a4d402e42291b20e806ec7f91c077fe51d",
+      "lastModifiedAtUtc": "2026-10-24T22:50:43.071Z"
+    },
+    {
+      "path": "manual-runtime/g5-20261025/native-activation.json",
+      "sha256": "71075d07a24b50dc265d6fb0c116ac18b3236b52b5b3bcc4a9d8abe81fb8a6d9",
+      "lastModifiedAtUtc": "2026-10-24T22:19:32.390Z"
+    }
+  ]
+}
