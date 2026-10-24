@@ -1,3 +1,4 @@
+import { CreateApplications1763241600000 } from './migrations/1763241600000-CreateApplications';
 import { CreateCommunications1763155200000 } from './migrations/1763155200000-CreateCommunications';
 import { CreateCareerRoles1762636800000 } from './migrations/1762636800000-CreateCareerRoles';
 import { CreateKnowledgeLibrary1762809600000 } from './migrations/1762809600000-CreateKnowledgeLibrary';
@@ -103,5 +104,6 @@ export default new DataSource({
     CreateAgentRuntime1762982400000,
     CreateTemplateMaterials1763068800000,
     CreateCommunications1763155200000,
+    CreateApplications1763241600000,
   ],
 });

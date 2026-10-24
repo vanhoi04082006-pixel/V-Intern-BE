@@ -18,6 +18,7 @@ declare global {
 }
 
 export interface SessionUser {
+  mustChangePassword?: boolean;
   id: string;
   email: string;
   displayName: string;

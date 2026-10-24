@@ -4,7 +4,6 @@ import source from '../src/database/data-source';
 import { CreateTemplateMaterials1763068800000 } from '../src/database/migrations/1763068800000-CreateTemplateMaterials';
 import { ensureRbac } from '../src/bootstrap/ensure-rbac';
 import { LEGACY_LEARNING_LIBRARY } from '../src/templates/learning-library';
-import { User } from '../src/users/entities/user.entity';
 import { Project } from '../src/projects/entities/project.entity';
 import { InternshipSession } from '../src/sessions/entities/internship-session.entity';
 let db: DataSource, before: unknown, emptyRoundTrip = false;
@@ -25,7 +24,8 @@ beforeAll(async () => {
     await db.query('DELETE rp FROM role_permissions rp JOIN permissions p ON p.id=rp.permissionId WHERE p.code=@0', [code]);
     await db.query('DELETE FROM permissions WHERE code=@0', [code]);
   }
-  await db.getRepository(User).insert({ id: actor, email: `${actor}@migration.test`, username: actor, displayName: 'Migration verification', passwordHash: 'not-a-login-hash', status: 'active' });
+  // Seed the historical schema explicitly; current User metadata includes later G3 auth columns.
+  await db.query("INSERT INTO users(id,email,username,displayName,passwordHash,status) VALUES(@0,@1,@0,N'Migration verification','not-a-login-hash','active')", [actor, `${actor}@migration.test`]);
   await db.query("INSERT INTO project_templates(id,code,name,difficulty,definitionJson,version,createdById) VALUES(@0,'P01-LEGACY',N'Mẫu cũ','beginner',@1,3,@2)", [template, json, actor]);
   await db.getRepository(Project).insert({ id: project, code: 'P01-MIG-P', name: 'Old project', description: 'Historical project kept through the migration.', difficulty: 'beginner', status: 'active', mentorId: actor });
   await db.getRepository(InternshipSession).insert({ id: session, code: 'P01-MIG-S', name: 'Old session', status: 'upcoming', leadInstructorId: actor, startDate: new Date('2027-02-01'), endDate: new Date('2027-02-10') });

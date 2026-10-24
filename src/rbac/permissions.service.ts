@@ -151,6 +151,7 @@ export class PermissionsService {
         ? await this.permissions.find({ where: { id: In(permissionIds) } })
         : [];
     return {
+      ...(user.mustChangePassword ? { mustChangePassword: true } : {}),
       id: user.id,
       email: user.email,
       displayName: user.displayName,
