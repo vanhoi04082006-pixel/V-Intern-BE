@@ -1,6 +1,6 @@
 # Tra cứu field của DTO
 
-Sinh từ cùng OpenAPI lúc **2026-10-23T21:35:13.266Z**, Backend M02 bf3118693c782c145a87d4348212344396ce3526. Phản ánh field được khai báo trong Swagger; [hướng dẫn kho tri thức](../KNOWLEDGE-LIBRARY.md) và validation/service quy định điều kiện nghiệp vụ. Field optional không đồng nghĩa được sửa ở mọi trạng thái.
+Sinh từ cùng OpenAPI lúc **2026-10-24T11:59:24.423Z**, Backend G2 bb67573a38880239d13cea6d0b8dfdb662fa2891. Phản ánh field được khai báo trong Swagger; [hướng dẫn kho tri thức](../KNOWLEDGE-LIBRARY.md) và validation/service quy định điều kiện nghiệp vụ. Field optional không đồng nghĩa được sửa ở mọi trạng thái.
 
 ## Mục lục schema
 
@@ -25,6 +25,7 @@ Sinh từ cùng OpenAPI lúc **2026-10-23T21:35:13.266Z**, Backend M02 bf3118693
 - [CreateEvaluationCycleDto](#createevaluationcycledto)
 - [CreateEvaluationDto](#createevaluationdto)
 - [CreateGroupDto](#creategroupdto)
+- [CreateKnowledgeAgentDto](#createknowledgeagentdto)
 - [CreateKnowledgeDto](#createknowledgedto)
 - [CreateKpiPeriodDto](#createkpiperioddto)
 - [CreateMilestoneDto](#createmilestonedto)
@@ -243,6 +244,14 @@ Sinh từ cùng OpenAPI lúc **2026-10-23T21:35:13.266Z**, Backend M02 bf3118693
 | name | string | Có | minLength: 1; maxLength: 128 |
 | description | string | Không | maxLength: 512 |
 
+## CreateKnowledgeAgentDto
+
+| Field | Kiểu | Bắt buộc | Giới hạn / ý nghĩa |
+|---|---|---|---|
+| requestId | string (uuid) | Có | Client-generated UUID; reuse only for the identical request. |
+| question | string | Có | minLength: 3; maxLength: 1000 |
+| roleCode | string | Không | Published career code; this never grants an authorization role. |
+
 ## CreateKnowledgeDto
 
 | Field | Kiểu | Bắt buộc | Giới hạn / ý nghĩa |
@@ -349,6 +358,8 @@ Sinh từ cùng OpenAPI lúc **2026-10-23T21:35:13.266Z**, Backend M02 bf3118693
 
 | Field | Kiểu | Bắt buộc | Giới hạn / ý nghĩa |
 |---|---|---|---|
+| learningPackage | object | Không | Public small-project package v1: prerequisites/setup/run/starterFiles/sampleData. Strict domain schema; see SPEC-small-project-library.md. |
+| assessment | object / null | Không | Staff-only assessment v1. Persisted separately, never in public definition or run snapshot. |
 
 ## CreateUserDto
 
@@ -736,6 +747,7 @@ Sinh từ cùng OpenAPI lúc **2026-10-23T21:35:13.266Z**, Backend M02 bf3118693
 
 | Field | Kiểu | Bắt buộc | Giới hạn / ý nghĩa |
 |---|---|---|---|
+| assessment | object / null | Không | Omit to preserve, set null to remove only in the new version. Requires templates.assessment.manage. |
 
 ## UpdateUserDto
 

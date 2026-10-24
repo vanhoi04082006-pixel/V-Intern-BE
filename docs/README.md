@@ -1,5 +1,7 @@
 # Tài liệu V-Intern Backend
 
+[Thư viện bài nhỏ và bảy Agent — bàn giao G2](AGENTS-AND-MINI-PROJECTS.md) giải thích version, nguồn tri thức, quyền, checkpoint, runner và cách cài nội dung mà giữ dữ liệu đang có.
+
 Demo trước giảng viên: [checklist ngắn](DEMO-CHECKLIST.md) → [hướng dẫn chi tiết](DEMO-GUIDE.md). Bản GitHub không chứa mật khẩu tài khoản bảo vệ.
 
 > Bộ bàn giao theo lộ trình đọc: [HANDOVER](HANDOVER.md). Trang này là chương tra cứu chuyên sâu; kết quả chạy thực tế xem [VERIFICATION](VERIFICATION.md).

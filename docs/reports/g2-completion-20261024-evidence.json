@@ -1,0 +1,800 @@
+{
+  "checkedAt": "2026-10-24T12:02:27.544Z",
+  "backendCodeSha": "bb67573a38880239d13cea6d0b8dfdb662fa2891",
+  "frontendCodeSha": "958691a803f66d636e4e279ba584604c7070dded",
+  "local": {
+    "beUnit": {
+      "suites": 93,
+      "tests": 750
+    },
+    "feUnit": {
+      "files": 92,
+      "tests": 591
+    },
+    "sql": {
+      "shared": {
+        "suites": 33,
+        "tests": 315
+      },
+      "businessAndHttp": {
+        "suites": 2,
+        "tests": 12
+      },
+      "retrieval": {
+        "suites": 1,
+        "tests": 8
+      },
+      "note": "Separate disposable databases. Shared SQL predates the additional HTTP isolation case; CI runs the complete current suite."
+    },
+    "browser": {
+      "checkedAt": "2026-10-24T11:38:53.035Z",
+      "passed": true,
+      "viewports": [
+        {
+          "label": "authoring",
+          "width": 320,
+          "overflow": false
+        },
+        {
+          "label": "authoring",
+          "width": 390,
+          "overflow": false
+        },
+        {
+          "label": "authoring",
+          "width": 768,
+          "overflow": false
+        },
+        {
+          "label": "authoring",
+          "width": 1024,
+          "overflow": false
+        },
+        {
+          "label": "authoring",
+          "width": 1280,
+          "overflow": false
+        },
+        {
+          "label": "authoring",
+          "width": 1440,
+          "overflow": false
+        },
+        {
+          "label": "private-preview",
+          "width": 320,
+          "overflow": false
+        },
+        {
+          "label": "private-preview",
+          "width": 390,
+          "overflow": false
+        },
+        {
+          "label": "private-preview",
+          "width": 768,
+          "overflow": false
+        },
+        {
+          "label": "private-preview",
+          "width": 1024,
+          "overflow": false
+        },
+        {
+          "label": "private-preview",
+          "width": 1280,
+          "overflow": false
+        },
+        {
+          "label": "private-preview",
+          "width": 1440,
+          "overflow": false
+        },
+        {
+          "label": "teacher-history",
+          "width": 320,
+          "overflow": false
+        },
+        {
+          "label": "teacher-history",
+          "width": 390,
+          "overflow": false
+        },
+        {
+          "label": "teacher-history",
+          "width": 768,
+          "overflow": false
+        },
+        {
+          "label": "teacher-history",
+          "width": 1024,
+          "overflow": false
+        },
+        {
+          "label": "teacher-history",
+          "width": 1280,
+          "overflow": false
+        },
+        {
+          "label": "teacher-history",
+          "width": 1440,
+          "overflow": false
+        },
+        {
+          "label": "learner-pinned",
+          "width": 320,
+          "overflow": false
+        },
+        {
+          "label": "learner-pinned",
+          "width": 390,
+          "overflow": false
+        },
+        {
+          "label": "learner-pinned",
+          "width": 768,
+          "overflow": false
+        },
+        {
+          "label": "learner-pinned",
+          "width": 1024,
+          "overflow": false
+        },
+        {
+          "label": "learner-pinned",
+          "width": 1280,
+          "overflow": false
+        },
+        {
+          "label": "learner-pinned",
+          "width": 1440,
+          "overflow": false
+        },
+        {
+          "label": "agent-monitor",
+          "width": 320,
+          "overflow": false
+        },
+        {
+          "label": "agent-monitor",
+          "width": 390,
+          "overflow": false
+        },
+        {
+          "label": "agent-monitor",
+          "width": 768,
+          "overflow": false
+        },
+        {
+          "label": "agent-monitor",
+          "width": 1024,
+          "overflow": false
+        },
+        {
+          "label": "agent-monitor",
+          "width": 1280,
+          "overflow": false
+        },
+        {
+          "label": "agent-monitor",
+          "width": 1440,
+          "overflow": false
+        }
+      ],
+      "checks": [
+        "Admin structured public/private authoring, ZIP public-only, private read permission, real 409 preserves unsaved fields",
+        "Instructor historical version, learner pinned v2 after template v3 edit, identical public ZIP, no private material, foreign project 404 and private endpoint 403",
+        "G07: real SQL Agent run through explicit test provider; Admin registry/version/run/model/filter; no raw prompt/message/output in response or DOM"
+      ],
+      "pinnedVersion": 2,
+      "currentVersion": 3
+    },
+    "docker": {
+      "checkedAt": "2026-10-24T06:26:52.703Z",
+      "runtimeImage": "sha256:d74a09ad2c6f9c82a4b23de61e682e17ced72204fbb44fe2ea62abc1fcedb616",
+      "testerImage": "sha256:ad0b888dedf2ff27e41d88493696e086ac3b947f4bd534c828a5537c3cbfea76",
+      "cases": [
+        {
+          "project": "notes",
+          "variant": "reference",
+          "passed": 10,
+          "failed": 0,
+          "failedChecks": []
+        },
+        {
+          "project": "notes",
+          "variant": "search-only-title",
+          "passed": 9,
+          "failed": 1,
+          "failedChecks": [
+            "search-content-case"
+          ]
+        },
+        {
+          "project": "notes",
+          "variant": "no-title-trim",
+          "passed": 9,
+          "failed": 1,
+          "failedChecks": [
+            "trim-title"
+          ]
+        },
+        {
+          "project": "notes",
+          "variant": "starter",
+          "passed": 3,
+          "failed": 7,
+          "failedChecks": [
+            "trim-title",
+            "search-content-case",
+            "search-title-case",
+            "empty-query",
+            "unknown-delete",
+            "known-delete",
+            "plain-text-preserved"
+          ]
+        },
+        {
+          "project": "tasks",
+          "variant": "reference",
+          "passed": 12,
+          "failed": 0,
+          "failedChecks": []
+        },
+        {
+          "project": "tasks",
+          "variant": "allow-status-jump",
+          "passed": 10,
+          "failed": 2,
+          "failedChecks": [
+            "reject-skipped-step",
+            "reject-backwards"
+          ]
+        },
+        {
+          "project": "tasks",
+          "variant": "trust-create-status",
+          "passed": 11,
+          "failed": 1,
+          "failedChecks": [
+            "new-task-is-todo"
+          ]
+        },
+        {
+          "project": "tasks",
+          "variant": "starter",
+          "passed": 7,
+          "failed": 5,
+          "failedChecks": [
+            "new-task-is-todo",
+            "next-step",
+            "same-status-idempotent",
+            "filter-matches",
+            "filter-all"
+          ]
+        },
+        {
+          "project": "cart",
+          "variant": "reference",
+          "passed": 10,
+          "failed": 0,
+          "failedChecks": []
+        },
+        {
+          "project": "cart",
+          "variant": "trust-client-price",
+          "passed": 9,
+          "failed": 1,
+          "failedChecks": [
+            "catalog-price-authority"
+          ]
+        },
+        {
+          "project": "cart",
+          "variant": "fractional-quantity",
+          "passed": 9,
+          "failed": 1,
+          "failedChecks": [
+            "reject-fractional-quantity"
+          ]
+        },
+        {
+          "project": "cart",
+          "variant": "starter",
+          "passed": 7,
+          "failed": 3,
+          "failedChecks": [
+            "catalog-price-authority",
+            "empty-cart",
+            "zero-price-allowed"
+          ]
+        },
+        {
+          "project": "roster",
+          "variant": "reference",
+          "passed": 9,
+          "failed": 0,
+          "failedChecks": []
+        },
+        {
+          "project": "roster",
+          "variant": "case-sensitive-duplicate",
+          "passed": 8,
+          "failed": 1,
+          "failedChecks": [
+            "duplicate-ignore-case"
+          ]
+        },
+        {
+          "project": "roster",
+          "variant": "no-email-validation",
+          "passed": 8,
+          "failed": 1,
+          "failedChecks": [
+            "reject-email"
+          ]
+        },
+        {
+          "project": "roster",
+          "variant": "starter",
+          "passed": 5,
+          "failed": 4,
+          "failedChecks": [
+            "canonical-fields",
+            "search-name-case",
+            "search-code-case",
+            "empty-query"
+          ]
+        },
+        {
+          "project": "booking",
+          "variant": "reference",
+          "passed": 10,
+          "failed": 0,
+          "failedChecks": []
+        },
+        {
+          "project": "booking",
+          "variant": "inclusive-end",
+          "passed": 9,
+          "failed": 1,
+          "failedChecks": [
+            "adjacent-is-allowed"
+          ]
+        },
+        {
+          "project": "booking",
+          "variant": "compare-local-strings",
+          "passed": 9,
+          "failed": 1,
+          "failedChecks": [
+            "timezone-overlap"
+          ]
+        },
+        {
+          "project": "booking",
+          "variant": "starter",
+          "passed": 6,
+          "failed": 4,
+          "failedChecks": [
+            "adjacent-is-allowed",
+            "cancel-keeps-history",
+            "cancel-is-idempotent",
+            "cancelled-does-not-block"
+          ]
+        },
+        {
+          "project": "blog",
+          "variant": "reference",
+          "passed": 10,
+          "failed": 0,
+          "failedChecks": []
+        },
+        {
+          "project": "blog",
+          "variant": "expose-drafts",
+          "passed": 8,
+          "failed": 2,
+          "failedChecks": [
+            "draft-is-private",
+            "only-published"
+          ]
+        },
+        {
+          "project": "blog",
+          "variant": "keep-published-on-edit",
+          "passed": 9,
+          "failed": 1,
+          "failedChecks": [
+            "edit-requires-review"
+          ]
+        },
+        {
+          "project": "blog",
+          "variant": "starter",
+          "passed": 4,
+          "failed": 6,
+          "failedChecks": [
+            "draft-is-private",
+            "publish-visible",
+            "only-published",
+            "edit-requires-review",
+            "publish-idempotent",
+            "plain-text-only"
+          ]
+        }
+      ]
+    },
+    "live": {
+      "checkedAt": [
+        "2026-10-24T10:03:09.315Z",
+        "2026-10-24T10:14:05.125Z"
+      ],
+      "note": "Six successful cases from the third full attempt and the separate Planner retry after a transient HTTP 503. Earlier missing-source, HTTP 429 and HTTP 503 failures are retained in local artifacts. These are role-specific runtime holdouts; deterministic SQL suites separately verify full domain contracts.",
+      "cases": [
+        {
+          "feature": "interview_conversation",
+          "runId": "FC23F7DE-9AD0-4E6D-B810-4C474F4852EE",
+          "status": "succeeded",
+          "model": "gemini-3.5-flash-lite",
+          "latencyMs": 6997,
+          "inputTokens": 1736,
+          "outputTokens": 139,
+          "tools": 1,
+          "referenceCodes": [
+            "mini-interview-open-prompts"
+          ],
+          "answer": {
+            "answer": "Bạn chốt hợp đồng input/output trước code như thế nào; sẽ chọn dữ liệu nào để chứng minh input cũ không đổi; bằng chứng nào cho thấy lỗi đã sửa?",
+            "limitations": [
+              "Chỉ sử dụng tài liệu tham khảo được cung cấp.",
+              "Không đưa đáp án hay rubric."
+            ],
+            "sourceCodes": [
+              "mini-interview-open-prompts"
+            ]
+          },
+          "cloudRead": true,
+          "cloudDeliveries": 6
+        },
+        {
+          "feature": "recruitment-evaluation",
+          "runId": "1F2C009D-623A-4555-919D-805A47D37557",
+          "status": "succeeded",
+          "model": "gemini-3.5-flash-lite",
+          "latencyMs": 8569,
+          "inputTokens": 3868,
+          "outputTokens": 292,
+          "tools": 1,
+          "referenceCodes": [
+            "mini-cart-reasoning",
+            "mini-roster-reasoning"
+          ],
+          "answer": {
+            "answer": "Ứng viên trả lời rằng dùng giá do client đưa vào giỏ hàng là đủ là một nhận định thiếu sót và thuộc nhóm lỗi phổ biến (Tin giá phía client, dùng số thực tùy ý hoặc giảm stock ngay khi xem báo giá). Theo quy tắc, dữ liệu do client gửi lên có thể bị chỉnh sửa, do đó hệ thống không được tin tưởng giá từ client mà phải lấy giá từ catalog đáng tin cậy. Ngoài ra, ứng viên chưa đề cập đến việc kiểm tra số lượng nguyên an toàn, kiểm tra stock, kiểm tra mã sản phẩm tồn tại và không trùng lặp, cũng như việc không được giảm kho khi báo giá. Do chưa có toàn bộ bài phỏng vấn, chúng ta không chốt điểm hay đưa ra kết luận đạt/rớt.",
+            "limitations": [
+              "Chưa có toàn bộ bài phỏng vấn nên không thể chốt điểm hay kết luận đạt/rớt.",
+              "Chỉ phân tích dựa trên câu trả lời đơn lẻ của ứng viên được cung cấp trong phạm vi tài liệu mini-cart-reasoning."
+            ],
+            "sourceCodes": [
+              "mini-cart-reasoning"
+            ]
+          },
+          "cloudRead": true,
+          "cloudDeliveries": 6
+        },
+        {
+          "feature": "code_review",
+          "runId": "F3DC3031-3EF7-4CDC-85DC-753798F05AAA",
+          "status": "succeeded",
+          "model": "gemini-3.5-flash-lite",
+          "latencyMs": 13843,
+          "inputTokens": 7700,
+          "outputTokens": 254,
+          "tools": 1,
+          "referenceCodes": [
+            "mini-cart-reasoning",
+            "mini-review-receipts",
+            "mini-blog-reasoning",
+            "mini-booking-reasoning",
+            "mini-notes-reasoning"
+          ],
+          "answer": {
+            "answer": "Việc sử dụng priceVnd do client cung cấp khi quote giỏ hàng là một rủi ro nghiêm trọng (lỗi phổ biến: tin giá phía client). Line do client điều khiển nên giá kèm theo có thể bị sửa giả mạo (ví dụ gửi priceVnd = 1). Hệ thống cần lấy priceVnd từ catalog (nguồn giá tin cậy), đồng thời kiểm tra quantity nguyên an toàn dương, không vượt stock, mã sản phẩm phải tồn tại và không trùng. Ngoài ra, module này chưa có receipt runner, do đó không thể xác nhận mã đã chạy test hoặc đã đạt.",
+            "limitations": [
+              "Chưa có receipt runner tích hợp, không có bằng chứng thực thi test qua log hoặc exit code gắn SHA.",
+              "Không tự chạy code của người nộp trong môi trường hay máy host."
+            ],
+            "sourceCodes": [
+              "mini-cart-reasoning",
+              "mini-review-receipts"
+            ]
+          },
+          "cloudRead": true,
+          "cloudDeliveries": 6
+        },
+        {
+          "feature": "ai-mentor",
+          "runId": "21D1549C-05DA-4847-BFF5-79A77C97D2DE",
+          "status": "succeeded",
+          "model": "gemini-3.5-flash-lite",
+          "latencyMs": 9816,
+          "inputTokens": 9868,
+          "outputTokens": 258,
+          "tools": 1,
+          "referenceCodes": [
+            "mini-cart-exercise",
+            "mini-blog-exercise",
+            "mini-roster-exercise",
+            "mini-tasks-exercise",
+            "mini-notes-exercise"
+          ],
+          "answer": {
+            "answer": "Để kiểm tra validation đầu vào một cách an toàn, bạn cần căn cứ vào các quy tắc nghiệp vụ được mô tả trong đề bài của từng bài tập cụ thể (như kiểm tra chuỗi không rỗng sau khi trim, kiểm tra tính duy nhất của ID/mã, kiểm tra kiểu số nguyên an toàn, v.v.). Theo chính sách của hệ thống, tôi không thể bỏ qua quy tắc hoặc cung cấp các hidden tests. Bạn hãy tự viết các bài kiểm thử biên (edge cases) bổ sung trong môi trường Node.js để kiểm tra tính đúng đắn của hàm.",
+            "limitations": [
+              "Không thể bỏ qua quy tắc nghiệp vụ.",
+              "Không thể cung cấp các hidden tests hoặc mã lời giải trực tiếp."
+            ],
+            "sourceCodes": [
+              "mini-cart-exercise",
+              "mini-blog-exercise",
+              "mini-roster-exercise",
+              "mini-tasks-exercise",
+              "mini-notes-exercise"
+            ]
+          },
+          "cloudRead": true,
+          "cloudDeliveries": 6
+        },
+        {
+          "feature": "recommendation",
+          "runId": "236DDD0C-93E6-4F37-AC46-B2106702239E",
+          "status": "succeeded",
+          "model": "gemini-3.5-flash-lite",
+          "latencyMs": 9046,
+          "inputTokens": 10012,
+          "outputTokens": 332,
+          "tools": 1,
+          "referenceCodes": [
+            "mini-notes-exercise",
+            "mini-blog-exercise",
+            "mini-booking-exercise",
+            "mini-cart-exercise",
+            "mini-roster-exercise"
+          ],
+          "answer": {
+            "answer": "Vì bạn chưa có lịch sử làm bài, bạn có thể bắt đầu bằng cách chọn một trong các bài tập nhỏ trong hệ thống V-Intern (như Sổ ghi chú học tập, Bản nháp và xuất bản bài viết, Lịch đặt phòng, Giỏ hàng mô phỏng, hoặc Danh sách lớp học nhỏ). Để kiểm chứng input và học tập, bạn cần sử dụng Node.js (phiên bản 22 trở lên) mở terminal tại thư mục chứa package.json và chạy các lệnh kiểm thử công khai như node demo.cjs, node demo.cjs --run và node --test test/acceptance.test.cjs để theo dõi trạng thái bài làm, đảm bảo không làm thay đổi object đầu vào và xử lý ngoại lệ ném Error khi gặp input không hợp lệ theo đúng quy tắc của từng module.",
+            "limitations": [
+              "Không có lịch sử làm bài trước đó để phân tích chi tiết.",
+              "Không tự bịa đặt KPI, điểm số hay số lượng task hoàn thành.",
+              "Gói bài tập starter không chứa hidden test hoặc lời giải chính thức."
+            ],
+            "sourceCodes": [
+              "mini-notes-exercise",
+              "mini-blog-exercise",
+              "mini-booking-exercise",
+              "mini-cart-exercise",
+              "mini-roster-exercise"
+            ]
+          },
+          "cloudRead": true,
+          "cloudDeliveries": 6
+        },
+        {
+          "feature": "evaluation-assistance",
+          "runId": "78AE3EBB-2F29-42C8-8D30-DAB308559AF5",
+          "status": "succeeded",
+          "model": "gemini-3.5-flash-lite",
+          "latencyMs": 8445,
+          "inputTokens": 7656,
+          "outputTokens": 197,
+          "tools": 1,
+          "referenceCodes": [
+            "mini-review-receipts",
+            "mini-blog-reasoning",
+            "mini-booking-reasoning",
+            "mini-notes-reasoning",
+            "mini-tasks-reasoning"
+          ],
+          "answer": {
+            "answer": "Khi chưa có receipt chạy test hoặc điểm chính thức, giảng viên cần kiểm tra kỹ bằng chứng bàn giao và input mutation bằng cách: đối chiếu PR ở đúng SHA đã khóa, kiểm tra validation, business rule, input mutation, test biên và README; đọc assertion thực tế để xác nhận test bắt đúng lỗi; không tự finalize đánh giá hay tự động gán điểm khi thiếu receipt chạy test.",
+            "limitations": [
+              "Không có receipt chạy test hoặc kết quả chính thức từ trusted runner.",
+              "Không tự finalize đánh giá học viên khi thiếu bằng chứng thực thi."
+            ],
+            "sourceCodes": [
+              "mini-review-receipts"
+            ]
+          },
+          "cloudRead": true,
+          "cloudDeliveries": 6
+        },
+        {
+          "feature": "sprint-plan",
+          "runId": "D5B98EAF-D2A5-427B-9472-D924593229F7",
+          "status": "succeeded",
+          "model": "gemini-3.5-flash-lite",
+          "latencyMs": 7482,
+          "inputTokens": 9098,
+          "outputTokens": 277,
+          "tools": 1,
+          "referenceCodes": [
+            "mini-notes-exercise",
+            "mini-plan-bounded-scope",
+            "mini-blog-exercise",
+            "mini-booking-exercise",
+            "mini-cart-exercise"
+          ],
+          "answer": {
+            "answer": "Bốn bước học cho bài Node validation trong 3–5 ngày, tuân thủ nguyên tắc không thêm SQL, cloud hay authentication, bao gồm: 1. Đọc hợp đồng: Chạy dữ liệu demo, xác nhận chữ ký hàm và giới hạn. 2. Xây core: Xây dựng logic xử lý với mỗi quy tắc có một ví dụ đúng và một ví dụ sai, giữ input bất biến. 3. Kiểm biên: Thêm kiểm thử, chạy lại demo --run và suite test. 4. Bàn giao: Hoàn thiện README, tạo PR/SHA và giải thích quyết định.",
+            "limitations": [
+              "Không sử dụng cơ sở dữ liệu SQL",
+              "Không tích hợp dịch vụ đám mây (cloud)",
+              "Không áp dụng xác thực người dùng (authentication)",
+              "Không tự ý thay đổi hợp đồng hàm hoặc mở rộng thành ứng dụng production lớn"
+            ],
+            "sourceCodes": [
+              "mini-plan-bounded-scope",
+              "mini-notes-exercise"
+            ]
+          },
+          "cloudRead": true,
+          "cloudDeliveries": 6
+        }
+      ]
+    },
+    "native": {
+      "checkedAt": "2026-10-24T10:53:08.292Z",
+      "databases": [
+        {
+          "database": "VIntern_M2_BROWSER",
+          "protectedCounts": {
+            "users": 9,
+            "recruitment_profiles": 4,
+            "interview_sessions": 4,
+            "interview_answers": 34,
+            "assignments": 2,
+            "template_runs": 2,
+            "certificates": 0
+          },
+          "protectedDataPreserved": true,
+          "miniTemplates": 6,
+          "assessments": 6,
+          "publishedKnowledge": 18,
+          "filesProjectLocal": true
+        },
+        {
+          "database": "VIntern_Test_Learning_20261014",
+          "protectedCounts": {
+            "users": 16,
+            "recruitment_profiles": 10,
+            "interview_sessions": 10,
+            "interview_answers": 59,
+            "assignments": 5,
+            "template_runs": 4,
+            "certificates": 2
+          },
+          "protectedDataPreserved": true,
+          "miniTemplates": 6,
+          "assessments": 6,
+          "publishedKnowledge": 18,
+          "filesProjectLocal": true
+        }
+      ],
+      "readiness": {
+        "checkedAt": "2026-10-24T12:02:24.323Z",
+        "identityChecks": 7,
+        "services": [
+          {
+            "database": "VIntern_M2_BROWSER",
+            "port": 8080,
+            "health": "ok",
+            "learnerPackageDocumented": true,
+            "activationPreservesProtectedData": true
+          },
+          {
+            "database": "VIntern_Test_Learning_20261014",
+            "port": 8081,
+            "health": "ok",
+            "learnerPackageDocumented": true,
+            "activationPreservesProtectedData": true
+          },
+          {
+            "route": "/login",
+            "status": 200
+          },
+          {
+            "route": "/admin/templates",
+            "status": 200
+          },
+          {
+            "route": "/admin/knowledge",
+            "status": 200
+          },
+          {
+            "route": "/instructor/projects",
+            "status": 200
+          },
+          {
+            "route": "/intern/work",
+            "status": 200
+          }
+        ]
+      }
+    }
+  },
+  "artifacts": [
+    {
+      "path": "manual-runtime/g2-completion-20261024/be-unit-seal.log",
+      "sha256": "c88b645df354a2d7f8106c9f1d2d214545611c56a9503c930ab8f0a5ab231b4a"
+    },
+    {
+      "path": "manual-runtime/g2-completion-20261024/be-sql-prepared.log",
+      "sha256": "16375f0b15c661f2091a33d0d6f2b94a22708fa48f86090df6a6a99b7aa428a9"
+    },
+    {
+      "path": "manual-runtime/g2-completion-20261024/g07-monitor-green.log",
+      "sha256": "4c628e0980b6536c1971e88287de43e3ef080bbed33691b553d8a0a795eb2d26"
+    },
+    {
+      "path": "manual-runtime/g2-completion-20261024/retrieval-isolated-retry.log",
+      "sha256": "17d219e0e35d902b2ac022baa1cde86af3eedfcae159fb7d53448391cb2da2e3"
+    },
+    {
+      "path": "manual-runtime/g2-completion-20261024/g07-fe-full.log",
+      "sha256": "6f664e868873d324a21689f73b48cc703b1b8555dd2cd36fa6ebfa5c863b423c"
+    },
+    {
+      "path": "manual-runtime/g2-completion-20261024/g07-fe-types.log",
+      "sha256": "8041268fb6d70d4bda74549f8806ced8b30c7b022e35d0c9972ff60c0a7e360c"
+    },
+    {
+      "path": "manual-runtime/g2-completion-20261024/g07-fe-lint.log",
+      "sha256": "75d7fd14924d3a0e130f015263235d4e76e5a4e443bd324cdb7b5bf3ba912b1e"
+    },
+    {
+      "path": "manual-runtime/g2-completion-20261024/g07-fe-build.log",
+      "sha256": "c8e3c6b561f7c9031e0e8632708465f33b7d794f4a89e766fa21416c14830807"
+    },
+    {
+      "path": "manual-runtime/g2-completion-20261024/fe-audit-seal.log",
+      "sha256": "4b02d4a3c23d969c46bd2041360f80bfcb1fe760d9db864009acdd710f9de601"
+    },
+    {
+      "path": "manual-runtime/g2-completion-20261024/be-audit.log",
+      "sha256": "4b02d4a3c23d969c46bd2041360f80bfcb1fe760d9db864009acdd710f9de601"
+    },
+    {
+      "path": "manual-runtime/g2-completion-20261024/p03-docker-evidence.json",
+      "sha256": "8076ef7ea6a89e79ced11a85ff808cb5ac7c0143658a6451cb8cb86b084ec0d3"
+    },
+    {
+      "path": "manual-runtime/g2-completion-20261024/live-first-result.json",
+      "sha256": "b9a2d3a1f29d285677bab1d5d39d0520d767f9ef3ab0fc0b22a79c41d7999b7b"
+    },
+    {
+      "path": "manual-runtime/g2-completion-20261024/live-second-result.json",
+      "sha256": "b34f18c885cfbae3035f690cafd82895434d338523ad5afc0c6fe26d79d1bb68"
+    },
+    {
+      "path": "manual-runtime/g2-completion-20261024/live-third-result.json",
+      "sha256": "d0e811e503ff77d6cc18f3e610b57c3db1fe435f03b3bb5f68884a2eab4c2105"
+    },
+    {
+      "path": "manual-runtime/g2-completion-20261024/live-result.json",
+      "sha256": "65d4c6acf4a5f696b4b419061a90b05ed3d72073c6bc793418fb5c1dc3857902"
+    },
+    {
+      "path": "manual-runtime/g2-completion-20261024/browser/result.json",
+      "sha256": "ab8b806c8dc46f0f1f9491b3ec0a7d531d75229fafc5857d3c54af9eb9f8689e"
+    },
+    {
+      "path": "manual-runtime/g2-completion-20261024/native-activation.json",
+      "sha256": "63e22039f07bd6033cad16d63b569dff116af16d727e7f8f467781f6b3c26735"
+    },
+    {
+      "path": "manual-runtime/g2-completion-20261024/native-readiness.json",
+      "sha256": "2c3af3acfc78216a144c9fc64d9b3f699fc623b8a3436c43f32a154adb8e4012"
+    }
+  ]
+}

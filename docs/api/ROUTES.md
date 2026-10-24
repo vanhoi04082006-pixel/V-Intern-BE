@@ -1,6 +1,6 @@
 # Danh mục endpoint theo module
 
-Sinh từ OpenAPI của API local chính đang chạy lúc **2026-10-23T21:35:13.266Z**, code Backend M02 bf3118693c782c145a87d4348212344396ce3526. Có **262 operations** trong **43 nhóm**. Đây là số method/path, không phải số luồng đã nghiệm thu. Nguồn schema được giữ trong evidence project-local.
+Sinh từ OpenAPI của API local chính đang chạy lúc **2026-10-24T11:59:24.423Z**, code Backend G2 bb67573a38880239d13cea6d0b8dfdb662fa2891. Có **273 operations** trong **44 nhóm**. Đây là số method/path, không phải số luồng đã nghiệm thu. Nguồn schema được giữ trong evidence project-local.
 
 Đọc [hướng dẫn API](README.md) trước; schema DTO không thay validation/policy/ownership trong service. [Kho tri thức](../KNOWLEDGE-LIBRARY.md) giải thích API K02 và phân biệt draft/publish/retrieval. Một endpoint có Bearer không tự cấp quyền đọc mọi bản ghi.
 
@@ -10,6 +10,7 @@ Sinh từ OpenAPI của API local chính đang chạy lúc **2026-10-23T21:35:13
 - [AiRuntime](#airuntime) — 2 operations
 - [GithubWebhook](#githubwebhook) — 1 operations
 - [QuestionBank](#questionbank) — 5 operations
+- [agents](#agents) — 5 operations
 - [ai-generations](#ai-generations) — 5 operations
 - [ai-mentor](#ai-mentor) — 5 operations
 - [ai-recommendations](#ai-recommendations) — 3 operations
@@ -35,7 +36,7 @@ Sinh từ OpenAPI của API local chính đang chạy lúc **2026-10-23T21:35:13
 - [kpi-results](#kpi-results) — 1 operations
 - [notifications](#notifications) — 6 operations
 - [performance](#performance) — 3 operations
-- [project templates](#project-templates) — 11 operations
+- [project templates](#project-templates) — 17 operations
 - [projects](#projects) — 10 operations
 - [rbac](#rbac) — 3 operations
 - [recruitment](#recruitment) — 16 operations
@@ -81,6 +82,16 @@ Sinh từ OpenAPI của API local chính đang chạy lúc **2026-10-23T21:35:13
 | GET | `/api/v1/admin/question-bank/{id}` | QuestionBankController_get_v1 | — |
 | PUT | `/api/v1/admin/question-bank/{id}` | QuestionBankController_update_v1 | [UpdateQuestionDto](SCHEMAS.md#updatequestiondto) |
 | DELETE | `/api/v1/admin/question-bank/{id}` | QuestionBankController_retire_v1 | — |
+
+## agents
+
+| Method | Route | Thao tác | Body |
+|---|---|---|---|
+| POST | `/api/v1/admin/agents/knowledge-runs` | AgentsController_create_v1 | [CreateKnowledgeAgentDto](SCHEMAS.md#createknowledgeagentdto) |
+| GET | `/api/v1/admin/agents/knowledge-runs/{id}` | AgentsController_get_v1 | — |
+| POST | `/api/v1/admin/agents/knowledge-runs/{id}/cancel` | AgentsController_cancel_v1 | — |
+| POST | `/api/v1/admin/agents/knowledge-runs/{id}/resume` | AgentsController_resume_v1 | — |
+| GET | `/api/v1/admin/agents/business-runs` | BusinessAgentMonitorController_list_v1 | — |
 
 ## ai-generations
 
@@ -360,6 +371,12 @@ Sinh từ OpenAPI của API local chính đang chạy lúc **2026-10-23T21:35:13
 
 | Method | Route | Thao tác | Body |
 |---|---|---|---|
+| GET | `/api/v1/intern/me/projects/{id}/learning-package` | TemplatesController_ownPackage_v1 | — |
+| GET | `/api/v1/project-templates/{id}/revisions` | TemplatesController_history_v1 | — |
+| GET | `/api/v1/project-templates/{id}/revisions/{version}` | TemplatesController_revision_v1 | — |
+| GET | `/api/v1/project-templates/{id}/revisions/{version}/assessment` | TemplatesController_revisionAssessment_v1 | — |
+| GET | `/api/v1/project-templates/{id}/assessment` | TemplatesController_assessment_v1 | — |
+| GET | `/api/v1/projects/{id}/template-assessment` | TemplatesController_projectAssessment_v1 | — |
 | GET | `/api/v1/project-templates` | TemplatesController_list_v1 | — |
 | POST | `/api/v1/project-templates` | TemplatesController_create_v1 | [CreateTemplateDto](SCHEMAS.md#createtemplatedto) |
 | GET | `/api/v1/project-templates/{id}` | TemplatesController_get_v1 | — |

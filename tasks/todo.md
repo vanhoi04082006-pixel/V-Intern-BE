@@ -71,38 +71,40 @@ Khi thực hiện, mỗi task bổ sung cột/ngày ghi nhận: `commit FE/BE �
 
 ## G2. Dự án nhỏ và chuyển toàn bộ AI — M03/M06
 
+> Code G2 đã kiểm local: BE `bb67573`, FE `958691a`. Báo cáo hiện hành: [nghiệm thu G2](../docs/reports/g2-completion-20261024.md). Cả BE release/runner và FE quality/full-stack đều completed/success; Admin có registry/version/run/model metadata. Nội dung P02 theo SPEC-mini-project-content là sáu mẫu + 18 tài liệu curated; không dùng số này để tuyên bố mốc 144 Q&A mở rộng hoặc 10 lượt model/Agent đã đạt.
+
 - [x] P01. Schema mẫu dự án nhỏ có version và phân quyền lời giải.
   - PASS 24/10: code `fdd2305`, 725 unit; 30 SQL regression và 4 migration test local riêng; CI 40061277022 đạt (304 SQL/HTTP + 8 retrieval + 4 material migration ở các step riêng). Native hai DB backfill 6/7 revision, 0 assessment, counts/digest và 7 identity login giữ nguyên. [Báo cáo/giới hạn P01](../docs/reports/small-project-foundation-20261024.md). P02–P04 và các Agent G2 còn mở.
   - Đạt khi: snapshot mẫu/role/task/test mapping được giữ; lời giải/hidden tests tách khỏi student view.
   - Kiểm: template validate/access/snapshot tests. Phụ thuộc K02/R02; BE templates schema/service/tests.
-- [ ] P02. Bộ mẫu nhỏ và nội dung tri thức đã duyệt.
+- [x] P02. Bộ mẫu nhỏ và nội dung tri thức đã duyệt.
   - Đạt khi: 6 mẫu có hướng dẫn chạy, 1–2 Sprint/3–6 task; bộ Q&A đạt số lượng/chất lượng trong plan.
   - Kiểm: seed/import dry-run không ghi đè chỉnh sửa; reviewer kiểm nội dung; chia từng mẫu/bộ role thành commit.
-- [ ] P03. Starter, lời giải và biến thể sai cho từng mẫu.
+- [x] P03. Starter, lời giải và biến thể sai cho từng mẫu.
   - Đạt khi: lời giải pass, lỗi mẫu fail đúng test; runner chạy thật có SHA/evidence.
   - Kiểm: từng test suite và browser demo tương ứng. Phụ thuộc P01/P02; test fixtures/grading suite/template assets.
-- [ ] P04. UI thư viện và tạo phiên từ mẫu.
+- [x] P04. UI thư viện và tạo phiên từ mẫu.
   - Đạt khi: scan nhanh mục tiêu/phạm vi/role/thời gian, preview task; tạo phiên đúng snapshot.
   - Kiểm: giảng viên tạo phiên mới, sinh viên đọc đúng đề. Phụ thuộc P03; FE template API/library/start flow.
-- [ ] G01. Chuyển conversation, clarification, follow-up sang Interview Agent.
+- [x] G01. Chuyển conversation, clarification, follow-up sang Interview Agent.
   - Đạt khi: giữ giới hạn câu hỏi/quyền/timeout, không lộ đáp án; có tool/retrieval run.
   - Kiểm: conversation regression + bộ eval. Phụ thuộc K04/A04; tách từng chức năng thành lát nhỏ.
-- [ ] G02. Chuyển chấm phỏng vấn sang Evaluator Agent.
+- [x] G02. Chuyển chấm phỏng vấn sang Evaluator Agent.
   - Đạt khi: rubric/snapshot có nguồn; BE vẫn tính điểm và quyết định.
   - Kiểm: 49.9/50/70/70.1, malformed output, retry không chấm trùng. Phụ thuộc G01; recruitment evaluator/agent/tests.
-- [ ] G03. Chuyển sinh Sprint/Task sang Planner Agent.
+- [x] G03. Chuyển sinh Sprint/Task sang Planner Agent.
   - Đạt khi: draft đúng role/ngày/dependency; giảng viên duyệt mới công bố.
   - Kiểm: generation schema/repair, plan publish và mẫu nhỏ. Phụ thuộc P03/A04; ai-generation/planner/tests.
-- [ ] G04. Chuyển Code Review sang Reviewer Agent.
+- [x] G04. Chuyển Code Review sang Reviewer Agent.
   - Đạt khi: lấy đúng SHA, gọi/đọc runner thật; không nhận chỉ thị từ comment/source để sửa kết quả.
   - Kiểm: bài sai→rework→nộp lại→đúng, SHA changed, runner unavailable. Phụ thuộc P03/A04; code-review/agent/tests.
-- [ ] G05. Chuyển Mentor sang Agent dùng tri thức đúng quyền.
+- [x] G05. Chuyển Mentor sang Agent dùng tri thức đúng quyền.
   - Đạt khi: hội thoại và context chính chủ giữ được, không lộ private answer/test/CV.
   - Kiểm: persistence, foreign resource, adversarial retrieval, timeout. Phụ thuộc K04/A04; ai/mentor/agent/tests.
-- [ ] G06. Chuyển recommendations và hỗ trợ đánh giá sang Agent riêng.
+- [x] G06. Chuyển recommendations và hỗ trợ đánh giá sang Agent riêng.
   - Đạt khi: nguồn metric có version; không tự sửa KPI/điểm/finalize.
   - Kiểm: source hash, stale data, quyền giảng viên và human approval. Phụ thuộc A04/K04; chia mỗi Agent thành commit/tests riêng.
-- [ ] G07. Hoàn tất đối chiếu mọi feature AI với registry/eval.
+- [x] G07. Hoàn tất đối chiếu mọi feature AI với registry/eval.
   - Đạt khi: không sót feature cũ; dashboard chỉ rõ Agent/version/run, không chỉ đổi nhãn.
   - Kiểm: feature inventory→run matrix và baseline comparison. Phụ thuộc G01–G06/O02.
 
@@ -207,9 +209,9 @@ Khi thực hiện, mỗi task bổ sung cột/ngày ghi nhận: `commit FE/BE �
 
 ## Checkpoint bắt buộc
 
-- [ ] G0: CI FE cùng SHA xanh đầy đủ.
+- [x] G0: CI FE cùng SHA xanh đầy đủ. Cặp G2 `958691a` / `bb67573` giữ toàn bộ gate và đạt lại.
 - [x] G1: role động + retrieval scope + Agent tool/state/trace được chứng minh. Code `e87166e`; [ma trận nghiệm thu, số liệu và giới hạn](../docs/reports/agent-foundation-20261024.md).
-- [ ] G2: nội dung/mẫu nhỏ được kiểm; toàn bộ AI cũ đã map và regression.
+- [x] G2: nội dung/mẫu nhỏ được kiểm; toàn bộ AI cũ đã map và regression. BE `bb67573` / FE `958691a`; [báo cáo và giới hạn](../docs/reports/g2-completion-20261024.md).
 - [ ] G3: CV→role→slot→hai email, đúng identity và không trùng tác dụng phụ.
 - [ ] G4: lịch, mốc 15 phút, 3 lượt và ranh giới 50/70 đạt.
 - [ ] G5: mời/nhận/mời lại GitHub, branded mail và webhook live đạt hoặc ghi BLOCKED rõ.
