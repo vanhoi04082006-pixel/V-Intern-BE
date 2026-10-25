@@ -41,6 +41,14 @@ Token legacy còn hạn vẫn có thể sử dụng. Nếu token không thể gi
 
 ## Một lần nộp code được khóa thế nào?
 
+### Ai có quyền chạy Agent sau khi sinh viên nộp bài?
+
+Sinh viên được yêu cầu kiểm tra bài của chính mình, nhưng không nhận quyền giảng viên và không trực tiếp truy cập kho tài liệu nội bộ. Với yêu cầu này, server đọc mentor của dự án từ database, kiểm tra tài khoản còn hoạt động, vai trò giảng viên/Admin, quyền `tasks.manage` và quyền quản lý đúng dự án/phiên. Agent chạy theo người phụ trách đã được kiểm tra. Yêu cầu từ giảng viên được kiểm tra theo chính người đó; server không chọn một người khác để vượt qua quyền bị thu hồi.
+
+Provenance giữ sinh viên ở `ai_runs.userId`, giảng viên ở actor của Agent; bằng chứng review ghi thêm `requestedByUserId` và `reviewerActorId`. Scope của Agent được kiểm tra lại trước mỗi bước đọc/gọi mô hình. Thiếu người phụ trách hoặc mất quyền trả `AI_REVIEWER_UNAVAILABLE`, không chạy Docker/model để chấm và không chuyển bài thành đạt. Nhận xét AI vẫn chỉ là đề xuất; giảng viên quyết định chính thức.
+
+Kiểm thử hồi quy: `code-review-authority.spec.ts` kiểm tra phạm vi và quyền bị thu hồi; `code-review.service.spec.ts` tái hiện trường hợp tự chấm sau khi sinh viên nộp bài, bảo đảm không dùng actor sinh viên cho Agent reviewer.
+
 Đầu vào chỉ nhận URL/ref theo policy GitHub, đúng repo phiên và đúng danh tính. Bài nộp ghi base/head SHA bất biến. Collector lấy source/diff có giới hạn, loại file có thể chứa credential và đánh dấu thiếu/truncated. Không lấy arbitrary URL hoặc làm theo hướng dẫn nằm trong README/source sinh viên.
 
 | Bằng chứng | Chứng minh điều gì? | Không tự chứng minh điều gì? |

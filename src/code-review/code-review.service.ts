@@ -18,6 +18,7 @@ import { assertReviewerScope } from "../submissions/submission-access";
 import { PermissionsService } from "../rbac/permissions.service";
 import { TasksService } from "../tasks/tasks.service";
 import { GradingRunnerService } from "./grading-runner.service";
+import { CodeReviewAuthorityError, resolveCodeReviewActor } from './code-review-authority';
 import {
   canRetryUnavailableRunner,
   reviewDecision,
@@ -129,6 +130,7 @@ export class CodeReviewService {
     });
     if (!reservation) return this.list(id, principal);
     try {
+      const reviewerActorId = await resolveCodeReviewActor(this.db, this.permissions, task, submission, principal.userId);
       const specRows: Array<{ specJson: string; templateCode: string }> =
         await this.db.query(
           `SELECT ts.specJson,pt.code templateCode FROM task_specs ts JOIN tasks t ON t.id=ts.taskId
@@ -183,6 +185,8 @@ export class CodeReviewService {
           inputHash,
           JSON.stringify({
             ...this.github.evidenceSummary(evidence),
+            requestedByUserId: principal.userId,
+            reviewerActorId,
             trustedTests: tests,
             hasSpecification: Boolean(spec),
           }),
@@ -192,7 +196,7 @@ export class CodeReviewService {
         feature: "code_review",
         intentId: reviewId,
         userId: submission.internId,
-        actorId: principal.userId,
+        actorId: reviewerActorId,
         resourceType: "task_submission",
         resourceId: id,
         promptVersion: "code-review-v2",
@@ -255,7 +259,9 @@ export class CodeReviewService {
           leaseId,
           e instanceof ConflictException
             ? "SUBMISSION_SHA_CHANGED"
-            : aiErrorCode(e),
+            : e instanceof CodeReviewAuthorityError
+              ? 'AI_REVIEWER_UNAVAILABLE'
+              : aiErrorCode(e),
         ],
       );
     }
