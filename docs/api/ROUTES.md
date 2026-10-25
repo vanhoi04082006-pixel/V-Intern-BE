@@ -1,6 +1,6 @@
 # Danh mục endpoint theo module
 
-Sinh từ OpenAPI của API local chính đang chạy lúc **2026-10-24T11:59:24.423Z**, code Backend G2 bb67573a38880239d13cea6d0b8dfdb662fa2891. Có **273 operations** trong **44 nhóm**. Đây là số method/path, không phải số luồng đã nghiệm thu. Nguồn schema được giữ trong evidence project-local.
+Sinh từ OpenAPI của API local đang chạy lúc **2026-10-25T11:28:15.060Z**, code Backend G7 61a7318. Có **319 operations** trong **50 nhóm**. Đây là số method/path, không phải số luồng đã nghiệm thu. Nguồn schema được giữ trong evidence project-local.
 
 Đọc [hướng dẫn API](README.md) trước; schema DTO không thay validation/policy/ownership trong service. [Kho tri thức](../KNOWLEDGE-LIBRARY.md) giải thích API K02 và phân biệt draft/publish/retrieval. Một endpoint có Bearer không tự cấp quyền đọc mọi bản ghi.
 
@@ -8,15 +8,21 @@ Sinh từ OpenAPI của API local chính đang chạy lúc **2026-10-24T11:59:24
 
 - [AdminSystem](#adminsystem) — 4 operations
 - [AiRuntime](#airuntime) — 2 operations
+- [Applications](#applications) — 8 operations
+- [Communications](#communications) — 3 operations
 - [GithubWebhook](#githubwebhook) — 1 operations
+- [Participation](#participation) — 7 operations
 - [QuestionBank](#questionbank) — 5 operations
+- [RecruitmentRounds](#recruitmentrounds) — 16 operations
+- [Replacement](#replacement) — 4 operations
+- [RepositoryAccess](#repositoryaccess) — 3 operations
 - [agents](#agents) — 5 operations
 - [ai-generations](#ai-generations) — 5 operations
 - [ai-mentor](#ai-mentor) — 5 operations
 - [ai-recommendations](#ai-recommendations) — 3 operations
 - [assignments](#assignments) — 5 operations
 - [audit](#audit) — 2 operations
-- [auth](#auth) — 5 operations
+- [auth](#auth) — 6 operations
 - [career-roles](#career-roles) — 8 operations
 - [catalogs](#catalogs) — 5 operations
 - [certificates](#certificates) — 6 operations
@@ -26,11 +32,11 @@ Sinh từ OpenAPI của API local chính đang chạy lúc **2026-10-24T11:59:24
 - [evaluation-ai-assistance](#evaluation-ai-assistance) — 3 operations
 - [evaluation-cycles](#evaluation-cycles) — 9 operations
 - [evaluations](#evaluations) — 7 operations
-- [github](#github) — 11 operations
+- [github](#github) — 13 operations
 - [groups](#groups) — 8 operations
 - [health](#health) — 1 operations
 - [imported-reviews](#imported-reviews) — 2 operations
-- [intern](#intern) — 13 operations
+- [intern](#intern) — 15 operations
 - [knowledge](#knowledge) — 10 operations
 - [kpi-periods](#kpi-periods) — 8 operations
 - [kpi-results](#kpi-results) — 1 operations
@@ -67,11 +73,44 @@ Sinh từ OpenAPI của API local chính đang chạy lúc **2026-10-24T11:59:24
 | GET | `/api/v1/admin/ai-configuration` | AiRuntimeController_get_v1 | — |
 | PUT | `/api/v1/admin/ai-configuration` | AiRuntimeController_update_v1 | — |
 
+## Applications
+
+| Method | Route | Thao tác | Body |
+|---|---|---|---|
+| GET | `/api/v1/applications/rounds` | ApplicationsController_roundsList_v1 | — |
+| POST | `/api/v1/applications` | ApplicationsController_apply_v1 | [ApplyDto](SCHEMAS.md#applydto) |
+| POST | `/api/v1/applications/request-access` | ApplicationsController_access_v1 | [AccessRequestDto](SCHEMAS.md#accessrequestdto) |
+| POST | `/api/v1/applications/leave` | ApplicationsController_leave_v1 | — |
+| POST | `/api/v1/applications/verify` | ApplicationsController_verify_v1 | [VerifyApplicationDto](SCHEMAS.md#verifyapplicationdto) |
+| GET | `/api/v1/applications/me` | ApplicationsController_me_v1 | — |
+| GET | `/api/v1/applications/me/cv` | ApplicationsController_cv_v1 | — |
+| POST | `/api/v1/applications/me/cv` | ApplicationsController_supplement_v1 | — |
+
+## Communications
+
+| Method | Route | Thao tác | Body |
+|---|---|---|---|
+| GET | `/api/v1/admin/communications` | CommunicationsController_list_v1 | — |
+| GET | `/api/v1/admin/communications/{id}/preview` | CommunicationsController_preview_v1 | — |
+| POST | `/api/v1/admin/communications/{id}/resend` | CommunicationsController_resend_v1 | [ResendMail](SCHEMAS.md#resendmail) |
+
 ## GithubWebhook
 
 | Method | Route | Thao tác | Body |
 |---|---|---|---|
 | POST | `/api/v1/github/webhook` | GithubWebhookController_receive_v1 | — |
+
+## Participation
+
+| Method | Route | Thao tác | Body |
+|---|---|---|---|
+| GET | `/api/v1/participation/me` | ParticipationController_own_v1 | — |
+| GET | `/api/v1/sessions/{id}/participation` | ParticipationController_report_v1 | — |
+| POST | `/api/v1/sessions/{id}/participation/policy` | ParticipationController_savePolicy_v1 | [ParticipationPolicyDto](SCHEMAS.md#participationpolicydto) |
+| POST | `/api/v1/sessions/{id}/participation/incidents/{incidentId}/resolve` | ParticipationController_resolve_v1 | [ParticipationResolveDto](SCHEMAS.md#participationresolvedto) |
+| POST | `/api/v1/sessions/{id}/participation/tasks/{taskId}/extend` | ParticipationController_extend_v1 | [ParticipationExtensionDto](SCHEMAS.md#participationextensiondto) |
+| POST | `/api/v1/sessions/{id}/participation/refresh` | ParticipationController_refresh_v1 | — |
+| POST | `/api/v1/sessions/{id}/participation/incidents/{incidentId}/replacement-advice` | ParticipationController_adviseReplacement_v1 | — |
 
 ## QuestionBank
 
@@ -82,6 +121,44 @@ Sinh từ OpenAPI của API local chính đang chạy lúc **2026-10-24T11:59:24
 | GET | `/api/v1/admin/question-bank/{id}` | QuestionBankController_get_v1 | — |
 | PUT | `/api/v1/admin/question-bank/{id}` | QuestionBankController_update_v1 | [UpdateQuestionDto](SCHEMAS.md#updatequestiondto) |
 | DELETE | `/api/v1/admin/question-bank/{id}` | QuestionBankController_retire_v1 | — |
+
+## RecruitmentRounds
+
+| Method | Route | Thao tác | Body |
+|---|---|---|---|
+| GET | `/api/v1/recruitment-rounds` | RecruitmentRoundsController_list_v1 | — |
+| POST | `/api/v1/recruitment-rounds` | RecruitmentRoundsController_create_v1 | [CreateRoundDto](SCHEMAS.md#createrounddto) |
+| GET | `/api/v1/recruitment-rounds/{id}` | RecruitmentRoundsController_detail_v1 | — |
+| POST | `/api/v1/recruitment-rounds/{id}/status` | RecruitmentRoundsController_status_v1 | [RoundStatusDto](SCHEMAS.md#roundstatusdto) |
+| POST | `/api/v1/recruitment-rounds/{id}/slots` | RecruitmentRoundsController_slot_v1 | [CreateSlotDto](SCHEMAS.md#createslotdto) |
+| POST | `/api/v1/recruitment-rounds/{id}/slots/{slotId}/close` | RecruitmentRoundsController_closeSlot_v1 | — |
+| GET | `/api/v1/recruitment-rounds/{id}/applications` | RecruitmentRoundsController_applications_v1 | — |
+| GET | `/api/v1/recruitment-rounds/{id}/applications/{applicationId}` | RecruitmentRoundsController_application_v1 | — |
+| POST | `/api/v1/recruitment-rounds/{id}/applications/{applicationId}/retry` | RecruitmentRoundsController_retry_v1 | — |
+| POST | `/api/v1/recruitment-rounds/{id}/applications/{applicationId}/cancel` | RecruitmentRoundsController_cancel_v1 | — |
+| POST | `/api/v1/recruitment-rounds/{id}/applications/{applicationId}/reschedule` | RecruitmentRoundsController_reschedule_v1 | [RescheduleDto](SCHEMAS.md#rescheduledto) |
+| POST | `/api/v1/recruitment-rounds/{id}/applications/{applicationId}/resend-credentials` | RecruitmentRoundsController_resendCredentials_v1 | [ResendCredentialsDto](SCHEMAS.md#resendcredentialsdto) |
+| GET | `/api/v1/recruitment-rounds/{id}/applications/{applicationId}/credential-recovery` | RecruitmentRoundsController_recoveryPreview_v1 | — |
+| POST | `/api/v1/recruitment-rounds/{id}/applications/{applicationId}/recover-credentials` | RecruitmentRoundsController_recoverCredentials_v1 | [CredentialRecoveryDto](SCHEMAS.md#credentialrecoverydto) |
+| POST | `/api/v1/recruitment-rounds/{id}/applications/{applicationId}/retake` | RecruitmentRoundsController_retake_v1 | [RetakeBookingDto](SCHEMAS.md#retakebookingdto) |
+| GET | `/api/v1/recruitment-rounds/{id}/applications/{applicationId}/cv` | RecruitmentRoundsController_cv_v1 | — |
+
+## Replacement
+
+| Method | Route | Thao tác | Body |
+|---|---|---|---|
+| POST | `/api/v1/sessions/{id}/participation/incidents/{incidentId}/replacement-preview` | ReplacementController_prepare_v1 | [ReplacementPreviewDto](SCHEMAS.md#replacementpreviewdto) |
+| GET | `/api/v1/sessions/{id}/participation/replacements/{commandId}` | ReplacementController_get_v1 | — |
+| POST | `/api/v1/sessions/{id}/participation/replacements/{commandId}/approve` | ReplacementController_approve_v1 | [ReplacementApprovalDto](SCHEMAS.md#replacementapprovaldto) |
+| GET | `/api/v1/participation/me/replacements` | ReplacementController_own_v1 | — |
+
+## RepositoryAccess
+
+| Method | Route | Thao tác | Body |
+|---|---|---|---|
+| GET | `/api/v1/sessions/{id}/participation/repository-access-jobs` | RepositoryAccessController_report_v1 | — |
+| POST | `/api/v1/sessions/{id}/participation/repository-access-jobs/{jobId}/retry` | RepositoryAccessController_retry_v1 | [RepositoryAccessRetryDto](SCHEMAS.md#repositoryaccessretrydto) |
+| GET | `/api/v1/github/me/repository-access` | RepositoryAccessController_own_v1 | — |
 
 ## agents
 
@@ -147,6 +224,7 @@ Sinh từ OpenAPI của API local chính đang chạy lúc **2026-10-24T11:59:24
 | POST | `/api/v1/auth/refresh` | Rotate refresh token (family reuse detection) | — |
 | POST | `/api/v1/auth/logout` | Revoke refresh token + clear cookie (204) | — |
 | GET | `/api/v1/auth/me` | Fresh principal from DB (roles + permissions) | — |
+| POST | `/api/v1/auth/change-password` | AuthController_changePassword_v1 | [ChangePasswordDto](SCHEMAS.md#changepassworddto) |
 
 ## career-roles
 
@@ -267,6 +345,8 @@ Sinh từ OpenAPI của API local chính đang chạy lúc **2026-10-24T11:59:24
 | GET | `/api/v1/sessions/{id}/github` | GithubController_statusRepo_v1 | — |
 | POST | `/api/v1/sessions/{id}/github/provision` | GithubController_provision_v1 | — |
 | POST | `/api/v1/sessions/{id}/github/invite` | GithubController_invite_v1 | — |
+| POST | `/api/v1/sessions/{id}/github/members/{userId}/invite` | GithubController_inviteMember_v1 | — |
+| POST | `/api/v1/sessions/{id}/github/reconcile` | GithubController_reconcile_v1 | — |
 | POST | `/api/v1/sessions/{id}/github/webhook` | GithubController_configureWebhook_v1 | — |
 | GET | `/api/v1/sessions/{id}/github/activity` | GithubController_githubActivity_v1 | — |
 
@@ -302,6 +382,8 @@ Sinh từ OpenAPI của API local chính đang chạy lúc **2026-10-24T11:59:24
 |---|---|---|---|
 | GET | `/api/v1/intern/me/project` | My active assignment project details and technologies; principal identity only; recruitment gate; 404 when unassigned. No broad projects.view permission required. | — |
 | GET | `/api/v1/intern/me/sprint/board` | My current sprint board with ONLY my tasks and true per-column counts; principal/assignment scoped, paginated per column; 404 when no active assignment/sprint. | — |
+| GET | `/api/v1/intern/me/sprints` | Planned, active and historical sprints in my active assignment; authenticated principal only. | — |
+| GET | `/api/v1/intern/me/sprints/{id}/board` | Selected assignment sprint board with only my tasks, including planned sprints; never activates a sprint. | — |
 | GET | `/api/v1/intern/me/workspace` | Current-intern workspace — identity = authenticated principal (never a FE-supplied userId); status driven by DB assignment state; Phase 3 adds REAL sprint/task data: currentSprint, taskSummary, focusedTask (null/zero when unassigned) | — |
 | GET | `/api/v1/intern/me/evaluations` | My FINALIZED evaluations with scores (identity = principal; drafts/submitted are internal) | — |
 | GET | `/api/v1/intern/me/evaluations/{id}` | One of my finalized evaluations (404-safe for foreign/unfinished rows) | — |

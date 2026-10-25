@@ -1,15 +1,18 @@
 # Tra cứu field của DTO
 
-Sinh từ cùng OpenAPI lúc **2026-10-24T11:59:24.423Z**, Backend G2 bb67573a38880239d13cea6d0b8dfdb662fa2891. Phản ánh field được khai báo trong Swagger; [hướng dẫn kho tri thức](../KNOWLEDGE-LIBRARY.md) và validation/service quy định điều kiện nghiệp vụ. Field optional không đồng nghĩa được sửa ở mọi trạng thái.
+Sinh từ cùng OpenAPI lúc **2026-10-25T11:28:15.060Z**, Backend M02 61a7318. Phản ánh field được khai báo trong Swagger; [hướng dẫn kho tri thức](../KNOWLEDGE-LIBRARY.md) và validation/service quy định điều kiện nghiệp vụ. Field optional không đồng nghĩa được sửa ở mọi trạng thái.
 
 ## Mục lục schema
 
+- [AccessRequestDto](#accessrequestdto)
 - [AddClassMembersDto](#addclassmembersdto)
 - [AddGroupMembersDto](#addgroupmembersdto)
 - [AddSessionInstructorsDto](#addsessioninstructorsdto)
 - [AddSessionMembersDto](#addsessionmembersdto)
+- [ApplyDto](#applydto)
 - [CareerRoleVersionDto](#careerroleversiondto)
 - [ChangeEvaluationCycleStatusDto](#changeevaluationcyclestatusdto)
+- [ChangePasswordDto](#changepassworddto)
 - [ChangeRequestDto](#changerequestdto)
 - [ClassAnnouncementDto](#classannouncementdto)
 - [ConfirmSprintPlanDto](#confirmsprintplandto)
@@ -31,13 +34,16 @@ Sinh từ cùng OpenAPI lúc **2026-10-24T11:59:24.423Z**, Backend G2 bb67573a38
 - [CreateMilestoneDto](#createmilestonedto)
 - [CreateProjectDto](#createprojectdto)
 - [CreateReportDto](#createreportdto)
+- [CreateRoundDto](#createrounddto)
 - [CreateSalaryAdjustmentDto](#createsalaryadjustmentdto)
 - [CreateSessionDto](#createsessiondto)
+- [CreateSlotDto](#createslotdto)
 - [CreateSprintDto](#createsprintdto)
 - [CreateTaskCommentDto](#createtaskcommentdto)
 - [CreateTaskDto](#createtaskdto)
 - [CreateTemplateDto](#createtemplatedto)
 - [CreateUserDto](#createuserdto)
+- [CredentialRecoveryDto](#credentialrecoverydto)
 - [DecideAccessDto](#decideaccessdto)
 - [DraftSprintPlanDto](#draftsprintplandto)
 - [EvaluationScoreInputDto](#evaluationscoreinputdto)
@@ -49,14 +55,25 @@ Sinh từ cùng OpenAPI lúc **2026-10-24T11:59:24.423Z**, Backend G2 bb67573a38
 - [KnowledgeVersionDto](#knowledgeversiondto)
 - [LoginDto](#logindto)
 - [Object](#object)
+- [ParticipationExtensionDto](#participationextensiondto)
+- [ParticipationPolicyDto](#participationpolicydto)
+- [ParticipationResolveDto](#participationresolvedto)
 - [ProjectRoleSlotDto](#projectroleslotdto)
 - [QuestionContentDto](#questioncontentdto)
 - [RegisterDto](#registerdto)
+- [ReplacementApprovalDto](#replacementapprovaldto)
+- [ReplacementPreviewDto](#replacementpreviewdto)
+- [RepositoryAccessRetryDto](#repositoryaccessretrydto)
 - [RequestAccessDto](#requestaccessdto)
+- [RescheduleDto](#rescheduledto)
+- [ResendCredentialsDto](#resendcredentialsdto)
+- [ResendMail](#resendmail)
 - [RestoreKnowledgeDto](#restoreknowledgedto)
+- [RetakeBookingDto](#retakebookingdto)
 - [ReviewSubmissionDto](#reviewsubmissiondto)
 - [ReviseEvaluationDto](#reviseevaluationdto)
 - [RevokeCertificateDto](#revokecertificatedto)
+- [RoundStatusDto](#roundstatusdto)
 - [SaveAnswerDto](#saveanswerdto)
 - [SaveAttendanceDto](#saveattendancedto)
 - [SelectRoleDto](#selectroledto)
@@ -90,6 +107,12 @@ Sinh từ cùng OpenAPI lúc **2026-10-24T11:59:24.423Z**, Backend G2 bb67573a38
 - [UpdateTaskDto](#updatetaskdto)
 - [UpdateTemplateDto](#updatetemplatedto)
 - [UpdateUserDto](#updateuserdto)
+- [VerifyApplicationDto](#verifyapplicationdto)
+
+## AccessRequestDto
+
+| Field | Kiểu | Bắt buộc | Giới hạn / ý nghĩa |
+|---|---|---|---|
 
 ## AddClassMembersDto
 
@@ -115,6 +138,11 @@ Sinh từ cùng OpenAPI lúc **2026-10-24T11:59:24.423Z**, Backend G2 bb67573a38
 |---|---|---|---|
 | userIds | array<string (uuid)>  | Có | minItems: 1; maxItems: 200 |
 
+## ApplyDto
+
+| Field | Kiểu | Bắt buộc | Giới hạn / ý nghĩa |
+|---|---|---|---|
+
 ## CareerRoleVersionDto
 
 | Field | Kiểu | Bắt buộc | Giới hạn / ý nghĩa |
@@ -125,6 +153,11 @@ Sinh từ cùng OpenAPI lúc **2026-10-24T11:59:24.423Z**, Backend G2 bb67573a38
 | Field | Kiểu | Bắt buộc | Giới hạn / ý nghĩa |
 |---|---|---|---|
 | status | string | Có | enum: "draft", "open", "closed", "archived" |
+
+## ChangePasswordDto
+
+| Field | Kiểu | Bắt buộc | Giới hạn / ý nghĩa |
+|---|---|---|---|
 
 ## ChangeRequestDto
 
@@ -299,6 +332,11 @@ Sinh từ cùng OpenAPI lúc **2026-10-24T11:59:24.423Z**, Backend G2 bb67573a38
 | Field | Kiểu | Bắt buộc | Giới hạn / ý nghĩa |
 |---|---|---|---|
 
+## CreateRoundDto
+
+| Field | Kiểu | Bắt buộc | Giới hạn / ý nghĩa |
+|---|---|---|---|
+
 ## CreateSalaryAdjustmentDto
 
 | Field | Kiểu | Bắt buộc | Giới hạn / ý nghĩa |
@@ -321,6 +359,11 @@ Sinh từ cùng OpenAPI lúc **2026-10-24T11:59:24.423Z**, Backend G2 bb67573a38
 | leadInstructorId | string (uuid) | Không | — |
 | startDate | string (date-time) | Có | — |
 | endDate | string (date-time) | Có | — |
+
+## CreateSlotDto
+
+| Field | Kiểu | Bắt buộc | Giới hạn / ý nghĩa |
+|---|---|---|---|
 
 ## CreateSprintDto
 
@@ -370,6 +413,11 @@ Sinh từ cùng OpenAPI lúc **2026-10-24T11:59:24.423Z**, Backend G2 bb67573a38
 | displayName | string | Có | minLength: 1; maxLength: 128 |
 | password | string | Có | minLength: 10; maxLength: 72 |
 | roleCodes | array<string>  | Không | — |
+
+## CredentialRecoveryDto
+
+| Field | Kiểu | Bắt buộc | Giới hạn / ý nghĩa |
+|---|---|---|---|
 
 ## DecideAccessDto
 
@@ -458,6 +506,21 @@ Sinh từ cùng OpenAPI lúc **2026-10-24T11:59:24.423Z**, Backend G2 bb67573a38
 | Field | Kiểu | Bắt buộc | Giới hạn / ý nghĩa |
 |---|---|---|---|
 
+## ParticipationExtensionDto
+
+| Field | Kiểu | Bắt buộc | Giới hạn / ý nghĩa |
+|---|---|---|---|
+
+## ParticipationPolicyDto
+
+| Field | Kiểu | Bắt buộc | Giới hạn / ý nghĩa |
+|---|---|---|---|
+
+## ParticipationResolveDto
+
+| Field | Kiểu | Bắt buộc | Giới hạn / ý nghĩa |
+|---|---|---|---|
+
 ## ProjectRoleSlotDto
 
 | Field | Kiểu | Bắt buộc | Giới hạn / ý nghĩa |
@@ -475,7 +538,37 @@ Sinh từ cùng OpenAPI lúc **2026-10-24T11:59:24.423Z**, Backend G2 bb67573a38
 | Field | Kiểu | Bắt buộc | Giới hạn / ý nghĩa |
 |---|---|---|---|
 
+## ReplacementApprovalDto
+
+| Field | Kiểu | Bắt buộc | Giới hạn / ý nghĩa |
+|---|---|---|---|
+
+## ReplacementPreviewDto
+
+| Field | Kiểu | Bắt buộc | Giới hạn / ý nghĩa |
+|---|---|---|---|
+
+## RepositoryAccessRetryDto
+
+| Field | Kiểu | Bắt buộc | Giới hạn / ý nghĩa |
+|---|---|---|---|
+
 ## RequestAccessDto
+
+| Field | Kiểu | Bắt buộc | Giới hạn / ý nghĩa |
+|---|---|---|---|
+
+## RescheduleDto
+
+| Field | Kiểu | Bắt buộc | Giới hạn / ý nghĩa |
+|---|---|---|---|
+
+## ResendCredentialsDto
+
+| Field | Kiểu | Bắt buộc | Giới hạn / ý nghĩa |
+|---|---|---|---|
+
+## ResendMail
 
 | Field | Kiểu | Bắt buộc | Giới hạn / ý nghĩa |
 |---|---|---|---|
@@ -486,6 +579,11 @@ Sinh từ cùng OpenAPI lúc **2026-10-24T11:59:24.423Z**, Backend G2 bb67573a38
 |---|---|---|---|
 | version | number | Có | Version current mà người dùng đã đọc; minimum: 1; maximum: 2147483646 |
 | sourceVersion | number | Có | Bản lịch sử được chép thành draft mới; minimum: 1; maximum: 2147483646 |
+
+## RetakeBookingDto
+
+| Field | Kiểu | Bắt buộc | Giới hạn / ý nghĩa |
+|---|---|---|---|
 
 ## ReviewSubmissionDto
 
@@ -505,6 +603,11 @@ Sinh từ cùng OpenAPI lúc **2026-10-24T11:59:24.423Z**, Backend G2 bb67573a38
 | Field | Kiểu | Bắt buộc | Giới hạn / ý nghĩa |
 |---|---|---|---|
 | reason | string | Có | Required revocation reason (spec 50); maxLength: 512 |
+
+## RoundStatusDto
+
+| Field | Kiểu | Bắt buộc | Giới hạn / ý nghĩa |
+|---|---|---|---|
 
 ## SaveAnswerDto
 
@@ -755,3 +858,8 @@ Sinh từ cùng OpenAPI lúc **2026-10-24T11:59:24.423Z**, Backend G2 bb67573a38
 |---|---|---|---|
 | displayName | string | Không | maxLength: 128 |
 | username | string | Không | minLength: 3; maxLength: 64 |
+
+## VerifyApplicationDto
+
+| Field | Kiểu | Bắt buộc | Giới hạn / ý nghĩa |
+|---|---|---|---|
