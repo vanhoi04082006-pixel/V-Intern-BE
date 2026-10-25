@@ -10,10 +10,10 @@ Tiếp G4, theo H01–H04 trong [kế hoạch](todo.md). Repo do tài khoản ch
 
 | Lát | Hoàn thành khi | Kiểm chứng | Trạng thái |
 |---|---|---|---|
-| H01 | Pending/accepted/expired/failed/not_connected dựa remote, numeric ID và snapshot | Contract 201/204/403/404/429, SQL migration, identity mismatch | Đạt local; live chờ reconnect |
-| H02 | Từng người/batch tối đa năm, lease và cooldown, không spam pending/accepted | SQL bấm đôi, reconnect/đổi owner, hết hạn, audit | Đạt local; live chờ reconnect |
+| H01 | Pending/accepted/expired/failed/not_connected dựa remote, numeric ID và snapshot | Contract 201/204/403/404/429, SQL migration, identity mismatch | Đạt local; live pending/accepted đã xác minh |
+| H02 | Từng người/batch tối đa năm, lease và cooldown, không spam pending/accepted | SQL bấm đôi, reconnect/đổi owner, hết hạn, audit | Đạt local; live 0 grant trùng; chu trình nhận mới/mời lại chưa kiểm |
 | H03 | Notification và email V-Intern đúng phiên/repo, UI SV/GV có hành động đúng quyền | SMTP local, FE unit/browser, lỗi/keyboard | Đạt local; email ngoài không thuộc nghiệm thu |
-| H04 | HMAC/dedup/scope giữ nguyên, live delivery hoặc phụ thuộc ngoài ghi rõ | Regression webhook, HTTPS route riêng và GitHub delivery | Regression đạt; live chờ reconnect |
+| H04 | HMAC/dedup/scope giữ nguyên, live delivery hoặc phụ thuộc ngoài ghi rõ | Regression webhook, HTTPS route riêng và GitHub delivery | Đạt live ping HTTP 200/dedup; hook tạm đã tắt |
 
 [Báo cáo, số liệu và giới hạn](../docs/reports/g5-completion-20261025.md). Chưa chốt checkpoint G5 chỉ bằng test deterministic.
 

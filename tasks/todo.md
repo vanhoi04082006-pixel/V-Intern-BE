@@ -158,17 +158,17 @@ Khi thực hiện, mỗi task bổ sung cột/ngày ghi nhận: `commit FE/BE �
 
 ## G5. GitHub — M12
 
-- [x] H01 local. Invitation state và đối chiếu collaborator theo hợp đồng GitHub; live đang chờ kết nối lại.
+- [x] H01 local. Invitation state theo hợp đồng GitHub; live đã xác minh pending/accepted và đúng owner numeric ID.
   - Đạt khi: tách pending/accepted/expired/failed/not_connected; lưu invitation ID và timestamp; bám numeric user ID.
   - Kiểm: GitHub contract 201/204/403/404/rate limit và identity mismatch. File: BE github contracts/migration/service/tests.
-- [x] H02 local. Mời lại từng người và batch có giới hạn; live đang chờ kết nối lại.
+- [x] H02 local. Mời lại từng người/batch có giới hạn; live sync 2 người, 0 grant trùng; nhận mới/mời lại thật chưa kiểm.
   - Đạt khi: pending không tạo trùng, accepted không spam, expired/lỗi có recovery; cooldown và audit.
   - Kiểm: double-click/concurrency/token đổi/owner đổi/invite hết hạn. Phụ thuộc H01.
 - [x] H03 local. Email/in-app theo chủ đề và UI nhận/mời lại; SMTP loopback thật đã qua.
   - Đạt khi: đúng phiên/project/repo/người nhận; CTA chính xác; role sinh viên không tự mời người khác.
   - Kiểm: preview + FE/RBAC + SMTP live riêng; ghi rõ email native GitHub không tùy biến. Phụ thuộc H02/E02.
-- [ ] H04. Webhook live và đường đối chiếu khi mất event.
-  - Trạng thái 25/10: regression HMAC/dedup/scope đạt. GitHub tài khoản chung trả `GITHUB_RECONNECT_REQUIRED`; đã yêu cầu kết nối lại, chưa mở tunnel và chưa có delivery live G5. [Báo cáo và manifest](../docs/reports/g5-completion-20261025.md).
+- [x] H04. Webhook live và đường đối chiếu khi mất event.
+  - Trạng thái 25/10: ping GitHub HTTP 200, redelivery dedup và đúng một receipt; negative route/HMAC/repo đạt. Hook và relay QA tạm đã tắt; chưa có endpoint public lâu dài. [Báo cáo và manifest](../docs/reports/g5-completion-20261025.md).
   - Đạt khi: HTTPS giới hạn route, HMAC, dedup, repo scope; có delivery GitHub thật và sự kiện BE.
   - Kiểm: unsigned/wrong repo/replay và live ping/event; không coi E2E ký tay là live. Phụ thuộc H01; cấu hình endpoint riêng, không mở API toàn bộ.
 

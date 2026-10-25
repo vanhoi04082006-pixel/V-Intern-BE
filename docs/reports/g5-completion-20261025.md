@@ -1,19 +1,21 @@
 # G5 — Lời mời repository và quyền cộng tác
 
-Ngày kiểm **25/10/2026 (UTC+7)**. Phần local đã triển khai; **nghiệm thu GitHub live và webhook live đang chờ kết nối lại tài khoản chung**. Không đánh dấu checkpoint G5 hoàn tất khi phụ thuộc này chưa giải quyết.
+Ngày kiểm **25/10/2026 (UTC+7)**. Tài khoản chung **hbuivanhoi6-stack** đã kết nối lại. GitHub thật đã chứng minh pending/accepted và webhook ping/dedup. **Chưa nghiệm thu chu trình nhận lời mời mới rồi hết hạn/mời lại trên GitHub thật.** SMTP nghiệm thu local theo phạm vi đã duyệt.
 
 ## Kết quả có nguồn
 
 | Nhóm | Kết quả | Nguồn dưới workspace |
 |---|---|---|
-| BE unit | 102 suite / 788 test | `.runtime/g5-be-unit-final.log` |
-| BE build/lint | Qua; 15 cảnh báo console cũ, không có lỗi lint | `.runtime/g5-be-build-final.log`, `g5-be-lint-final.log` |
-| SQL GitHub/sharing/webhook | 3 suite / 29 test | `.runtime/g5-domain-sql-final.log` |
+| BE unit | 104 suite / 791 test | `.runtime/g5-be-unit-reconnected.log` |
+| BE build/lint | Qua; 15 cảnh báo console cũ, không có lỗi lint | `.runtime/g5-be-build-reconnected.log`, `g5-be-lint-reconnected.log` |
+| SQL GitHub/sharing/webhook | 3 suite / 30 test | `.runtime/g5-worker-cooldown-green.log` |
 | Migration G5 | 2 test | `.runtime/g5-migration.log` |
 | FE quality | 100 file / 610 test; typecheck/lint/build qua | `.runtime/g5-fe-unit-final.log`, `g5-fe-typecheck-final.log`, `g5-fe-lint-final.log`, `g5-fe-build-final.log` |
 | Chrome hai vai | 3 luồng, 390/768/1440, 0 page error | `manual-runtime/g5-20261025/browser-result.json`, `shots/` |
 | Native | Migration cả hai DB; hash tài khoản/quyền/16 bảng nghiệp vụ giữ nguyên; file DB trong project | `.runtime/g5-native-activation.log`, `manual-runtime/g5-20261025/native-activation.json` |
-| GitHub thật | `GITHUB_RECONNECT_REQUIRED` | `.runtime/g5-github-live.log` |
+| Native hotfix | Migration bổ sung cả hai DB; hash dữ liệu được bảo vệ giữ nguyên | `manual-runtime/g5-20261025/native-activation-cooldown.json` |
+| GitHub thật | 1 pending, 1 accepted; sync xử lý 2, bỏ qua 0; 0 collaborator write | `manual-runtime/g5-20261025/members-live-result.json` |
+| Webhook thật | Ping HTTP 200; redelivery cùng GUID dedup; chỉ 1 receipt | `manual-runtime/g5-20261025/webhook-live-result.json` |
 
 Các nhóm là những lần chạy độc lập, không cộng thành một lần kiểm tổng hợp. Manifest ghi commit code, timestamp UTC và hash nguồn. SMTP đã đi qua giao thức thật tới server loopback do ca SQL mở; không tuyên bố giao thư tới hộp thư ngoài.
 
@@ -28,12 +30,20 @@ Các nhóm là những lần chạy độc lập, không cộng thành một l�
 - HMAC/dedup/repository scope của webhook và regression sharing tiếp tục qua.
 - Phát hiện expiry sharing dùng giờ Node đối chiếu hạn SQL; đã chuyển kiểm quyền đọc sang giờ SQL, giữ nguyên assertion/timeout của test.
 
-## Phần chưa thể chốt
+## Lỗi phát hiện và sửa khi nghiệm thu
 
-Kết nối thực tế của tài khoản chung `hbuivanhoi6-stack` cần được Admin kết nối lại. Chưa có nghiệm thu tạo lời mời mới/nhận/mời lại hoặc delivery webhook GitHub thật ở mốc G5. Script và relay nhận sự kiện giới hạn route đã có sẵn; chưa mở tunnel khi chưa có kết nối hợp lệ. Test ký tay và SMTP local không được dùng thay cho bằng chứng GitHub live.
+Worker mỗi phút cập nhật `lastCheckedAt`, làm nút kiểm tra thủ công gần như luôn gặp cooldown. Migration bổ sung `lastRequestedAt` tách hai nhịp; lease vẫn bảo vệ lệnh đồng thời. SQL chứng minh kiểm tra thủ công đầu sau worker được phép và bấm lặp bị chặn.
 
-CI G4 trước đó đã xanh ở [BE #7](https://github.com/vanhoi04082006-pixel/V-Intern-BE/pull/7) và [FE #17](https://github.com/vanhoi04082006-pixel/V-Intern-FE/pull/17). G5 cần gate riêng trên cặp commit mới; không suy diễn từ G4.
+DB mới bị `RESOURCE_SEMAPHORE` tại `UNION` trên chuỗi JSON không giới hạn. Chuyển sang `UNION ALL` và khử trùng ở ứng dụng; giữ kiểm tra mã quá 32 ký tự và timeout 15 giây. Migration cũ chỉ đổi truy vấn tương đương cho cài mới; DB đã áp dụng không chạy lại hoặc viết lại dữ liệu.
 
-Lần CI G5 đầu phát hiện hai suite SMTP cùng dùng một outbox làm worker đọc nhầm fixture của suite khác. Gate G5 đã được tách sang DB disposable riêng (`96`), vẫn chạy bắt buộc cùng pipeline. Nhóm G3/G4/communications giữ nguyên; không bỏ assertion, giảm số test hoặc tăng timeout.
+## Phạm vi live và giới hạn
+
+Repo QA ID `1430503264`, owner numeric ID `308232306` được kiểm trước thao tác. `bvhtesst-stack` đang pending, `cherrytale983-hash` là collaborator accepted; sync không gửi PUT trùng. Token sinh viên trả HTTP 404 khi liệt kê lời mời, nên chưa nhận lời mời mới bằng token đó; accepted có sẵn không thay bằng chứng cho hành động nhận mới.
+
+Webhook dùng relay tạm giới hạn QA repo, kiểm HMAC; route khác 404, unsigned 401, repo khác 403. Hook remote đã tắt và tunnel/relay đã dừng sau nghiệm thu. Chưa có endpoint public lâu dài. SMTP local không chứng minh gửi thư tới hộp thư ngoài.
+
+G5 remote CI đã xanh trước hotfix ở [BE run 40142280613](https://github.com/vanhoi04082006-pixel/V-Intern-BE/actions/runs/40142280613). Gate cuối phải đọc theo commit trong manifest; không suy diễn từ lần trước.
+
+CI phát hiện hai suite SMTP chung outbox và tên DB bị trùng. G5 nay dùng DB riêng suffix `105`/`106`; unit test kiểm uniqueness của toàn workflow. Nhóm G3/G4/communications giữ nguyên; không bỏ assertion, giảm số test hoặc tăng timeout.
 
 Đọc [hướng dẫn GitHub](../GITHUB-INVITATIONS.md) để thao tác và [kế hoạch G5](../../tasks/g5-execution.md) để xem tiêu chí còn lại.

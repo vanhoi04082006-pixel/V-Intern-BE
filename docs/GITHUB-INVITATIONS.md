@@ -87,4 +87,4 @@ Webhook có đường HTTPS riêng `/api/v1/github/webhook`, xác minh HMAC, del
 | `GITHUB_INVITATION_UNAVAILABLE` | Chưa tìm được lời mời hoặc quyền hợp lệ; giảng viên có thể đối chiếu/mời lại |
 | `GITHUB_INVITATION_SCAN_LIMIT` | Repo có quá nhiều lời mời để quét trong một lệnh giới hạn; Admin cần xử lý danh sách GitHub |
 
-Đọc [báo cáo G5](reports/g5-completion-20261025.md) để phân biệt phần đã kiểm local, kết quả CI và phụ thuộc GitHub đang chờ. Không gửi token, secret hoặc mật khẩu vào log/issue/chat.
+Cooldown thao tác thủ công dùng `lastRequestedAt`, độc lập với nhịp worker `lastCheckedAt`; cả hai vẫn chịu lease chống gửi đồng thời. Đọc [báo cáo G5](reports/g5-completion-20261025.md) để phân biệt kiểm local, GitHub live và chu trình nhận mới/mời lại chưa kiểm. Không gửi token, secret hoặc mật khẩu vào log/issue/chat.
