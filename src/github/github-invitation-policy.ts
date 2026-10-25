@@ -126,6 +126,7 @@ export async function resolveInvitation(
     token,
     "PUT",
     { permission: "push" },
+    [201, 204],
   );
   if (created === undefined) return { ...result, status: "accepted" };
   const pending = snapshot(created);

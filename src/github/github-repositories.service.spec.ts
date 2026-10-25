@@ -100,6 +100,7 @@ function fixture(
         return [];
       }
       if (sql.includes("SET status='ready'")) { repository.status = 'ready'; return []; }
+      if (sql.startsWith('SELECT m.userId,c.githubUserId')) return members.filter(member=>member.userId===params[1]);
       if (sql.includes('FROM session_members WHERE')) {
         let limit = members.length;
         const literal = sql.match(/TOP\s*\(?\s*(\d+)\s*\)?/i);

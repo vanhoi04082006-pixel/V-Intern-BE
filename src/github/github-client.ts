@@ -22,6 +22,7 @@ export class GithubClient {
     token: string,
     method = "GET",
     body?: object,
+    successStatuses?: readonly number[],
   ): Promise<T> {
     if (!path.startsWith("/") || path.startsWith("//") || /[\r\n]/.test(path))
       throw new Error("Invalid GitHub API path.");
@@ -38,7 +39,10 @@ export class GithubClient {
       },
       ...(body ? { body: JSON.stringify(body) } : {}),
     });
-    if (!response.ok) {
+    if (
+      !response.ok ||
+      (successStatuses && !successStatuses.includes(response.status))
+    ) {
       await response.body?.cancel();
       throw new GithubApiError(response.status);
     }

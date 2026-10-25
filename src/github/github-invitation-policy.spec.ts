@@ -50,6 +50,7 @@ describe("GitHub invitation remote contract", () => {
       invited: true,
       expiresAt: new Date("2026-11-01T00:00:00Z"),
     });
+    expect(f.call).toHaveBeenCalledWith('/repos/platform/vintern-demo/collaborators/student-now','private','PUT',{permission:'push'},[201,204]);
   });
   it("recognizes existing collaborator without a PUT", async () => {
     const f = fixture({ accepted: true });

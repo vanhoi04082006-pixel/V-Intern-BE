@@ -354,7 +354,19 @@ jobs:
           set -euo pipefail
           npm run db:create:e2e
           npm run migration:run
-          npm run test:e2e -- --testRegex=github-invitations.sql-spec.ts$
+          npm run test:e2e -- --testRegex='(github-invitations|github-grant-ledger).sql-spec.ts$'
+
+      - name: G6 GitHub grant provenance migration - no historical ownership inference
+        env:
+          DB_NAME: VIntern_E2E_CI_${{ github.run_id }}_${{ github.run_attempt }}111
+          E2E_DB_NAME: VIntern_E2E_CI_${{ github.run_id }}_${{ github.run_attempt }}111
+          DB_ADMIN_USERNAME: sa
+          DB_ADMIN_PASSWORD: ${{ env.SA_PASSWORD }}
+          DB_PASSWORD: ${{ env.APP_PASSWORD }}
+        run: |
+          set -euo pipefail
+          npm run db:create:e2e
+          npm run test:e2e -- --testRegex=repository-grants-migration.sql-spec.ts$
 
       - name: G3 additive migration and protected rollback — empty database
         env:

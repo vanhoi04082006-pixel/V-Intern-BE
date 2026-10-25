@@ -172,6 +172,11 @@ it("persists pending identity/ID/expiry, one audit, encrypted mail and themed in
   expect(JSON.stringify(preview)).toContain("Lời mời cộng tác");
   expect(JSON.stringify(preview)).toContain("G5 &lt;QA&gt;");
 });
+it('does not invite a stale member removed between the scan and lease claim',async()=>{
+  const f=await fixture(),original=db.query.bind(db);let removed=false;
+  const spy=jest.spyOn(db,'query').mockImplementation(async(sql,params,runner)=>{const result=await original(sql,params,runner);if(!removed&&sql.includes('SELECT TOP(5) m.userId')){removed=true;await original('DELETE FROM session_members WHERE sessionId=@0 AND userId=@1',[f.sessionId,f.userId]);}return result;});
+  try{await expect(f.sync()).rejects.toMatchObject({status:404});expect(f.remote.puts).toBe(0);}finally{spy.mockRestore();}
+});
 it("serializes concurrent commands and rejects double-clicks without duplicate access or mail", async () => {
   const f = await fixture();
   const results = await Promise.allSettled([f.sync(), f.sync()]);

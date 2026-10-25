@@ -8,6 +8,7 @@ import { randomUUID } from "node:crypto";
 import { DataSource } from "typeorm";
 import { CommunicationsService } from "../communications/communications.service";
 import { GithubApiError, GithubClient } from "./github-client";
+import { recordSystemInvitation } from "./github-grant-ledger";
 import {
   InvitationRepository,
   InvitationResult,
@@ -67,6 +68,25 @@ export class GithubInvitationsService {
     for (const member of members) {
       const lease = randomUUID();
       const claim = await this.db.transaction(async (em) => {
+        await em.query(
+          "SELECT id FROM internship_sessions WITH(UPDLOCK,HOLDLOCK) WHERE id=@0",
+          [repo.sessionId],
+        );
+        const [fresh]: Array<{
+          userId: string;
+          githubUserId: string | number | null;
+        }> = await em.query(
+          `SELECT m.userId,c.githubUserId FROM (${membership}) m JOIN users u ON u.id=m.userId AND u.status='active' LEFT JOIN github_connections c ON c.userId=m.userId WHERE m.userId=@1`,
+          [repo.sessionId, member.userId],
+        );
+        if (!fresh) {
+          if (targetId)
+            throw new NotFoundException(
+              "Thành viên không còn thuộc phiên này.",
+            );
+          return null;
+        }
+        member.githubUserId = fresh.githubUserId;
         const [{ utcNow }]: Array<{ utcNow: Date }> = await em.query(
           "SELECT SYSUTCDATETIME() utcNow",
         );
@@ -170,8 +190,12 @@ export class GithubInvitationsService {
         };
       }
       await this.db.transaction(async (em) => {
+        await em.query(
+          "SELECT id FROM internship_sessions WITH(UPDLOCK,HOLDLOCK) WHERE id=@0",
+          [repo.sessionId],
+        );
         const [owned]: Array<{ userId: string }> = await em.query(
-          "SELECT userId FROM session_repo_members WITH(UPDLOCK,HOLDLOCK) WHERE sessionId=@0 AND userId=@1 AND leaseToken=@2",
+          "SELECT userId FROM session_repo_members WITH(UPDLOCK,HOLDLOCK) WHERE sessionId=@0 AND userId=@1 AND leaseToken=@2 AND leaseUntil>SYSUTCDATETIME()",
           [repo.sessionId, member.userId, lease],
         );
         if (!owned) return;
@@ -199,21 +223,23 @@ export class GithubInvitationsService {
           ],
         );
         if (
+          result.invited ||
           newInvitation ||
           claim.prior?.status !== result.status ||
           claim.prior?.errorCode !== result.errorCode
-        )
+        ) {
+          const eventId = randomUUID();
           await em.query(
             `INSERT INTO github_invitation_events(id,sessionId,userId,actorId,githubUserId,invitationId,action,previousStatus,status,errorCode,source)
           VALUES(@0,@1,@2,@3,@4,@5,@6,@7,@8,@9,@10)`,
             [
-              randomUUID(),
+              eventId,
               repo.sessionId,
               member.userId,
               actorId,
               result.githubUserId,
               result.invitationId,
-              newInvitation ? "invited" : "reconciled",
+              result.invited || newInvitation ? "invited" : "reconciled",
               claim.prior?.status ?? null,
               result.status,
               result.errorCode,
@@ -224,6 +250,15 @@ export class GithubInvitationsService {
                   : "automatic_sync",
             ],
           );
+          await recordSystemInvitation(
+            em,
+            eventId,
+            repo.sessionId,
+            member.userId,
+            repo,
+            result,
+          );
+        }
       });
       processed++;
     }
