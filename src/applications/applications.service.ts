@@ -210,6 +210,8 @@ export class ApplicationsService {
             ? "Email đã xác minh. Hồ sơ đang chờ Agent phân tích."
             : "Email đã xác minh. CV chưa có đủ văn bản đọc được; cần bổ sung, hệ thống chưa có OCR.",
         );
+      else
+        await this.event(em, app.id, "email_reverified", "Email đã được xác minh lại. Lịch hẹn, vai trò và số lượt phỏng vấn được giữ nguyên.");
     });
     return capability;
   }

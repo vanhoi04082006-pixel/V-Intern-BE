@@ -341,7 +341,7 @@ jobs:
           set -euo pipefail
           npm run db:create:e2e
           npm run migration:run
-          npm run test:e2e -- --testRegex='(applications|communications|scheduled-interviews).sql-spec.ts$'
+          npm run test:e2e -- --testRegex='(applications|communications|scheduled-interviews|credential-recovery).sql-spec.ts$'
 
       - name: G5 invitations and SMTP — isolated outbox database
         env:

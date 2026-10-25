@@ -29,11 +29,14 @@ import {
   RescheduleDto,
   ResendCredentialsDto,
   RetakeBookingDto,
+  CredentialRecoveryDto,
+  CredentialRecoveryQuery,
 } from "./application.dto";
 import { InterviewBookingsService } from "./interview-bookings.service";
 import { ApplicationWorkflow } from "./application-workflow.service";
 import { ApplicationsService } from "./applications.service";
 import { RecruitmentRoundsService } from "./recruitment-rounds.service";
+import { ApplicationCredentialRecovery } from "./application-credential-recovery.service";
 type Upload = { buffer: Buffer; mimetype: string; originalname: string };
 const candidateCookie = "vintern_candidate";
 const fileLimit = {
@@ -138,6 +141,7 @@ export class RecruitmentRoundsController {
     private readonly rounds: RecruitmentRoundsService,
     private readonly apps: ApplicationsService,
     private readonly bookings: InterviewBookingsService,
+    private readonly credentialRecovery: ApplicationCredentialRecovery,
     private readonly workflow: ApplicationWorkflow,
   ) {}
   @Get() list(@CurrentUser("userId") actor: string) {
@@ -226,6 +230,24 @@ export class RecruitmentRoundsController {
       application,
       dto.acknowledgeUncertain,
     );
+  }
+  @Get(":id/applications/:applicationId/credential-recovery") recoveryPreview(
+    @CurrentUser("userId") actor: string,
+    @Param("id", ParseUUIDPipe) id: string,
+    @Param("applicationId", ParseUUIDPipe) application: string,
+    @Query() query: CredentialRecoveryQuery,
+  ) {
+    return this.credentialRecovery.preview(actor, id, application, query.slotId);
+  }
+  @Post(":id/applications/:applicationId/recover-credentials")
+  @Throttle({ default: { limit: 4, ttl: 60000 } })
+  recoverCredentials(
+    @CurrentUser("userId") actor: string,
+    @Param("id", ParseUUIDPipe) id: string,
+    @Param("applicationId", ParseUUIDPipe) application: string,
+    @Body() dto: CredentialRecoveryDto,
+  ) {
+    return this.credentialRecovery.recover(actor, id, application, dto);
   }
   @Post(":id/applications/:applicationId/retake") retake(
     @CurrentUser("userId") actor: string,

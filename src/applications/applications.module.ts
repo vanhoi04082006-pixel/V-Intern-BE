@@ -6,6 +6,7 @@ import { RecruitmentModule } from "../recruitment/recruitment.module";
 import { IntakeAgents } from "./intake-agents.service";
 import { InterviewBookingsService } from "./interview-bookings.service";
 import { ApplicationWorkflow } from "./application-workflow.service";
+import { ApplicationCredentialRecovery } from "./application-credential-recovery.service";
 import {
   ApplicationsController,
   RecruitmentRoundsController,
@@ -23,6 +24,7 @@ import { RecruitmentRoundsService } from "./recruitment-rounds.service";
     IntakeAgents,
     InterviewBookingsService,
     ApplicationWorkflow,
+    ApplicationCredentialRecovery,
   ],
   exports: [ApplicationsService],
 })

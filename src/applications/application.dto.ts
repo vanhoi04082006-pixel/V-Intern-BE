@@ -11,6 +11,7 @@ import {
   Length,
   Max,
   Min,
+  Matches,
 } from "class-validator";
 import { Type } from "class-transformer";
 export class CreateRoundDto {
@@ -51,6 +52,13 @@ export class ApplicationPageDto {
 }
 export class RescheduleDto {
   @IsUUID() slotId!: string;
+}
+export class CredentialRecoveryQuery {
+  @IsUUID() slotId!: string;
+}
+export class CredentialRecoveryDto extends CredentialRecoveryQuery {
+  @IsString() @Matches(/^[a-f0-9]{64}$/) expectedRevision!: string;
+  @IsString() @Length(10, 1000) reason!: string;
 }
 export class RetakeBookingDto extends RescheduleDto {
   @IsString() @Length(10, 1000) reason!: string;
