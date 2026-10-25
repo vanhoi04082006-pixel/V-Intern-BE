@@ -403,7 +403,7 @@ jobs:
           set -euo pipefail
           npm run db:create:e2e
           npm run migration:run
-          npm run test:e2e -- --testRegex='(participation.sql-spec|submission-notifications.e2e-spec|replacement-advisor.sql-spec|replacement-workflow.sql-spec).ts$'
+          npm run test:e2e -- --testRegex='(participation.sql-spec|submission-notifications.e2e-spec|replacement-advisor.sql-spec|replacement-workflow.sql-spec|repository-access-queue.sql-spec|repository-access-worker.sql-spec|repository-access-http.sql-spec).ts$'
 
       - name: G6 replacement migration preserves approvals and access job history
         env:
