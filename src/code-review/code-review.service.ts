@@ -46,6 +46,7 @@ interface CodeSubmission extends SubmissionSnapshot {
   status: string;
   summary: string;
 }
+const CODE_REVIEW_PROMPT_VERSION = 'code-review-v2';
 @Injectable()
 export class CodeReviewService {
   constructor(
@@ -123,8 +124,8 @@ export class CodeReviewService {
         [id],
       );
       await em.query(
-        "INSERT INTO submission_code_reviews(id,submissionId,headSha,status,leaseId) VALUES(@0,@1,@2,'running',@3)",
-        [reviewId, id, submission.headSha, leaseId],
+        "INSERT INTO submission_code_reviews(id,submissionId,headSha,status,leaseId,promptVersion) VALUES(@0,@1,@2,'running',@3,@4)",
+        [reviewId, id, submission.headSha, leaseId, CODE_REVIEW_PROMPT_VERSION],
       );
       return true;
     });
@@ -199,7 +200,7 @@ export class CodeReviewService {
         actorId: reviewerActorId,
         resourceType: "task_submission",
         resourceId: id,
-        promptVersion: "code-review-v2",
+        promptVersion: CODE_REVIEW_PROMPT_VERSION,
         request: {
           task: "review_student_code",
           schemaName: "StudentCodeReview",
