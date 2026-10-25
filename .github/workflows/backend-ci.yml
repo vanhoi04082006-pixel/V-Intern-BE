@@ -380,6 +380,19 @@ jobs:
           npm run db:create:e2e
           npm run test:e2e -- --testRegex=interview-admission-migration.sql-spec.ts$
 
+      - name: Student planned sprint visibility and assignment isolation
+        env:
+          DB_NAME: VIntern_E2E_CI_${{ github.run_id }}_${{ github.run_attempt }}107
+          E2E_DB_NAME: VIntern_E2E_CI_${{ github.run_id }}_${{ github.run_attempt }}107
+          DB_ADMIN_USERNAME: sa
+          DB_ADMIN_PASSWORD: ${{ env.SA_PASSWORD }}
+          DB_PASSWORD: ${{ env.APP_PASSWORD }}
+        run: |
+          set -euo pipefail
+          npm run db:create:e2e
+          npm run migration:run
+          npm run test:e2e -- --testRegex=student-sprint-visibility.sql-spec.ts$
+
       - name: G5 invitation migration — populated legacy rows and protected audit rollback
         env:
           DB_NAME: VIntern_E2E_CI_${{ github.run_id }}_${{ github.run_attempt }}106

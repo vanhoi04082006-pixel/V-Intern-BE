@@ -24,4 +24,16 @@ export class InternReadService {
     if (!workspace.currentSprint) throw new NotFoundException({ statusCode: 404, code: 'CURRENT_SPRINT_NOT_FOUND', message: 'No current sprint.' });
     return this.sprintsService.board(workspace.currentSprint.id, query, userId);
   }
+  async sprints(userId: string, query: { page: number; pageSize: number }) {
+    const workspace = await this.active(userId);
+    return this.sprintsService.listForAssignment(workspace.assignment!.project.id, workspace.assignment!.session.id, query);
+  }
+  async selectedSprintBoard(userId: string, id: string, query: { page: number; pageSize: number }) {
+    const workspace = await this.active(userId), assignment = workspace.assignment!;
+    const sprint = await this.sprintsService.getOneDetailed(id);
+    if (sprint.projectId.toLowerCase() !== assignment.project.id.toLowerCase() ||
+      sprint.sessionId && sprint.sessionId.toLowerCase() !== assignment.session.id.toLowerCase())
+      throw new NotFoundException({ statusCode:404, code:'SPRINT_NOT_FOUND', message:'Sprint not found in your assignment.' });
+    return this.sprintsService.board(id, query, userId);
+  }
 }
