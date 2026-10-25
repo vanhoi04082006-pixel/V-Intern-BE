@@ -196,7 +196,9 @@ describe("durable SQL mail queue", () => {
     );
     expect((await row(id)).sealedPayload).not.toContain("local-fixture-secret");
     expect(await w.preview(id)).toMatchObject({ redacted: true });
-    await w.tick();
+    const query = db.query.bind(db);
+    const inheritedIsolation = jest.spyOn(db, 'query').mockImplementation((sql, params) => query(sql.includes('WITH due AS') ? 'SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;\n'+sql : sql, params));
+    try { await w.tick(); } finally { inheritedIsolation.mockRestore(); }
     expect(await row(id)).toMatchObject({
       status: "accepted",
       sealedPayload: null,

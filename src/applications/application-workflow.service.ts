@@ -57,7 +57,7 @@ export class ApplicationWorkflow
     let heartbeat: ReturnType<typeof setInterval> | undefined;
     try {
       const [app] = await this.db.query(
-        `;WITH due AS(SELECT TOP(1) * FROM cv_applications WITH(UPDLOCK,READPAST,ROWLOCK) WHERE verifiedAt IS NOT NULL AND (status='queued' OR status='analyzing' AND leaseUntil<=SYSUTCDATETIME()) ORDER BY createdAt)
+        `;WITH due AS(SELECT TOP(1) * FROM cv_applications WITH(UPDLOCK,ROWLOCK) WHERE verifiedAt IS NOT NULL AND (status='queued' OR status='analyzing' AND leaseUntil<=SYSUTCDATETIME()) ORDER BY createdAt)
         UPDATE due SET status='analyzing',leaseToken=@0,leaseUntil=DATEADD(second,90,SYSUTCDATETIME()) OUTPUT inserted.*`,
         [lease],
       );

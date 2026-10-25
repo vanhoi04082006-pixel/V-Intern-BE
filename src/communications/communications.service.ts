@@ -137,7 +137,7 @@ export class CommunicationsService
       this.key();
       const lease = randomUUID();
       const jobs: MailRow[] = await this.db.query(
-        `;WITH due AS(SELECT TOP(1) * FROM mail_outbox WITH(UPDLOCK,READPAST,ROWLOCK) WHERE status='pending' AND availableAt<=@0 AND expiresAt>@0 AND attempts<5 ORDER BY availableAt,createdAt)
+        `;WITH due AS(SELECT TOP(1) * FROM mail_outbox WITH(UPDLOCK,ROWLOCK) WHERE status='pending' AND availableAt<=@0 AND expiresAt>@0 AND attempts<5 ORDER BY availableAt,createdAt)
         UPDATE due SET status='sending',attempts=attempts+1,leaseToken=@1,leaseUntil=DATEADD(second,90,CAST(@0 AS datetime2)),updatedAt=@0 OUTPUT inserted.*`,
         [timestamp, lease],
       );

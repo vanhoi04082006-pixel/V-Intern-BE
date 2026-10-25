@@ -680,7 +680,9 @@ describe("verified public CV applications on SQL Server", () => {
       agents as unknown as IntakeAgents,
       bookings,
     );
-    await Promise.all([workflow.tick(), workflow.tick()]);
+    const query = db.query.bind(db);
+    const inheritedIsolation = jest.spyOn(db, 'query').mockImplementation((sql, params) => query(sql.includes('WITH due AS') ? 'SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;\n'+sql : sql, params));
+    try { await Promise.all([workflow.tick(), workflow.tick()]); } finally { inheritedIsolation.mockRestore(); }
     expect(agents.analyze).toHaveBeenCalledTimes(1);
     expect(agents.match).toHaveBeenCalledTimes(1);
     expect(agents.coordinate).toHaveBeenCalledTimes(1);
