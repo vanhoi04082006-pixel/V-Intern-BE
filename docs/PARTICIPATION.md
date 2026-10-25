@@ -1,6 +1,6 @@
 # Thời hạn, điểm phạt và bằng chứng
 
-Tài liệu này mô tả phần **D01–D03 của G6**. Agent đề xuất thay thành viên và lệnh thay người T01–T03 chưa hoàn thành. Phần đã kiểm đang ở nhánh G6 và môi trường QA riêng; hai database native chưa chạy migration G6.
+Tài liệu này mô tả phần **D01–D03 của G6**. Backend Agent đề xuất thay thành viên T01 đã qua kiểm local; giao diện phê duyệt và lệnh thay người T02–T03 chưa hoàn thành. Phần đã kiểm đang ở nhánh G6 và môi trường QA riêng; hai database native chưa chạy migration G6.
 
 ## Hiểu quy tắc qua một ví dụ
 
@@ -46,10 +46,21 @@ Trang **Thời hạn & ghi nhận** chỉ trả dữ liệu của tài khoản �
 | `POST /sessions/:id/participation/refresh` | Đối chiếu có giới hạn và throttle |
 | `POST /sessions/:id/participation/incidents/:id/resolve` | Miễn trừ/hoàn tác có kiểm phiên bản |
 | `POST /sessions/:id/participation/tasks/:id/extend` | Gia hạn sau hạn cũ và giờ server |
+| `POST /sessions/:id/participation/incidents/:id/replacement-advice` | Chủ trì/Admin có thêm quyền xem tuyển dụng yêu cầu Agent tư vấn; chưa thay người |
 
 `src/participation/participation-policy.ts` chứa quy tắc thuần. `participation-ledger.service.ts` chịu trách nhiệm khóa, snapshot, ledger và sự kiện. `participation.service.ts` kiểm phạm vi và xử lý lệnh. `SubmissionsService.review` lưu điểm gốc/phạt/cuối sau xác nhận. FE dùng `src/components/participation` và API parser riêng; không quyết định điểm hoặc quyền từ browser.
 
 Migration `CreateParticipation1763500800000` chỉ bổ sung bảng/cột nullable. Rollback bị chặn khi có policy, hạn, sự kiện, incident, ledger hoặc nguồn gốc điểm đã lưu, để không xóa lịch sử.
+
+## Agent đề xuất thay thế đọc gì?
+
+`replacement-advisor` chạy trong runtime Agent chung: model chọn tool đọc tri thức, kiểm quyền lại, đọc tri thức đã phát hành rồi sinh output có schema và căn cứ. Mỗi yêu cầu chủ động tạo run mới để đọc tri thức hiện tại; checkpoint, tool receipt và trace SQL vẫn lưu theo run.
+
+Server chỉ đưa các ứng viên đã đạt đúng vai trò, còn hoạt động, có vai trò sinh viên, chưa có assignment hoặc công việc đang mở. Lượt đối chiếu tối đa 60 hồ sơ và đưa tối đa 20 ứng viên vào model; nếu chưa xét hết sẽ báo giới hạn đó. Không đưa email ứng viên vào prompt. Khi không có ứng viên hợp lệ, hệ thống trả rõ không có, không bịa người hoặc chạy model thay thế.
+
+Output chỉ được chọn ID đã được server đưa vào và phải dẫn đúng bằng chứng ứng viên. ID/căn cứ bịa, trường yêu cầu tự kick hoặc cấp quyền bị chặn. Server đối chiếu lại sau khi model trả; nếu bằng chứng hoặc danh sách đã đổi, yêu cầu đề xuất mới. Sự kiện tư vấn lưu riêng cùng `aiRunId` (mã lượt gọi model), dấu vân tay dữ liệu và phiên bản bằng chứng. **Tư vấn chưa phải thao tác thay người.**
+
+T01 đã qua 3 ca SQL dùng runtime LangGraph/checkpoint thật với model fixture được khai báo rõ; chưa gọi đây là nghiệm thu Gemini/LangSmith ngoài. Nguồn: `.runtime/g6-t01-domain-sql.log`; 817 unit/107 suite tại `.runtime/g6-t01-full-unit.log`.
 
 ## Phạm vi đã kiểm
 

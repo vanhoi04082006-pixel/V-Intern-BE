@@ -20,7 +20,7 @@ Theo D01–D03/T01–T03 trong [todo](todo.md). G5 đã xác minh live pending/a
 | D01 | Policy, hạn hiệu lực và incident idempotent | Unit boundary, SQL cron replay/hạn mới/bài chưa nộp/chấm muộn | Đạt kiểm local/SQL; chưa native |
 | D02 | Ledger điểm/cap/miễn trừ và chấm bài có điểm trước-sau | SQL đồng thời, không trừ lặp, giữ kết quả chốt; 3 ca migration giữ dữ liệu | Đạt kiểm local/SQL; chưa native |
 | D03 | GV cấu hình/xử lý, SV xem bằng chứng | FE unit, RBAC; Chrome 2 vai × 5 màn hình, policy/miễn trừ/gia hạn/Escape và 403 | Đạt QA disposable; chưa native |
-| T01 | Agent đề xuất đúng ứng viên/bằng chứng/scope | Agent runtime, no candidate/injection/identity | Chưa làm |
+| T01 | Agent đề xuất đúng ứng viên/bằng chứng/scope | 817 unit tổng; 3 SQL Agent/model-tool-model/checkpoint/fresh request; foreign/no candidate | Backend đạt local; UI đi cùng T02, chưa nghiệm thu model ngoài |
 | T02 | Preview và lệnh thay người có transaction | SQL hai GV, task review/closed, assignment/role snapshot | Chưa làm |
 | T03 | Repo access outbox/reconciliation | Shared membership, chỉ quyền hệ thống cấp, 403/429/retry | Chưa làm |
 

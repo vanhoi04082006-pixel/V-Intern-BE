@@ -21,6 +21,7 @@ import {
 } from "./participation.dto";
 import { ParticipationService } from "./participation.service";
 import { ParticipationWorker } from "./participation.worker";
+import { ReplacementAdviceService } from "./replacement-advice.service";
 @Controller()
 export class ParticipationController {
   constructor(
@@ -28,6 +29,7 @@ export class ParticipationController {
     private readonly worker: ParticipationWorker,
     private readonly db: DataSource,
     private readonly permissions: PermissionsService,
+    private readonly replacementAdvice: ReplacementAdviceService,
   ) {}
   @Get("participation/me")
   own(@CurrentUser("userId") userId: string, @Query() q: PaginationQueryDto) {
@@ -80,5 +82,16 @@ export class ParticipationController {
   ) {
     await participationAccess(this.db, this.permissions, id, actorId);
     return this.worker.tick(id);
+  }
+
+  @Post("sessions/:id/participation/incidents/:incidentId/replacement-advice")
+  @RequirePermissions("sessions.manage", "recruitment.view")
+  @Throttle({ default: { limit: 3, ttl: 60000 } })
+  adviseReplacement(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Param("incidentId", ParseUUIDPipe) incidentId: string,
+    @CurrentUser("userId") actorId: string,
+  ) {
+    return this.replacementAdvice.generate(id, incidentId, actorId);
   }
 }

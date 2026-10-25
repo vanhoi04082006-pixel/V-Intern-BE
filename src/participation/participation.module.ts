@@ -4,10 +4,22 @@ import { ParticipationController } from "./participation.controller";
 import { ParticipationLedger } from "./participation-ledger.service";
 import { ParticipationService } from "./participation.service";
 import { ParticipationWorker } from "./participation.worker";
+import { ReplacementAdviceService } from "./replacement-advice.service";
+import { RecruitmentModule } from "../recruitment/recruitment.module";
+import { AiModule } from "../ai/ai.module";
 @Module({
-  imports: [RbacModule],
-  providers: [ParticipationLedger, ParticipationService, ParticipationWorker],
+  imports: [RbacModule, RecruitmentModule, AiModule],
+  providers: [
+    ParticipationLedger,
+    ParticipationService,
+    ParticipationWorker,
+    ReplacementAdviceService,
+  ],
   controllers: [ParticipationController],
-  exports: [ParticipationLedger, ParticipationService],
+  exports: [
+    ParticipationLedger,
+    ParticipationService,
+    ReplacementAdviceService,
+  ],
 })
 export class ParticipationModule {}

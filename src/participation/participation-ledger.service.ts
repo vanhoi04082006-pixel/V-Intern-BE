@@ -68,6 +68,7 @@ export class ParticipationLedger {
   async event(
     em: EntityManager,
     input: {
+      id?: string;
       sessionId: string;
       internId?: string;
       taskId?: string;
@@ -77,10 +78,11 @@ export class ParticipationLedger {
       detail: unknown;
     },
   ) {
+    const id=input.id??randomUUID();
     await em.query(
       "INSERT INTO participation_events(id,sessionId,internId,taskId,incidentId,actorId,action,detail) VALUES(@0,@1,@2,@3,@4,@5,@6,@7)",
       [
-        randomUUID(),
+        id,
         input.sessionId,
         input.internId ?? null,
         input.taskId ?? null,
@@ -90,6 +92,7 @@ export class ParticipationLedger {
         JSON.stringify(input.detail),
       ],
     );
+    return id;
   }
   async synchronize(
     em: EntityManager,

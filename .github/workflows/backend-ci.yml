@@ -391,7 +391,7 @@ jobs:
           set -euo pipefail
           npm run db:create:e2e
           npm run migration:run
-          npm run test:e2e -- --testRegex='(participation.sql-spec|submission-notifications.e2e-spec).ts$'
+          npm run test:e2e -- --testRegex='(participation.sql-spec|submission-notifications.e2e-spec|replacement-advisor.sql-spec).ts$'
 
       - name: G6 participation migration protects policies and reviewed scores
         env:
