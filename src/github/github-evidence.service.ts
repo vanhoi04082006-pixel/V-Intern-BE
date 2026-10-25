@@ -271,7 +271,7 @@ export class GithubEvidenceService {
               return null;
             }
             if (
-              !/\.(?:tsx?|jsx?|json|css|html|md|sql|py|java|go|rs|ya?ml|sh|vue|svelte|txt)$/i.test(
+              !/\.(?:tsx?|jsx?|cjs|mjs|json|css|html|md|sql|py|java|go|rs|ya?ml|sh|vue|svelte|txt)$/i.test(
                 file.filename,
               ) &&
               !/(?:^|\/)(?:Dockerfile|Makefile|\.gitignore)$/.test(
