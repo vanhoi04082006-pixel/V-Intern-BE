@@ -122,7 +122,7 @@ async function fixture() {
     )[0];
   const advance = () =>
     db.query(
-      "UPDATE session_repo_members SET lastCheckedAt=DATEADD(minute,-2,SYSUTCDATETIME()) WHERE sessionId=@0",
+      "UPDATE session_repo_members SET lastCheckedAt=DATEADD(minute,-2,SYSUTCDATETIME()),lastRequestedAt=DATEADD(minute,-2,SYSUTCDATETIME()) WHERE sessionId=@0",
       [sessionId],
     );
   return {
@@ -291,6 +291,19 @@ it("never grants write permission from student self-reconciliation", async () =>
   await f.sync(false, true);
   expect(f.remote.puts).toBe(0);
   expect((await f.state()).status).toBe("failed");
+});
+it("lets the student check after automatic reconciliation while throttling repeated manual checks", async () => {
+  const f = await fixture();
+  await f.sync(false);
+  await expect(
+    f.service.sync(f.repo, "private-fixture", f.userId, false, f.userId, true),
+  ).resolves.toMatchObject({ processed: 1 });
+  await expect(
+    f.service.sync(f.repo, "private-fixture", f.userId, false, f.userId, true),
+  ).rejects.toMatchObject({
+    response: expect.objectContaining({ code: "GITHUB_INVITATION_COOLDOWN" }),
+  });
+  expect(f.remote.puts).toBe(1);
 });
 it("rejects members outside the current session before contacting GitHub", async () => {
   const f = await fixture();

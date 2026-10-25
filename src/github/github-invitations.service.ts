@@ -22,6 +22,7 @@ interface MemberState {
   invitedAt: Date | null;
   expiresAt: Date | null;
   lastCheckedAt: Date | null;
+  lastRequestedAt: Date | null;
   leaseUntil: Date | null;
   errorCode: string | null;
 }
@@ -73,11 +74,12 @@ export class GithubInvitationsService {
           "SELECT * FROM session_repo_members WITH(UPDLOCK,HOLDLOCK) WHERE sessionId=@0 AND userId=@1",
           [repo.sessionId, member.userId],
         );
+        const checkedAt =
+          force || readOnly ? prior?.lastRequestedAt : prior?.lastCheckedAt;
         if (
           prior &&
           ((prior.leaseUntil && prior.leaseUntil > utcNow) ||
-            (prior.lastCheckedAt &&
-              prior.lastCheckedAt.getTime() > utcNow.getTime() - 60000))
+            (checkedAt && checkedAt.getTime() > utcNow.getTime() - 60000))
         )
           return null;
         if (!prior)
@@ -86,8 +88,8 @@ export class GithubInvitationsService {
             [repo.sessionId, member.userId],
           );
         await em.query(
-          "UPDATE session_repo_members SET leaseToken=@2,leaseUntil=DATEADD(minute,5,SYSUTCDATETIME()) WHERE sessionId=@0 AND userId=@1",
-          [repo.sessionId, member.userId, lease],
+          "UPDATE session_repo_members SET leaseToken=@2,leaseUntil=DATEADD(minute,5,SYSUTCDATETIME()),lastRequestedAt=CASE WHEN @3=1 THEN SYSUTCDATETIME() ELSE lastRequestedAt END WHERE sessionId=@0 AND userId=@1",
+          [repo.sessionId, member.userId, lease, force || readOnly ? 1 : 0],
         );
         return { prior, now: utcNow };
       });
