@@ -391,7 +391,19 @@ jobs:
           set -euo pipefail
           npm run db:create:e2e
           npm run migration:run
-          npm run test:e2e -- --testRegex='(participation.sql-spec|submission-notifications.e2e-spec|replacement-advisor.sql-spec).ts$'
+          npm run test:e2e -- --testRegex='(participation.sql-spec|submission-notifications.e2e-spec|replacement-advisor.sql-spec|replacement-workflow.sql-spec).ts$'
+
+      - name: G6 replacement migration preserves approvals and access job history
+        env:
+          DB_NAME: VIntern_E2E_CI_${{ github.run_id }}_${{ github.run_attempt }}110
+          E2E_DB_NAME: VIntern_E2E_CI_${{ github.run_id }}_${{ github.run_attempt }}110
+          DB_ADMIN_USERNAME: sa
+          DB_ADMIN_PASSWORD: ${{ env.SA_PASSWORD }}
+          DB_PASSWORD: ${{ env.APP_PASSWORD }}
+        run: |
+          set -euo pipefail
+          npm run db:create:e2e
+          npm run test:e2e -- --testRegex=replacement-workflow-migration.sql-spec.ts$
 
       - name: G6 participation migration protects policies and reviewed scores
         env:
