@@ -40,7 +40,10 @@ export class CreateParticipation1763500800000 implements MigrationInterface {
   }
   async down(q: QueryRunner) {
     const [row] = await q.query(
-      "SELECT (SELECT COUNT(*) FROM participation_events)+(SELECT COUNT(*) FROM participation_incidents) n",
+      `SELECT (SELECT COUNT(*) FROM participation_events)+(SELECT COUNT(*) FROM participation_incidents)
+        +(SELECT COUNT(*) FROM participation_policies)+(SELECT COUNT(*) FROM participation_deadlines)
+        +(SELECT COUNT(*) FROM participation_penalties)
+        +(SELECT COUNT(*) FROM task_submissions WHERE baseScore IS NOT NULL OR latePenalty IS NOT NULL OR participationIncidentId IS NOT NULL) n`,
     );
     if (row.n) throw Error("Preserve participation history before rollback.");
     // The FK on the added column is unnamed; remove only that reference before its column.
