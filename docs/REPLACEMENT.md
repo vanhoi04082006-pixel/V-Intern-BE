@@ -1,6 +1,6 @@
 # Thay thành viên: từ bằng chứng đến quyết định
 
-**Trạng thái ngày 25/10/2026:** T01–T02 đã được kiểm trên SQL và Chrome ở môi trường QA riêng. Hai database local chính chưa bật G6. Hàng đợi quyền GitHub đã được ghi an toàn, nhưng worker đối chiếu quyền T03 chưa hoàn thành; không coi việc duyệt trong hệ thống là bằng chứng GitHub đã cấp hoặc thu hồi quyền.
+**Trạng thái ngày 25/10/2026:** T01–T03 đã được kiểm trên SQL2019 và Chrome QA riêng. Hai database local chính chưa bật G6. [Đối chiếu quyền GitHub và cách phục hồi](REPOSITORY-ACCESS-RECOVERY.md) đã có worker, trạng thái hai vai và retry có lý do. Không coi việc duyệt trong hệ thống là bằng chứng GitHub đã cấp hoặc thu hồi quyền.
 
 ## Một ví dụ để hiểu toàn bộ luồng
 
@@ -86,4 +86,4 @@ Migration `1763587200000-CreateReplacementWorkflow.ts` bổ sung ba bảng comma
 
 Nghiệm thu dùng SQL2019 disposable và model fixture được nêu rõ; không thay thế bằng chứng model hoặc GitHub thật. Xem [báo cáo kiểm chứng](reports/g6-replacement-evidence-20261025.json) để biết commit, số test, mốc kiểm tra và giới hạn.
 
-T03 còn phải hoàn thiện nguồn gốc quyền GitHub, lease/retry, đối chiếu numeric identity và phạm vi dùng chung, rồi mới nghiệm thu cấp/thu hồi quyền thật. G7 còn nghiệm thu toàn bộ luồng và kích hoạt native có kiểm tra dữ liệu được bảo vệ. Không coi các bước này đã xong vì T02 đã đạt.
+T03 đã kiểm nguồn gốc lời mời, lease/retry, numeric identity và phạm vi dùng chung. GitHub thật đã tạo/hủy đúng pending invitation; collaborator đã nhận hoặc quyền chưa rõ nguồn được giữ để Admin đối chiếu. G7 còn nghiệm thu toàn bộ luồng và kích hoạt native có kiểm tra dữ liệu được bảo vệ.

@@ -1,3 +1,5 @@
+**G6/T03 — quyền repository sau thay người:** [hướng dẫn trạng thái, đối chiếu và phục hồi](docs/REPOSITORY-ACCESS-RECOVERY.md). Đã kiểm QA và GitHub pending thật; chưa kích hoạt hai DB native.
+
 # V-Intern Backend
 
 **G6 — thời hạn và thay thành viên:** [quy tắc và điểm phạt](docs/PARTICIPATION.md) · [hướng dẫn tư vấn, xem trước và phê duyệt](docs/REPLACEMENT.md) · [bằng chứng QA và phần còn lại](docs/reports/g6-replacement-evidence-20261025.json). Chưa kích hoạt G6 trên hai DB native.

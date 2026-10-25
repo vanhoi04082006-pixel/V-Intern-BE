@@ -8,9 +8,9 @@ Tiếp T01 backend đã kiểm. Chưa bật trên hai DB native.
 | T02.2 | Preview đúng target/candidate/role, task chuyển và task lịch sử; chặn bài đang review | SQL RBAC, scope, nguồn tư vấn hết hạn/đã đổi | Đạt; kiểm lại số vi phạm còn hiệu lực và snapshot gốc |
 | T02.3 | Một transaction hủy assignment cũ/tạo mới, chuyển task mở, version/audit/notification | Hai người duyệt đồng thời, retry sau mất response, rollback khi lỗi | Đạt trong 15 ca SQL workflow, gồm trigger gây lỗi outbox |
 | T02.4 | Giảng viên xem ảnh hưởng và nhập lý do trước phê duyệt; SV thấy kết quả của mình | FE unit + Chrome hai vai/keyboard/responsive | Đạt 6 ca dialog; Chrome GV + SV cũ/mới, 20 lượt độ rộng; chưa native |
-| T03.1 | Theo dõi quyền GitHub có bằng chứng V-Intern đã cấp; quyền có sẵn không bị nhận là sở hữu hệ thống | Remote 201/204/pending/external, SQL provenance | Chưa làm |
-| T03.2 | Hàng đợi phục hồi sau transaction, lease/retry, đối chiếu phạm vi dùng chung | Race sync/replacement, 403/429/network, disconnect/đổi numeric ID | Chưa làm |
-| T03.3 | Cấp/mời người mới; thu hồi chỉ quyền hệ thống cấp và không còn phạm vi cần giữ | SQL/webhook và GitHub live theo phạm vi thực tế | Chưa làm |
+| T03.1 | Theo dõi quyền GitHub có bằng chứng V-Intern đã cấp; quyền có sẵn không bị nhận là sở hữu hệ thống | Remote 201/204/pending/external, SQL provenance | Đạt 17 ca ledger/invitation, ba migration; chỉ 201 mới ghi ownership |
+| T03.2 | Hàng đợi phục hồi sau transaction, lease/retry, đối chiếu phạm vi dùng chung | Race sync/replacement, 403/429/network, disconnect/đổi numeric ID | Đạt 21 ca queue/worker/HTTP, gồm isolation pool và retry revision |
+| T03.3 | Cấp/mời người mới; thu hồi chỉ quyền hệ thống cấp và không còn phạm vi cần giữ | SQL/webhook và GitHub live theo phạm vi thực tế | Đạt Chrome 30 lượt độ rộng; GitHub thật tạo/hủy đúng pending; quyền accepted cần Admin đối chiếu |
 
 ## Quyết định thực thi
 

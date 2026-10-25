@@ -1,0 +1,163 @@
+{
+  "checkedAtUtc": "2026-10-25T08:24:45.517Z",
+  "scope": "Production Next QA build, disposable SQL2019, explicit model/GitHub fixtures. Manual accepted permission removal simulated only in QA fixture. Live pending lifecycle recorded separately.",
+  "approval201": true,
+  "acceptedPermissionPreserved": true,
+  "staffReasonAndRevisionRetry201": true,
+  "escapeFocusReturn": true,
+  "studentOwnOnly": true,
+  "newcomerInvitationPending": true,
+  "checks": [
+    {
+      "name": "impact-preview",
+      "width": 390,
+      "overflow": false
+    },
+    {
+      "name": "impact-preview",
+      "width": 768,
+      "overflow": false
+    },
+    {
+      "name": "impact-preview",
+      "width": 1024,
+      "overflow": false
+    },
+    {
+      "name": "impact-preview",
+      "width": 1280,
+      "overflow": false
+    },
+    {
+      "name": "impact-preview",
+      "width": 1440,
+      "overflow": false
+    },
+    {
+      "name": "instructor-review",
+      "width": 390,
+      "overflow": false
+    },
+    {
+      "name": "instructor-review",
+      "width": 768,
+      "overflow": false
+    },
+    {
+      "name": "instructor-review",
+      "width": 1024,
+      "overflow": false
+    },
+    {
+      "name": "instructor-review",
+      "width": 1280,
+      "overflow": false
+    },
+    {
+      "name": "instructor-review",
+      "width": 1440,
+      "overflow": false
+    },
+    {
+      "name": "retry-dialog",
+      "width": 390,
+      "overflow": false
+    },
+    {
+      "name": "retry-dialog",
+      "width": 768,
+      "overflow": false
+    },
+    {
+      "name": "retry-dialog",
+      "width": 1024,
+      "overflow": false
+    },
+    {
+      "name": "retry-dialog",
+      "width": 1280,
+      "overflow": false
+    },
+    {
+      "name": "retry-dialog",
+      "width": 1440,
+      "overflow": false
+    },
+    {
+      "name": "instructor-completed",
+      "width": 390,
+      "overflow": false
+    },
+    {
+      "name": "instructor-completed",
+      "width": 768,
+      "overflow": false
+    },
+    {
+      "name": "instructor-completed",
+      "width": 1024,
+      "overflow": false
+    },
+    {
+      "name": "instructor-completed",
+      "width": 1280,
+      "overflow": false
+    },
+    {
+      "name": "instructor-completed",
+      "width": 1440,
+      "overflow": false
+    },
+    {
+      "name": "intern-access",
+      "width": 390,
+      "overflow": false
+    },
+    {
+      "name": "intern-access",
+      "width": 768,
+      "overflow": false
+    },
+    {
+      "name": "intern-access",
+      "width": 1024,
+      "overflow": false
+    },
+    {
+      "name": "intern-access",
+      "width": 1280,
+      "overflow": false
+    },
+    {
+      "name": "intern-access",
+      "width": 1440,
+      "overflow": false
+    },
+    {
+      "name": "candidate-access",
+      "width": 390,
+      "overflow": false
+    },
+    {
+      "name": "candidate-access",
+      "width": 768,
+      "overflow": false
+    },
+    {
+      "name": "candidate-access",
+      "width": 1024,
+      "overflow": false
+    },
+    {
+      "name": "candidate-access",
+      "width": 1280,
+      "overflow": false
+    },
+    {
+      "name": "candidate-access",
+      "width": 1440,
+      "overflow": false
+    }
+  ],
+  "pageErrors": []
+}
