@@ -1,5 +1,7 @@
 # Bàn giao Backend V-Intern
 
+> **Cập nhật G7 ngày 25/10/2026:** [bộ bàn giao hiện tại](DELIVERY-20261025.md) và [bằng chứng có nguồn](reports/g7-local-acceptance-20261025.json). BE 840 / FE 638 unit test; 17/17 bước full-stack local đạt; hai DB native đã kích hoạt G6/G7. CI GitHub cuối chưa chạy do billing.
+
 > Mục tiêu của tài liệu này là giúp người mới hiểu vì sao hệ thống hoạt động như vậy, chạy đúng môi trường, tìm đúng code và thay đổi mà không làm mất dữ liệu. Các chương chuyên sâu được liên kết ngay tại chủ đề tương ứng.
 
 ## 1. Đọc theo nhu cầu của bạn

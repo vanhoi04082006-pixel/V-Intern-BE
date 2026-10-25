@@ -1,5 +1,7 @@
 # Kiểm chứng Backend — 24/10/2026
 
+> **Cập nhật G7 ngày 25/10/2026:** [bộ bàn giao hiện tại](DELIVERY-20261025.md) và [bằng chứng có nguồn](reports/g7-local-acceptance-20261025.json). BE 840 / FE 638 unit test; 17/17 bước full-stack local đạt; hai DB native đã kích hoạt G6/G7. CI GitHub cuối chưa chạy do billing.
+
 **G2/P02:** code `36393f3` đạt **90 suite / 734 unit**, build/lint; **4 suite / 39 SQL/HTTP** local trong một lượt DB disposable. CI [40064643895](https://github.com/vanhoi04082006-pixel/V-Intern-BE/actions/runs/40064643895) success với **33 suite / 313 SQL/HTTP** chung, retrieval 8/material migration 4/career migration 5 ở các lượt riêng. Đã thêm sáu mẫu MINI vào mỗi DB local; counts/digest dữ liệu được bảo vệ giữ nguyên. Có 18 draft tri thức đa Agent, không tự publish. [Báo cáo P02](reports/mini-project-content-20261024.md) ghi nguồn và giới hạn; P03/P04 và phần còn lại G2 vẫn mở.
 
 **G2/P01:** code `fdd2305` đạt 725 unit, build/lint; 30 SQL regression và 4 migration test local là hai lượt riêng. CI [40061277022](https://github.com/vanhoi04082006-pixel/V-Intern-BE/actions/runs/40061277022) đạt: 304 SQL/HTTP chung, 8 retrieval riêng, 4 material migration riêng và gate nghề nghiệp/rollback hiện hữu. Hai DB local giữ count/digest và tài khoản gốc; readiness 04:21:25 UTC đạt. [Ma trận và phần G2 còn lại](reports/small-project-foundation-20261024.md).

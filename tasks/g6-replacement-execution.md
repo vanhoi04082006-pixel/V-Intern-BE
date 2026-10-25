@@ -1,6 +1,6 @@
 # G6 T02–T03 — Thay thành viên có phê duyệt
 
-Tiếp T01 backend đã kiểm. Chưa bật trên hai DB native.
+Tiếp T01 backend đã kiểm. Đã bật trên hai DB native ngày 25/10/2026, giữ nguyên dữ liệu cũ.
 
 | Lát | Điều kiện hoàn thành | Kiểm chứng bắt buộc | Trạng thái |
 |---|---|---|---|

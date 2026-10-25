@@ -1,6 +1,6 @@
 # Thay thành viên: từ bằng chứng đến quyết định
 
-**Trạng thái ngày 25/10/2026:** T01–T03 đã được kiểm trên SQL2019 và Chrome QA riêng. Hai database local chính chưa bật G6. [Đối chiếu quyền GitHub và cách phục hồi](REPOSITORY-ACCESS-RECOVERY.md) đã có worker, trạng thái hai vai và retry có lý do. Không coi việc duyệt trong hệ thống là bằng chứng GitHub đã cấp hoặc thu hồi quyền.
+**Trạng thái ngày 25/10/2026:** T01–T03 đã được kiểm trên SQL2019 và Chrome QA riêng. Hai database local chính đã bật G6 và đã kiểm bảo toàn mọi cột cũ. [Đối chiếu quyền GitHub và cách phục hồi](REPOSITORY-ACCESS-RECOVERY.md) đã có worker, trạng thái hai vai và retry có lý do. Không coi việc duyệt trong hệ thống là bằng chứng GitHub đã cấp hoặc thu hồi quyền.
 
 ## Một ví dụ để hiểu toàn bộ luồng
 
@@ -80,10 +80,10 @@ FE dùng `src/lib/api/replacements.ts` để kiểm contract; `replacement-dialo
 
 Giao dịch phê duyệt dùng `SERIALIZABLE`, khóa phiên trước, rồi command → assignment cũ → user theo thứ tự → project → nhiệm vụ. Kiểm hash/fingerprint/TTL và điều kiện lại trong transaction. Không gọi model hoặc GitHub bên trong giao dịch. Nếu không lưu được hàng đợi, toàn bộ thay đổi được rollback.
 
-Migration `1763587200000-CreateReplacementWorkflow.ts` bổ sung ba bảng command, quyết định và access job. Rollback bị chặn khi đã có lịch sử; không xóa quyết định để hạ phiên bản. **Chưa chạy migration G6 trên hai DB native.**
+Migration `1763587200000-CreateReplacementWorkflow.ts` bổ sung ba bảng command, quyết định và access job. Rollback bị chặn khi đã có lịch sử; không xóa quyết định để hạ phiên bản. **Đã chạy migration G6 trên hai DB native và kiểm bảo toàn dữ liệu ngày 25/10/2026.**
 
 ## Bằng chứng và phần còn lại
 
 Nghiệm thu dùng SQL2019 disposable và model fixture được nêu rõ; không thay thế bằng chứng model hoặc GitHub thật. Xem [báo cáo kiểm chứng](reports/g6-replacement-evidence-20261025.json) để biết commit, số test, mốc kiểm tra và giới hạn.
 
-T03 đã kiểm nguồn gốc lời mời, lease/retry, numeric identity và phạm vi dùng chung. GitHub thật đã tạo/hủy đúng pending invitation; collaborator đã nhận hoặc quyền chưa rõ nguồn được giữ để Admin đối chiếu. G7 còn nghiệm thu toàn bộ luồng và kích hoạt native có kiểm tra dữ liệu được bảo vệ.
+T03 đã kiểm nguồn gốc lời mời, lease/retry, numeric identity và phạm vi dùng chung. GitHub thật đã tạo/hủy đúng pending invitation; collaborator đã nhận hoặc quyền chưa rõ nguồn được giữ để Admin đối chiếu. G7 đã đạt nghiệm thu local và kích hoạt native có kiểm tra dữ liệu được bảo vệ; cloud CI đang chờ billing.

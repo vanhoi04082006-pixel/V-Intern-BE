@@ -1,6 +1,6 @@
 # Quyền GitHub sau khi thay sinh viên
 
-Ngày kiểm: **25/10/2026**. Chức năng T03 đã được kiểm trên SQL2019 và Chrome QA riêng. Hai database native chưa được kích hoạt G6. Việc thay người thành công trong V-Intern không có nghĩa quyền GitHub đã thay đổi ngay.
+Ngày kiểm: **25/10/2026**. Chức năng T03 đã được kiểm trên SQL2019 và Chrome QA riêng. Hai database native đã kích hoạt G6; 96 bảng cũ mỗi DB được kiểm bảo toàn cột/dữ liệu. Việc thay người thành công trong V-Intern không có nghĩa quyền GitHub đã thay đổi ngay.
 
 ## Hiểu qua một tình huống
 
@@ -75,4 +75,4 @@ FE: `src/lib/api/repository-access.ts` kiểm contract; `src/components/particip
 - GitHub thật: tạo repo public QA, tạo invitation 201 qua service chính, lưu provenance, hủy đúng invitation qua worker, xác nhận remote không còn. Repo đã archive. [JSON bằng chứng](reports/g6-access-live-20261025.json).
 - Không coi fixture nhận collaborator là bằng chứng sinh viên đã chấp nhận lời mời thật. SMTP ngoài, OAuth mới và AI live không nằm trong lượt nghiệm thu này.
 
-Xem tiếp [thay thành viên](REPLACEMENT.md) và [quy tắc điểm phạt](PARTICIPATION.md). Kích hoạt native và nghiệm thu hành trình tổng hợp thuộc G7.
+Xem tiếp [thay thành viên](REPLACEMENT.md) và [quy tắc điểm phạt](PARTICIPATION.md). Native và 17 bước full-stack local đã đạt G7; cloud CI đang chờ billing.

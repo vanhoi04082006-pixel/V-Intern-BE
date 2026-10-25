@@ -194,7 +194,7 @@ Khi thực hiện, mỗi task bổ sung cột/ngày ghi nhận: `commit FE/BE �
   - Kiểm: shared membership, remote 403/rate limit, worker retry và reconciliation. Phụ thuộc T02/H02.
 
 ## G7. Nghiệm thu và bàn giao — M15
-- [ ] Q05. Phục hồi quyền truy cập tạm khi no-show rồi dự tuyển đợt mới.
+- [x] Q05. Phục hồi quyền truy cập tạm khi no-show rồi dự tuyển đợt mới.
   - Đạt khi: tài khoản dùng mật khẩu tạm đã hết hạn có thao tác cấp lại riêng, kiểm quyền/lý do/xác minh gần đây; mail bảo vệ, authVersion/refresh được thu hồi và giữ số lượt.
   - Kiểm: không reset tài khoản có mật khẩu chính thức hoặc các tài khoản trắng, chống bấm đôi, đúng booking, TTL và SMTP local. Hẹn lại mặc định vẫn không đổi mật khẩu. Phát hiện khi rà G4; phải chốt trước nghiệm thu tổng hợp G7.
 
@@ -219,5 +219,5 @@ Khi thực hiện, mỗi task bổ sung cột/ngày ghi nhận: `commit FE/BE �
 - [x] G3 local: CV→role→slot→hai email, đúng identity và không trùng tác dụng phụ. [Kết quả và giới hạn](../docs/reports/g3-completion-20261024.md); provider ngoài/mail ngoài chưa nghiệm thu.
 - [x] G4: lịch, mốc 15 phút, 3 lượt và ranh giới 50/70 đạt. [Báo cáo và nguồn kiểm chứng](../docs/reports/g4-completion-20261025.md); CI BE #7 và FE #17 (quality + SQL2019) xanh, chưa merge.
 - [ ] G5: mời/nhận/mời lại GitHub, branded mail và webhook live đạt hoặc ghi BLOCKED rõ.
-- [ ] G6: policy đúng và giảng viên tự quyết thay người; dữ liệu/quyền repo giữ nhất quán.
+- [x] G6 local: policy, phê duyệt, ledger, worker quyền GitHub và hai DB native đạt; quyền accepted chưa rõ nguồn được giữ để Admin đối chiếu.
 - [ ] G7: tài liệu có nguồn, demo hai vai, code/doc đã push, CI/evidence cùng commit pair.

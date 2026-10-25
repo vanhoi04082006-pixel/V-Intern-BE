@@ -1,8 +1,10 @@
-**G6/T03 — quyền repository sau thay người:** [hướng dẫn trạng thái, đối chiếu và phục hồi](docs/REPOSITORY-ACCESS-RECOVERY.md). Đã kiểm QA và GitHub pending thật; chưa kích hoạt hai DB native.
+**Bàn giao G7 ngày 25/10/2026:** [hướng dẫn từ đầu, ma trận kiểm chứng và giới hạn](docs/DELIVERY-20261025.md) · [khôi phục mật khẩu tạm](docs/TEMPORARY-CREDENTIAL-RECOVERY.md). Local đã kích hoạt trên cả hai DB, Gmail SMTP đã nghiệm thu một thư; CI GitHub cuối đang chờ billing.
+
+**G6/T03 — quyền repository sau thay người:** [hướng dẫn trạng thái, đối chiếu và phục hồi](docs/REPOSITORY-ACCESS-RECOVERY.md). Đã kiểm QA, GitHub pending thật và đã kích hoạt cả hai DB native.
 
 # V-Intern Backend
 
-**G6 — thời hạn và thay thành viên:** [quy tắc và điểm phạt](docs/PARTICIPATION.md) · [hướng dẫn tư vấn, xem trước và phê duyệt](docs/REPLACEMENT.md) · [bằng chứng QA và phần còn lại](docs/reports/g6-replacement-evidence-20261025.json). Chưa kích hoạt G6 trên hai DB native.
+**G6 — thời hạn và thay thành viên:** [quy tắc và điểm phạt](docs/PARTICIPATION.md) · [hướng dẫn tư vấn, xem trước và phê duyệt](docs/REPLACEMENT.md) · [bằng chứng QA và phần còn lại](docs/reports/g6-replacement-evidence-20261025.json). Đã kích hoạt G6 trên cả hai DB native, giữ nguyên dữ liệu cũ.
 
 **G5 — GitHub:** [lời mời, quyền cộng tác và cách mời lại](docs/GITHUB-INVITATIONS.md) · [kết quả local và phụ thuộc live](docs/reports/g5-completion-20261025.md).
 

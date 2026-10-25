@@ -4,15 +4,15 @@ Tiếp sau G6/T03. Không reset DB, không dùng ba tài khoản trắng cho QA,
 
 | Hạng mục | Điều kiện hoàn thành | Kiểm bắt buộc | Trạng thái |
 |---|---|---|---|
-| Q05.1 | Cấp lại riêng cho tài khoản CV dùng mật khẩu tạm hết hạn; email xác minh trong 24 giờ; lý do và revision | SQL đồng thời/replay, tài khoản chính thức/staff/không đúng email/verification cũ bị chặn | Đang làm |
-| Q05.2 | Password mới chỉ hash ở users, mail mã hóa; thu hồi authVersion/refresh; giữ số lượt; không đổi lịch ngầm | SMTP local, login cũ thất bại, đổi password mới; rollback mail/audit | Chưa kiểm |
-| Q05.3 | Giao diện staff chọn slot để giới hạn thời hạn credential, xem trước ảnh hưởng rồi cấp lại | Typecheck/unit/Chrome, không lộ password trong response/preview | Chưa làm |
-| Q01.1 | Cổng đặt lịch ban đầu dùng cùng giới hạn lượt cấu hình như start/retake | Cấu hình tối đa 1/2/3, không nhận lượt thứ tư | Chưa làm |
-| Q01.2 | Hai vai đi hết CV → mail local → lịch → interview → assignment → repo/PR → chấm/sửa → kết quả | Phân biệt fixture/provider thật/SMTP local/GitHub thật; có nhánh lỗi và no-show | Chưa làm |
-| Q02 | Regression FE/BE, SQL2019 và CI full-stack cùng commit pair | Giữ nguyên audit, assertion, timeout; browser đa kích thước | Chưa làm |
-| Q03 | Tài liệu đọc theo vai trò, sơ đồ, ví dụ, cấu hình, recovery, map code và giới hạn nhất quán | Link check, API contract, mốc kiểm/số test có nguồn | Đang cập nhật từng lát |
-| Q04 | Code và tài liệu đã push; PR có kiểm chứng đúng SHA | Remote refs, CI logs, status sạch; không merge khi chưa đủ gate | Chưa làm |
-| Native | Kích hoạt migration G6 không làm mất dữ liệu | Snapshot cột cũ trước/sau cả hai DB, ba blank accounts và readiness | Chưa làm |
+| Q05.1 | Cấp lại riêng cho tài khoản CV dùng mật khẩu tạm hết hạn; email xác minh trong 24 giờ; lý do và revision | SQL đồng thời/replay, tài khoản chính thức/staff/không đúng email/verification cũ bị chặn | Đạt 15 ca SQL/HTTP recovery |
+| Q05.2 | Password mới chỉ hash ở users, mail mã hóa; thu hồi authVersion/refresh; giữ số lượt; không đổi lịch ngầm | SMTP local, login cũ thất bại, đổi password mới; rollback mail/audit | Đạt SMTP local, HTTP login/đổi mật khẩu; thêm một thư Gmail SMTP accepted |
+| Q05.3 | Giao diện staff chọn slot để giới hạn thời hạn credential, xem trước ảnh hưởng rồi cấp lại | Typecheck/unit/Chrome, không lộ password trong response/preview | Đạt ba ca UI + Chrome năm độ rộng |
+| Q01.1 | Cổng đặt lịch ban đầu dùng cùng giới hạn lượt cấu hình như start/retake | Cấu hình tối đa 1/2/3, không nhận lượt thứ tư | Đạt canonical config và regression giới hạn lượt |
+| Q01.2 | Hai vai đi hết CV → mail local → lịch → interview → assignment → repo/PR → chấm/sửa → kết quả | Phân biệt fixture/provider thật/SMTP local/GitHub thật; có nhánh lỗi và no-show | Đạt local bằng các luồng khai báo fixture; hành trình mới toàn dịch vụ ngoài thật chưa nghiệm thu |
+| Q02 | Regression FE/BE, SQL2019 và CI full-stack cùng commit pair | Giữ nguyên audit, assertion, timeout; browser đa kích thước | Local đạt: BE840/FE638/SQL48/full-stack17; cloud BLOCKED billing |
+| Q03 | Tài liệu đọc theo vai trò, sơ đồ, ví dụ, cấu hình, recovery, map code và giới hạn nhất quán | Link check, API contract, mốc kiểm/số test có nguồn | Đạt bộ bàn giao theo vai trò, links và evidence có nguồn |
+| Q04 | Code và tài liệu đã push; PR có kiểm chứng đúng SHA | Remote refs, CI logs, status sạch; không merge khi chưa đủ gate | Đã push PR draft; chốt cloud/merge chờ billing |
+| Native | Kích hoạt migration G6 không làm mất dữ liệu | Snapshot cột cũ trước/sau cả hai DB, ba blank accounts và readiness | Đạt hai DB ×96 bảng bảo toàn, ba blank login và 10 lượt độ rộng |
 
 ## Hợp đồng Q05
 

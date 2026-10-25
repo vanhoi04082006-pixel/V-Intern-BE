@@ -1,6 +1,6 @@
 # Thời hạn, điểm phạt và bằng chứng
 
-Tài liệu này mô tả phần **D01–D03 của G6**. T01–T02 đã được kiểm trên QA: Agent tư vấn, giảng viên xem trước/phê duyệt, sinh viên đọc lịch sử. Xem [hướng dẫn thay thành viên](REPLACEMENT.md). [T03 đối chiếu quyền GitHub](REPOSITORY-ACCESS-RECOVERY.md) đã đạt SQL/Chrome QA và live pending lifecycle; hai database native chưa chạy migration G6.
+Tài liệu này mô tả phần **D01–D03 của G6**. T01–T02 đã được kiểm trên QA: Agent tư vấn, giảng viên xem trước/phê duyệt, sinh viên đọc lịch sử. Xem [hướng dẫn thay thành viên](REPLACEMENT.md). [T03 đối chiếu quyền GitHub](REPOSITORY-ACCESS-RECOVERY.md) đã đạt SQL/Chrome QA và live pending lifecycle; hai database native đã chạy ba migration G6 và giữ nguyên dữ liệu cũ.
 
 ## Hiểu quy tắc qua một ví dụ
 
