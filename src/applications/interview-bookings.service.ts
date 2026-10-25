@@ -145,7 +145,7 @@ export class InterviewBookingsService {
         .findOneBy({ userId: user.id });
       if (
         profile &&
-        (profile.attemptCount >= 3 ||
+        (profile.attemptCount >= this.recruitment.attemptConfig().maxAttempts ||
           ["passed", "interview_in_progress", "evaluation_pending"].includes(
             profile.status,
           ))
@@ -153,7 +153,7 @@ export class InterviewBookingsService {
         throw new ConflictException({
           code: "RECRUITMENT_NOT_ELIGIBLE",
           message:
-            "Tài khoản đã đạt, đang phỏng vấn hoặc đã hết 3 lượt. Không tự đặt lại lượt.",
+            "Tài khoản đã đạt, đang phỏng vấn hoặc đã hết lượt theo cấu hình. Không tự đặt lại lượt.",
         });
       if (!profile)
         profile = em

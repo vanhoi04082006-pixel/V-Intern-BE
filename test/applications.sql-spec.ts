@@ -23,6 +23,7 @@ import { CvStorage } from "../src/applications/cv-storage";
 import { openMail } from "../src/communications/mail-template";
 import { InterviewBookingsService } from "../src/applications/interview-bookings.service";
 import { RecruitmentProfile } from "../src/recruitment/entities/recruitment-profile.entity";
+import { RecruitmentService } from "../src/recruitment/recruitment.service";
 import { ApplicationWorkflow } from "../src/applications/application-workflow.service";
 import { IntakeAgents } from "../src/applications/intake-agents.service";
 import {
@@ -562,6 +563,13 @@ describe("verified public CV applications on SQL Server", () => {
       [a.id],
     );
     const before = user.passwordHash;
+    const recruitment = app.get(RecruitmentService), limits = recruitment.attemptConfig();
+    const stricter = jest.spyOn(recruitment, 'attemptConfig').mockReturnValue({...limits, maxAttempts:2});
+    try {
+      await expect(bookings.reserve(owner.id, a.id, slotId)).rejects.toMatchObject({response:{code:'RECRUITMENT_NOT_ELIGIBLE'}});
+    } finally {
+      stricter.mockRestore();
+    }
     const result = await bookings.reserve(owner.id, a.id, slotId);
     expect(result.booked).toBe(true);
     expect(
