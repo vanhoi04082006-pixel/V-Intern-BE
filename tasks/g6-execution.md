@@ -21,7 +21,7 @@ Theo D01–D03/T01–T03 trong [todo](todo.md). G5 đã xác minh live pending/a
 | D02 | Ledger điểm/cap/miễn trừ và chấm bài có điểm trước-sau | SQL đồng thời, không trừ lặp, giữ kết quả chốt; 3 ca migration giữ dữ liệu | Đạt kiểm local/SQL; chưa native |
 | D03 | GV cấu hình/xử lý, SV xem bằng chứng | FE unit, RBAC; Chrome 2 vai × 5 màn hình, policy/miễn trừ/gia hạn/Escape và 403 | Đạt QA disposable; chưa native |
 | T01 | Agent đề xuất đúng ứng viên/bằng chứng/scope | 817 unit tổng; 3 SQL Agent/model-tool-model/checkpoint/fresh request; foreign/no candidate | Backend đạt local; UI đi cùng T02, chưa nghiệm thu model ngoài |
-| T02 | Preview và lệnh thay người có transaction | SQL hai GV, task review/closed, assignment/role snapshot | Chưa làm |
+| T02 | Preview và lệnh thay người có transaction | 15 SQL workflow, 3 migration; Chrome giảng viên + SV cũ/mới ở 5 độ rộng, 20 lượt | Đạt QA disposable; chưa native; quyền GitHub chờ T03 |
 | T03 | Repo access outbox/reconciliation | Shared membership, chỉ quyền hệ thống cấp, 403/429/retry | Chưa làm |
 
 Không thay migration G3–G5 đã chạy trên native. Migration G6 bổ sung, test trên SQL disposable trước; giữ cả hai DB chính và tài khoản trắng.

@@ -4,10 +4,10 @@ Tiếp T01 backend đã kiểm. Chưa bật trên hai DB native.
 
 | Lát | Điều kiện hoàn thành | Kiểm chứng bắt buộc | Trạng thái |
 |---|---|---|---|
-| T02.1 | Lưu preview, fingerprint, TTL, kết quả idempotent; migration không xóa lịch sử | SQL up/down trên dữ liệu cũ | Chưa làm |
-| T02.2 | Preview đúng target/candidate/role, task chuyển và task lịch sử; chặn bài đang review | SQL RBAC, scope, nguồn tư vấn hết hạn/đã đổi | Chưa làm |
-| T02.3 | Một transaction hủy assignment cũ/tạo mới, chuyển task mở, version/audit/notification | Hai người duyệt đồng thời, retry sau mất response, rollback khi lỗi | Chưa làm |
-| T02.4 | Giảng viên xem ảnh hưởng và nhập lý do trước phê duyệt; SV thấy kết quả của mình | FE unit + Chrome hai vai/keyboard/responsive | Chưa làm |
+| T02.1 | Lưu preview, fingerprint, TTL, kết quả idempotent; migration không xóa lịch sử | SQL up/down trên dữ liệu cũ | Đạt 3 ca SQL migration |
+| T02.2 | Preview đúng target/candidate/role, task chuyển và task lịch sử; chặn bài đang review | SQL RBAC, scope, nguồn tư vấn hết hạn/đã đổi | Đạt; kiểm lại số vi phạm còn hiệu lực và snapshot gốc |
+| T02.3 | Một transaction hủy assignment cũ/tạo mới, chuyển task mở, version/audit/notification | Hai người duyệt đồng thời, retry sau mất response, rollback khi lỗi | Đạt trong 15 ca SQL workflow, gồm trigger gây lỗi outbox |
+| T02.4 | Giảng viên xem ảnh hưởng và nhập lý do trước phê duyệt; SV thấy kết quả của mình | FE unit + Chrome hai vai/keyboard/responsive | Đạt 6 ca dialog; Chrome GV + SV cũ/mới, 20 lượt độ rộng; chưa native |
 | T03.1 | Theo dõi quyền GitHub có bằng chứng V-Intern đã cấp; quyền có sẵn không bị nhận là sở hữu hệ thống | Remote 201/204/pending/external, SQL provenance | Chưa làm |
 | T03.2 | Hàng đợi phục hồi sau transaction, lease/retry, đối chiếu phạm vi dùng chung | Race sync/replacement, 403/429/network, disconnect/đổi numeric ID | Chưa làm |
 | T03.3 | Cấp/mời người mới; thu hồi chỉ quyền hệ thống cấp và không còn phạm vi cần giữ | SQL/webhook và GitHub live theo phạm vi thực tế | Chưa làm |

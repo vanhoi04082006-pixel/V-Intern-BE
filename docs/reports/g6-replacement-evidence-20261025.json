@@ -1,0 +1,168 @@
+{
+  "checkedAtUtc": "2026-10-25T06:02:42.101Z",
+  "scope": "G6 T01-T02 QA only; native DBs not migrated",
+  "backendRuntimeSourceCommit": "40656a290684588d24c4ef1b7ad45b2b131fd35a",
+  "backendGateCommit": "ffa6f78972676435c6ff35b49de02fd060e6e3b7",
+  "frontendRuntimeSourceCommit": "dcd3999d9c42c743e63ee5361ac811a508d06cf3",
+  "frontendCompatibleBackend": "ffa6f78972676435c6ff35b49de02fd060e6e3b7",
+  "checks": {
+    "backendUnit": {
+      "suites": 109,
+      "tests": 828,
+      "log": ".runtime/g6-t02-final-unit.log"
+    },
+    "frontendUnit": {
+      "files": 103,
+      "tests": 630,
+      "log": ".runtime/g6-t02-final-tests-fe.log"
+    },
+    "workflowAndParticipationSql": {
+      "suites": 3,
+      "tests": 28,
+      "workflowTests": 15,
+      "log": ".runtime/g6-t02-final-sql.log"
+    },
+    "replacementMigrationSql": {
+      "tests": 3,
+      "log": ".runtime/g6-t02-final-migration.log"
+    },
+    "businessAgentSql": {
+      "tests": 9,
+      "log": ".runtime/g6-t02-agent-inventory-sql.log"
+    },
+    "typecheck": "BE isolated compile and FE tsc passed",
+    "lint": "BE 0 errors / 15 existing console warnings; FE 0 errors",
+    "build": "BE isolated output and FE next build passed"
+  },
+  "browser": {
+    "checkedAtUtc": "2026-10-25T05:53:36.884Z",
+    "scope": "Disposable SQL and explicit model fixture; no live GitHub/model/email calls.",
+    "escapeFocusReturn": true,
+    "explicitReasonAndConfirmation": true,
+    "previewOwnOpenTasks": true,
+    "approval201": true,
+    "studentOwnHistory": true,
+    "newStudentWork": true,
+    "checks": [
+      {
+        "role": "impact-preview",
+        "width": 390,
+        "overflow": false
+      },
+      {
+        "role": "impact-preview",
+        "width": 768,
+        "overflow": false
+      },
+      {
+        "role": "impact-preview",
+        "width": 1024,
+        "overflow": false
+      },
+      {
+        "role": "impact-preview",
+        "width": 1280,
+        "overflow": false
+      },
+      {
+        "role": "impact-preview",
+        "width": 1440,
+        "overflow": false
+      },
+      {
+        "role": "instructor",
+        "width": 390,
+        "overflow": false
+      },
+      {
+        "role": "instructor",
+        "width": 768,
+        "overflow": false
+      },
+      {
+        "role": "instructor",
+        "width": 1024,
+        "overflow": false
+      },
+      {
+        "role": "instructor",
+        "width": 1280,
+        "overflow": false
+      },
+      {
+        "role": "instructor",
+        "width": 1440,
+        "overflow": false
+      },
+      {
+        "role": "intern",
+        "width": 390,
+        "overflow": false
+      },
+      {
+        "role": "intern",
+        "width": 768,
+        "overflow": false
+      },
+      {
+        "role": "intern",
+        "width": 1024,
+        "overflow": false
+      },
+      {
+        "role": "intern",
+        "width": 1280,
+        "overflow": false
+      },
+      {
+        "role": "intern",
+        "width": 1440,
+        "overflow": false
+      },
+      {
+        "role": "candidate",
+        "width": 390,
+        "overflow": false
+      },
+      {
+        "role": "candidate",
+        "width": 768,
+        "overflow": false
+      },
+      {
+        "role": "candidate",
+        "width": 1024,
+        "overflow": false
+      },
+      {
+        "role": "candidate",
+        "width": 1280,
+        "overflow": false
+      },
+      {
+        "role": "candidate",
+        "width": 1440,
+        "overflow": false
+      }
+    ],
+    "pageErrors": []
+  },
+  "runtime": {
+    "native": "Stable student Sprint-fix artifacts on 8080/8081/3001; G6 not activated",
+    "qa": "Disposable SQL2019 on project-local Docker; Chrome via project-local Playwright; explicit model fixture",
+    "githubCalls": false,
+    "liveModelCalls": false,
+    "smtp": "Local-only scope; no email involved in T02"
+  },
+  "limitations": [
+    "T03 GitHub grant provenance and reconciliation worker remain unfinished; jobs stay queued.",
+    "No G6 migrations on either native database; primary data and original blank accounts preserved.",
+    "Live model/LangSmith/GitHub acceptance is not claimed by these tests.",
+    "G7 end-to-end roleplay, native activation and final branch integration remain pending."
+  ],
+  "remoteCi": "This report records local evidence. Read current PR checks for remote CI status.",
+  "prs": {
+    "backend": "https://github.com/vanhoi04082006-pixel/V-Intern-BE/pull/10",
+    "frontend": "https://github.com/vanhoi04082006-pixel/V-Intern-FE/pull/20"
+  }
+}

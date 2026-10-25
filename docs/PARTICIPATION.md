@@ -1,6 +1,6 @@
 # Thời hạn, điểm phạt và bằng chứng
 
-Tài liệu này mô tả phần **D01–D03 của G6**. Backend Agent đề xuất thay thành viên T01 đã qua kiểm local; giao diện phê duyệt và lệnh thay người T02–T03 chưa hoàn thành. Phần đã kiểm đang ở nhánh G6 và môi trường QA riêng; hai database native chưa chạy migration G6.
+Tài liệu này mô tả phần **D01–D03 của G6**. T01–T02 đã được kiểm trên QA: Agent tư vấn, giảng viên xem trước/phê duyệt, sinh viên đọc lịch sử. Xem [hướng dẫn thay thành viên](REPLACEMENT.md). T03 đối chiếu quyền GitHub còn đang làm; hai database native chưa chạy migration G6.
 
 ## Hiểu quy tắc qua một ví dụ
 
