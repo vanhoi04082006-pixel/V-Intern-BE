@@ -82,7 +82,11 @@ export class ParticipationService {
     const items = await this.db.query(
       `SELECT i.id,i.taskId,i.internId,i.sessionId,i.deadlineVersion,i.policyVersion,i.dueAt,i.submittedAt,i.kind,i.status,i.ordinal,i.points,i.recommendReplacement,i.createdAt,i.reason,
       t.code taskCode,t.title taskTitle,u.displayName,se.name sessionName,
-      reviewed.baseScore,reviewed.latePenalty,reviewed.score,reviewed.status submissionStatus
+        reviewed.baseScore,reviewed.latePenalty,reviewed.score,reviewed.status submissionStatus,
+        CAST(CASE WHEN i.status='active' AND i.recommendReplacement=1
+          AND (SELECT COUNT(*) FROM participation_incidents ai WHERE ai.sessionId=i.sessionId AND ai.internId=i.internId AND ai.status='active') >= TRY_CONVERT(int,JSON_VALUE(i.policySnapshot,'$.replacementFrom'))
+          AND EXISTS(SELECT 1 FROM assignments a WHERE a.sessionId=i.sessionId AND a.projectId=t.projectId AND a.internId=i.internId AND a.status='active')
+          THEN 1 ELSE 0 END AS bit) replacementEligible
       FROM participation_incidents i JOIN tasks t ON t.id=i.taskId JOIN users u ON u.id=i.internId JOIN internship_sessions se ON se.id=i.sessionId
       OUTER APPLY(SELECT TOP(1) s.baseScore,s.latePenalty,s.score,s.status FROM task_submissions s WHERE s.taskId=i.taskId AND s.internId=i.internId AND s.reviewedAt IS NOT NULL ORDER BY s.reviewedAt DESC,s.id) reviewed
       WHERE ${where} ORDER BY i.createdAt DESC,i.id OFFSET @2 ROWS FETCH NEXT @3 ROWS ONLY`,

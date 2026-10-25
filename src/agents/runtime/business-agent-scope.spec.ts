@@ -22,7 +22,7 @@ function fixture() {
   let owner = own;
   const query = jest.fn(async (sql: string) => {
     if (sql.includes("FROM users")) return [{ status: "active" }];
-    if (sql.includes("FROM participation_incidents")) return [{ leadInstructorId: owner, roleCode: 'backend' }];
+    if (sql.includes("FROM participation_incidents")) return [{ leadInstructorId: owner, roleCode: 'backend', activeIncidentCount:3, policySnapshot:JSON.stringify({replacementFrom:3}) }];
     if (sql.includes("FROM interview_sessions"))
       return [{ userId: owner, roleCode: "backend" }];
     if (sql.includes("FROM ai_mentor_conversations"))

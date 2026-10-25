@@ -1,6 +1,5 @@
 import {
   ConflictException,
-  ForbiddenException,
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
@@ -11,7 +10,10 @@ import { RecruitmentService } from "../recruitment/recruitment.service";
 import { AiService } from "../ai/ai.service";
 import { stateHash } from "../agents/runtime/agent-state.store";
 import { ParticipationLedger } from "./participation-ledger.service";
-import { loadReplacementContext } from "./replacement-scope";
+import {
+  loadReplacementContext,
+  requireReplacementStaff,
+} from "./replacement-scope";
 import { eligibleReplacementCandidates } from "./replacement-candidates";
 import {
   replacementAdviceSchema,
@@ -35,21 +37,12 @@ export class ReplacementAdviceService {
     incidentId: string,
     actorId: string,
   ) {
-    const [user]: Array<{ status: string }> = await this.db.query(
-      "SELECT status FROM users WHERE id=@0",
-      [actorId],
+    const isAdmin = await requireReplacementStaff(
+      this.db,
+      this.permissions,
+      actorId,
+      "advice",
     );
-    const access = await this.permissions.accessSnapshot(actorId),
-      isAdmin = access.roles.has("admin");
-    if (
-      user?.status !== "active" ||
-      (!isAdmin && !access.roles.has("instructor")) ||
-      !access.permissions.has("sessions.manage") ||
-      !access.permissions.has("recruitment.view")
-    )
-      throw new ForbiddenException(
-        "Không được yêu cầu đề xuất thay thành viên.",
-      );
     const context = await loadReplacementContext(
       this.db,
       actorId,
@@ -136,6 +129,8 @@ export class ReplacementAdviceService {
         policyVersion: context.policyVersion,
         ordinal: context.ordinal,
         points: context.points,
+        activeIncidentCount: context.activeIncidentCount,
+        replacementFrom: context.replacementFrom,
       },
       candidates,
       scanned,

@@ -4,7 +4,7 @@ export async function eligibleReplacementCandidates(
   db: DataSource | EntityManager,
   roleCode: string,
   ids: readonly string[],
-): Promise<Array<{ id: string; displayName: string }>> {
+): Promise<Array<{ id: string; displayName: string | null }>> {
   if (!ids.length) return [];
   if (ids.length > 20) throw Error("REPLACEMENT_CANDIDATE_BATCH_EXCEEDED");
   return db.query(

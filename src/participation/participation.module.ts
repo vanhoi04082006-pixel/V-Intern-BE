@@ -7,6 +7,9 @@ import { ParticipationWorker } from "./participation.worker";
 import { ReplacementAdviceService } from "./replacement-advice.service";
 import { RecruitmentModule } from "../recruitment/recruitment.module";
 import { AiModule } from "../ai/ai.module";
+import { ReplacementPreviewService } from "./replacement-preview.service";
+import { ReplacementCommandsService } from "./replacement-commands.service";
+import { ReplacementController } from "./replacement.controller";
 @Module({
   imports: [RbacModule, RecruitmentModule, AiModule],
   providers: [
@@ -14,8 +17,10 @@ import { AiModule } from "../ai/ai.module";
     ParticipationService,
     ParticipationWorker,
     ReplacementAdviceService,
+    ReplacementPreviewService,
+    ReplacementCommandsService,
   ],
-  controllers: [ParticipationController],
+  controllers: [ParticipationController, ReplacementController],
   exports: [
     ParticipationLedger,
     ParticipationService,

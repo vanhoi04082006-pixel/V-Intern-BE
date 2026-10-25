@@ -27,6 +27,8 @@ function fixture() {
     deadlineVersion: 1,
     policyVersion: version,
     ordinal: 3,
+    activeIncidentCount: 3,
+    policySnapshot: JSON.stringify({ replacementFrom: 3 }),
     points: 5,
     createdAt: new Date("2026-10-25T00:00:00Z"),
   });
