@@ -19,5 +19,6 @@ it('runs the automatically requested Agent as the managing mentor, preserving th
   const deps = [db, { getOneDetailed: async () => task }, { accessSnapshot: async (id: string) => ({ roles: new Set([id === 'mentor' ? 'instructor' : 'intern']), permissions: new Set(id === 'mentor' ? ['tasks.manage'] : []) }), hasRole: async () => false }, { collect: async () => ({ complete: true, files: [] }), evidenceSummary: () => ({}), assertFresh: async () => undefined }, { grade: async () => ({ status: 'completed', passed: 1, failed: 0 }) }, ai] as unknown as ConstructorParameters<typeof CodeReviewService>;
   await new CodeReviewService(...deps).run(submission.id, { userId: 'student', email: '' });
   expect(ai.generateStructuredWithRun).toHaveBeenCalledWith(expect.objectContaining({ actorId: 'mentor', userId: 'student', resourceId: submission.id }));
-  expect(query).toHaveBeenCalledWith(expect.stringContaining('INSERT INTO submission_code_reviews(id,submissionId,headSha,status,leaseId,promptVersion)'), expect.arrayContaining(['code-review-v2']));
+  expect(query).toHaveBeenCalledWith(expect.stringContaining('INSERT INTO submission_code_reviews(id,submissionId,headSha,status,leaseId,promptVersion)'), expect.arrayContaining(['code-review-v3']));
+  expect(ai.generateStructuredWithRun).toHaveBeenCalledWith(expect.objectContaining({ request: expect.objectContaining({ outputSchema: expect.objectContaining({ type: 'object', additionalProperties: false, required: ['rubric', 'summary', 'findings', 'limitations'] }) }) }));
 });

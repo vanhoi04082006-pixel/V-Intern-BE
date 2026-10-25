@@ -51,6 +51,8 @@ Kiểm thử hồi quy: `code-review-authority.spec.ts` kiểm tra phạm vi và
 
 Collector đọc cả module JavaScript `.cjs` và `.mjs`, áp dụng cùng kiểm tra SHA, credential, diff và giới hạn 30.000 byte/tệp như `.js`. Tệp quá lớn vẫn khiến bằng chứng chưa đầy đủ; ví dụ lockfile lớn không được bỏ qua chỉ để đổi kết luận thành đạt. Khi cần quyết định thủ công, giảng viên phải kiểm tra phần chưa được Agent đọc và ghi lý do rõ ràng, giữ nguyên trạng thái/provenance của lượt AI.
 
+Từ `code-review-v3`, JSON Schema gửi provider được sinh từ chính Zod schema kiểm tra cấu trúc ở server: rubric sáu chiều 0–100, summary 10–4.000 ký tự, tối đa 40 finding và 20 limitation. Model vẫn không được tự thêm trường pass/approval/score. Server tính điểm và kiểm tra thêm file/dòng citation theo snapshot thực. JSON sai, citation sai hoặc response chưa hoàn tất vẫn thất bại; không sửa chuỗi, bỏ finding hoặc tạo điểm thay model.
+
 Đầu vào chỉ nhận URL/ref theo policy GitHub, đúng repo phiên và đúng danh tính. Bài nộp ghi base/head SHA bất biến. Collector lấy source/diff có giới hạn, loại file có thể chứa credential và đánh dấu thiếu/truncated. Không lấy arbitrary URL hoặc làm theo hướng dẫn nằm trong README/source sinh viên.
 
 | Bằng chứng | Chứng minh điều gì? | Không tự chứng minh điều gì? |
