@@ -2,7 +2,7 @@ import { BadRequestException } from '@nestjs/common';
 import type { KnowledgeAudience, KnowledgeKind, KnowledgePurpose, KnowledgeSnapshot } from './knowledge.contracts';
 
 export const RETRIEVAL_POLICY_VERSION = 'knowledge-retrieval-v1';
-export const KNOWLEDGE_CONSUMERS = ['mentor', 'interviewer', 'advisor', 'planner', 'reviewer', 'interview-evaluator', 'evaluation-assistant', 'cv-analyst', 'role-matcher', 'coordinator', 'knowledge-assistant'] as const;
+export const KNOWLEDGE_CONSUMERS = ['mentor', 'interviewer', 'advisor', 'planner', 'reviewer', 'interview-evaluator', 'evaluation-assistant', 'cv-analyst', 'role-matcher', 'coordinator', 'knowledge-assistant', 'replacement-advisor'] as const;
 export type KnowledgeConsumer = typeof KNOWLEDGE_CONSUMERS[number];
 export interface RetrievalPolicy {
   purpose: KnowledgePurpose; audiences: KnowledgeAudience[]; kinds: KnowledgeKind[];
@@ -15,6 +15,7 @@ const policies: Record<KnowledgeConsumer, RetrievalPolicy> = {
   mentor: { purpose: 'mentoring', audiences: ['student_safe'], kinds: studentKinds, permission: 'ai.mentor.use', resource: 'self' },
   interviewer: { purpose: 'interview', audiences: ['student_safe'], kinds: studentKinds, permission: 'recruitment.start.own', resource: 'interview' },
   advisor: { purpose: 'recommendation', audiences: ['student_safe'], kinds: studentKinds, permission: 'ai.recommendations.view.own', resource: 'self' },
+  'replacement-advisor': { purpose: 'recommendation', audiences: ['student_safe','staff_only'], kinds: staffKinds, permission: 'sessions.manage', resource: 'project' },
   planner: { purpose: 'planning', audiences: ['student_safe', 'staff_only'], kinds: staffKinds, permission: 'sprints.manage', resource: 'project' },
   reviewer: { purpose: 'code_review', audiences: ['student_safe', 'staff_only', 'grading_only'], kinds: gradingKinds, permission: 'tasks.manage', resource: 'project' },
   'interview-evaluator': { purpose: 'interview_evaluation', audiences: ['student_safe', 'staff_only', 'grading_only'], kinds: gradingKinds, permission: 'knowledge.read', resource: 'interview' },

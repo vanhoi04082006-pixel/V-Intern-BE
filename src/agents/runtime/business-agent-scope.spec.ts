@@ -16,10 +16,13 @@ function fixture() {
       "recruitment.start.own",
       "recruitment.submit.own",
       "ai.recommendations.view.own",
+      "sessions.manage",
+      "recruitment.view",
     ]);
   let owner = own;
   const query = jest.fn(async (sql: string) => {
     if (sql.includes("FROM users")) return [{ status: "active" }];
+    if (sql.includes("FROM participation_incidents")) return [{ leadInstructorId: owner, roleCode: 'backend' }];
     if (sql.includes("FROM interview_sessions"))
       return [{ userId: owner, roleCode: "backend" }];
     if (sql.includes("FROM ai_mentor_conversations"))
@@ -57,6 +60,19 @@ function fixture() {
   };
 }
 describe("business Agent scopes are server-selected and role constrained", () => {
+  it('allows replacement advice only for owning staff, in the incident scope and with recruitment access', async()=>{
+    const f=fixture(), definition=businessAgent('replacement-advice')!;
+    expect(definition).toBeDefined();
+    const allowed=await f.service.resolve(own,definition,'participation_incident',resource);
+    expect(allowed.roleCodes).toEqual(['backend']);expect(allowed.policy.audiences).toEqual(['student_safe','staff_only']);
+    await expect(f.service.resolve(own,definition,'ai_recommendation_snapshot',resource)).rejects.toMatchObject({status:403});
+    f.permissions.delete('recruitment.view');await expect(f.service.resolve(own,definition,'participation_incident',resource)).rejects.toMatchObject({status:403});
+  });
+  it('refuses replacement advice for another instructor or a student carrying forged permissions',async()=>{
+    const f=fixture(),definition=businessAgent('replacement-advice')!;expect(definition).toBeDefined();f.foreign();
+    await expect(f.service.resolve(own,definition,'participation_incident',resource)).rejects.toMatchObject({status:403});
+    f.roles.clear();f.roles.add('intern');await expect(f.service.resolve(own,definition,'participation_incident',resource)).rejects.toMatchObject({status:403});
+  });
   it.each([
     ["sprint-plan", "project"],
     ["code_review", "task_submission"],

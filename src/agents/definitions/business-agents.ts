@@ -16,7 +16,8 @@ export interface BusinessAgentDefinition {
     | "conversation"
     | "intern"
     | "application"
-    | "evaluation";
+    | "evaluation"
+    | "replacement";
   tools: readonly ["context_bundle"];
   budget: {
     maxSteps: number;
@@ -67,6 +68,7 @@ export const BUSINESS_AGENTS: readonly BusinessAgentDefinition[] =
     define("code-reviewer", ["code_review"], "reviewer", "submission"),
     define("learning-mentor", ["ai-mentor"], "mentor", "conversation"),
     define("performance-advisor", ["recommendation"], "advisor", "intern"),
+    define("replacement-advisor", ["replacement-advice"], "replacement-advisor", "replacement"),
     define(
       "instructor-assistant",
       ["evaluation-assistance"],
