@@ -20,7 +20,7 @@ import { KnowledgeRetrievalService } from "../../knowledge/knowledge-retrieval.s
 import { AgentRuntimeError } from "../contracts/agent-errors";
 import {
   BUSINESS_AGENT_PROMPT,
-  BUSINESS_DECISION_SCHEMA,
+  businessDecisionSchema,
   businessRequestId,
   validateBusinessDecision,
   type BusinessAgentDefinition,
@@ -183,6 +183,7 @@ export class BusinessAgentEngine {
             task: params.request.task,
             taskHint: JSON.stringify(params.request.input).slice(0, 1000),
             observations: data.observations,
+            remainingToolCalls: Math.max(0, budget.maxToolCalls - data.observations.length),
           };
           await reserve(input, 256);
           const result = await transport({
@@ -197,8 +198,8 @@ export class BusinessAgentEngine {
               systemPrompt: BUSINESS_AGENT_PROMPT,
               input,
               schemaName: "BusinessAgentDecision",
-              outputSchema: BUSINESS_DECISION_SCHEMA,
-              validate: validateBusinessDecision,
+              outputSchema: businessDecisionSchema(input.remainingToolCalls),
+              validate: raw => validateBusinessDecision(raw, input.remainingToolCalls),
               modelOptions: { temperature: 0.1, maxOutputTokens: 256 },
             },
           });

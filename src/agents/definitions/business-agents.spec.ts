@@ -3,6 +3,7 @@ import {
   BUSINESS_AGENTS,
   validateBusinessDecision,
   businessRequestId,
+  businessDecisionSchema,
 } from "./business-agents";
 describe("G2 business Agent registry and model decisions", () => {
   it("maps every existing workflow to one bounded, versioned Agent without a legacy-model fallback", () => {
@@ -57,5 +58,12 @@ describe("G2 business Agent registry and model decisions", () => {
     expect(businessRequestId({ ...key, promptVersion: "v1-repair1" })).not.toBe(
       id,
     );
+  });
+  it('constrains generation to final when the existing tool budget is exhausted', () => {
+    expect(businessDecisionSchema(0).properties.action.enum).toEqual(['final']);
+    expect(businessDecisionSchema(1).properties.action.enum).toEqual(['tool', 'final']);
+    expect(() => validateBusinessDecision({ action: 'tool', query: 'one more query' }, 0)).toThrow('AGENT_TOOL_BUDGET');
+    expect(validateBusinessDecision({ action: 'final', query: '' }, 0)).toEqual({ action: 'final', query: '' });
+    expect(businessAgent('code_review')!.budget.maxToolCalls).toBe(2);
   });
 });
