@@ -3,6 +3,7 @@ import { CreateInterviewAdmissions1763328000000 } from './migrations/17633280000
 import { TrackGithubInvitations1763414400000 } from './migrations/1763414400000-TrackGithubInvitations';
 import { SeparateGithubInvitationRequests1763457600000 } from './migrations/1763457600000-SeparateGithubInvitationRequests';
 import { CreateParticipation1763500800000 } from './migrations/1763500800000-CreateParticipation';
+import { CreateReplacementWorkflow1763587200000 } from './migrations/1763587200000-CreateReplacementWorkflow';
 import { CreateCommunications1763155200000 } from './migrations/1763155200000-CreateCommunications';
 import { CreateCareerRoles1762636800000 } from './migrations/1762636800000-CreateCareerRoles';
 import { CreateKnowledgeLibrary1762809600000 } from './migrations/1762809600000-CreateKnowledgeLibrary';
@@ -113,5 +114,6 @@ export default new DataSource({
     TrackGithubInvitations1763414400000,
     SeparateGithubInvitationRequests1763457600000,
     CreateParticipation1763500800000,
+    CreateReplacementWorkflow1763587200000,
   ],
 });
