@@ -27,7 +27,7 @@ interface MemberState {
   leaseUntil: Date | null;
   errorCode: string | null;
 }
-const membership = `SELECT userId FROM session_members WHERE sessionId=@0
+export const membership = `SELECT userId FROM session_members WHERE sessionId=@0
   UNION SELECT instructorId FROM session_instructors WHERE sessionId=@0
   UNION SELECT leadInstructorId FROM internship_sessions WHERE id=@0 AND leadInstructorId IS NOT NULL
   UNION SELECT internId FROM assignments WHERE sessionId=@0 AND status='active'`;
