@@ -65,6 +65,10 @@ const factsSchema = z
   })
   .strict();
 export type CvFacts = z.infer<typeof factsSchema>;
+// Use the server's actual limits in structured generation too. Otherwise short
+// labels such as "CSS3" can pass the provider schema and fail only after generation.
+export const cvFactsOutputSchema = z.toJSONSchema(factsSchema);
+delete cvFactsOutputSchema.$schema;
 export function validateCvFacts(raw: unknown, segments: CvSegment[]): CvFacts {
   const parsed = factsSchema.parse(raw);
   for (const fact of parsed.facts)

@@ -6,6 +6,7 @@ import {
   CvSegment,
   RoleMatch,
   validateCvFacts,
+  cvFactsOutputSchema,
   validateRoleMatch,
 } from "./application-policy";
 const prompt =
@@ -35,6 +36,7 @@ export class IntakeAgents {
     system: string,
     validate: (v: unknown) => T,
     outputSchema: Record<string, unknown>,
+    promptVersion = `${feature}-v1`,
   ) {
     return (
       await this.ai.generateStructuredWithRun({
@@ -47,7 +49,7 @@ export class IntakeAgents {
           String(input.processingAttempt ?? 0),
         resourceType: "cv_application",
         resourceId: id,
-        promptVersion: `${feature}-v1`,
+        promptVersion,
         request: {
           task: feature,
           systemPrompt: `${prompt}\n${system}`,
@@ -60,41 +62,35 @@ export class IntakeAgents {
       })
     ).data;
   }
-  analyze(
+  async analyze(
     actor: string,
     id: string,
     revision: number,
     segments: CvSegment[],
     processingAttempt = 0,
   ): Promise<CvFacts> {
-    return this.invoke(
-      "cv-analysis",
-      actor,
-      id,
-      { revision, processingAttempt, segments },
-      "Liệt kê kỹ năng có thật. Mỗi fact cần skill, ref trang/đoạn và quote nguyên văn đúng đoạn. Không dùng tên/email/số điện thoại làm fact. confidence 0..1; missing liệt kê điều cần bổ sung.",
-      (v) => validateCvFacts(v, segments),
-      {
-        type: "object",
-        properties: {
-          confidence: { type: "number" },
-          missing: { type: "array", items: { type: "string" } },
-          facts: {
-            type: "array",
-            items: {
-              type: "object",
-              properties: {
-                skill: { type: "string" },
-                ref: { type: "string" },
-                quote: { type: "string" },
-              },
-              required: ["skill", "ref", "quote"],
-            },
-          },
-        },
-        required: ["confidence", "missing", "facts"],
-      },
-    );
+    // One bounded repair uses the original evidence again. Never trim/filter
+    // unsupported facts into an apparently successful analysis.
+    for (let citationRepairAttempt = 0; citationRepairAttempt < 2; citationRepairAttempt++) {
+      try {
+        return await this.invoke(
+          "cv-analysis",
+          actor,
+          id,
+          { revision, processingAttempt, citationRepairAttempt, segments },
+          "Liệt kê kỹ năng có thật. Mỗi fact cần skill, ref sao chép chính xác từ segments.ref và quote nguyên văn liên tục trong segments.text của đúng ref đó. Chọn cụm ngắn 5–120 ký tự; giữ nguyên chữ hoa, dấu câu và khoảng trắng, không dịch, diễn giải, nối đoạn hoặc dùng dấu ba chấm. Không dùng tên/email/số điện thoại làm fact. confidence 0..1; missing liệt kê điều cần bổ sung." +
+            (citationRepairAttempt ? " Lần trước bị CV_EVIDENCE_INVALID hoặc sai schema: hãy đọc lại nguồn gốc và chỉ trích chuỗi có ít nhất 5 ký tự thực sự xuất hiện ở đúng ref. Nếu không có bằng chứng, trả facts rỗng và nêu missing, không đoán." : ""),
+          (v) => validateCvFacts(v, segments),
+          cvFactsOutputSchema,
+          "cv-analysis-v2",
+        );
+      } catch (error) {
+        const invalidOutput = error instanceof z.ZodError ||
+          (error instanceof Error && error.message === "CV_EVIDENCE_INVALID");
+        if (citationRepairAttempt !== 0 || !invalidOutput) throw error;
+      }
+    }
+    throw Error("CV_EVIDENCE_INVALID");
   }
   match(
     actor: string,
