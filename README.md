@@ -1,4 +1,4 @@
-**Checkpoint 26/10/2026:** [kết quả có nguồn, luồng đã click và việc còn mở](docs/ACCEPTANCE-CHECKPOINT-20261026.md). BE 859 / FE 644 unit tests; cặp CI đã có receipt xanh, code mới tiếp tục gate theo SHA. CV–Gmail–Agent–GitHub–Docker đã chạy thật tới task đầu được giảng viên duyệt; chưa hoàn tất toàn bộ hành trình hay redesign. [Bàn giao nền tảng](docs/DELIVERY-20261025.md) · [khôi phục mật khẩu tạm](docs/TEMPORARY-CREDENTIAL-RECOVERY.md).
+**Checkpoint 26/10/2026:** [nguồn kiểm chứng và việc còn mở](docs/ACCEPTANCE-CHECKPOINT-20261026.md). BE 859 / FE 649 unit tests; CI xanh đúng SHA. Hành trình QA thật đã hoàn thành 4/4 task, đánh giá 96,1, KPI 98,8, chứng nhận và vòng mời lại GitHub. Có cả bước UI/API; chưa nghiệm thu mọi nhánh hoặc redesign toàn bộ.
 
 **G6/T03 — quyền repository sau thay người:** [hướng dẫn trạng thái, đối chiếu và phục hồi](docs/REPOSITORY-ACCESS-RECOVERY.md). Đã kiểm QA, GitHub pending thật và đã kích hoạt cả hai DB native.
 

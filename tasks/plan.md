@@ -1,3 +1,5 @@
+> Nghiệm thu hiện hành 26/10: [tiến độ có nguồn](final-integration-execution.md) — hành trình thật đã xong 4/4 task và outcomes, CI xanh; chưa chốt toàn hệ thống. Các trạng thái cũ bên dưới giữ làm lịch sử.
+
 # V-INTERN — Kế hoạch mở rộng nền tảng Agent và tuyển thực tập
 
 > **Người dùng đã duyệt ngày 23/10/2026. Cập nhật G2 ngày 24/10: sáu bài nhỏ đã có starter/lời giải/faulty và Docker thật; UI public/private/version đã kiểm; bảy Agent nghiệp vụ có scope/tool/checkpoint/trace; 18 tài liệu curated đã publish trên hai DB local và Admin có dashboard metadata. [Báo cáo G2](../docs/reports/g2-completion-20261024.md) ghi source/kiểm thử/CI và giới hạn. G3–G7 tiếp tục theo kế hoạch; không đồng nhất G2 với toàn bộ master.**

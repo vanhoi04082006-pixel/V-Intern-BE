@@ -1,3 +1,5 @@
+> Cập nhật 26/10: D01–D03/T01–T03 được tick theo implementation và receipt G6 local/SQL; không nâng thành toàn bộ live. G5 có vòng mời lại thật mới. [Bảng nguồn và việc còn mở](final-integration-execution.md) là tiến độ hiện hành; các số kiểm thử cũ bên dưới thuộc mốc ghi nhận của từng mục.
+
 # Theo dõi triển khai — nền tảng Agent và tuyển thực tập
 
 > Cập nhật 24/10/2026 — **đã được người dùng duyệt; M00/M01 và toàn G1 đạt local + CI, đã kích hoạt runtime chính, dữ liệu giữ nguyên; tiếp theo G2**. Các task chỉ được tick khi có bằng chứng. Audit source/CI và lựa chọn nghiệp vụ đã ghi ở [kế hoạch](plan.md); không đánh đồng audit với nghiệm thu tính năng.
@@ -174,22 +176,22 @@ Khi thực hiện, mỗi task bổ sung cột/ngày ghi nhận: `commit FE/BE �
 
 ## G6. Nộp trễ và thay thế — M13/M14
 
-- [ ] D01. Policy, incident và cách xác định nộp trễ.
+- [x] D01. Policy, incident và cách xác định nộp trễ.
   - Đạt khi: so timestamp bài nộp hợp lệ với hạn; task chưa nộp/nộp sau đó chỉ một incident; chấm muộn không phạt.
   - Kiểm: boundary dueDate, cron replay, version hạn và submission. File: BE participation schema/migration/rules/tests.
-- [ ] D02. Cảnh báo và điểm trừ có hoàn tác.
+- [x] D02. Cảnh báo và điểm trừ có hoàn tác.
   - Đạt khi: ngưỡng cấu hình, penalty cap; chưa đặt mức thì không tự trừ; miễn trừ/gia hạn/reversal có audit.
   - Kiểm: lần 1/2/3, duplicate job, policy đổi không hồi tố kết quả đã chốt. Phụ thuộc D01/E01.
-- [ ] D03. UI chính sách và bằng chứng vi phạm.
+- [x] D03. UI chính sách và bằng chứng vi phạm.
   - Đạt khi: GV cấu hình; SV biết lý do/điểm trước sau; không lẫn tiền thật với điểm/lương ảo.
   - Kiểm: permission/validation/a11y và workflow miễn trừ. Phụ thuộc D02; FE policy/incident API/UI.
-- [ ] T01. Replacement Advisor Agent và danh sách ứng viên đủ điều kiện.
+- [x] T01. Replacement Advisor Agent và danh sách ứng viên đủ điều kiện.
   - Đạt khi: bằng chứng vi phạm, role, workload và eligibility; không có người thay thì nói rõ.
   - Kiểm: ứng viên đã bận/không đạt/khác role, scope CV và injection. Phụ thuộc V04/D02/A04.
-- [ ] T02. Giảng viên duyệt loại/thay và phân công task.
+- [x] T02. Giảng viên duyệt loại/thay và phân công task.
   - Đạt khi: preview ảnh hưởng; quyết định có lý do; không xóa lịch sử; chống hai GV thay trùng.
   - Kiểm: transaction/concurrency, task đang review/đã chốt, assignment snapshots. Phụ thuộc T01; BE domain command/tests rồi FE confirm.
-- [ ] T03. Thu hồi/cấp quyền repo khi thay người.
+- [x] T03. Thu hồi/cấp quyền repo khi thay người.
   - Đạt khi: chỉ quyền hệ thống cấp, không ảnh hưởng vai trò/phiên khác; lỗi GitHub có recovery.
   - Kiểm: shared membership, remote 403/rate limit, worker retry và reconciliation. Phụ thuộc T02/H02.
 
@@ -218,6 +220,6 @@ Khi thực hiện, mỗi task bổ sung cột/ngày ghi nhận: `commit FE/BE �
 - [x] G2: nội dung/mẫu nhỏ được kiểm; toàn bộ AI cũ đã map và regression. BE `bb67573` / FE `958691a`; [báo cáo và giới hạn](../docs/reports/g2-completion-20261024.md).
 - [x] G3 local: CV→role→slot→hai email, đúng identity và không trùng tác dụng phụ. [Kết quả và giới hạn](../docs/reports/g3-completion-20261024.md); provider ngoài/mail ngoài chưa nghiệm thu.
 - [x] G4: lịch, mốc 15 phút, 3 lượt và ranh giới 50/70 đạt. [Báo cáo và nguồn kiểm chứng](../docs/reports/g4-completion-20261025.md); CI BE #7 và FE #17 (quality + SQL2019) xanh, chưa merge.
-- [ ] G5: mời/nhận/mời lại GitHub, branded mail và webhook live đạt hoặc ghi BLOCKED rõ.
+- [x] G5: mời/nhận/mời lại GitHub, branded mail và webhook live có bằng chứng. [Checkpoint 26/10](../docs/ACCEPTANCE-CHECKPOINT-20261026.md): hai lần resend click UI, pending bị hủy được khôi phục; accepted readback. Webhook HTTPS tạm đã inactive sau nghiệm thu.
 - [x] G6 local: policy, phê duyệt, ledger, worker quyền GitHub và hai DB native đạt; quyền accepted chưa rõ nguồn được giữ để Admin đối chiếu.
 - [ ] G7: tài liệu có nguồn, demo hai vai, code/doc đã push, CI/evidence cùng commit pair.

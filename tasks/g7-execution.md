@@ -1,3 +1,5 @@
+> Nghiệm thu hiện hành 26/10: [tiến độ có nguồn](final-integration-execution.md) — hành trình thật đã xong 4/4 task và outcomes, CI xanh; chưa chốt toàn hệ thống. Các trạng thái cũ bên dưới giữ làm lịch sử.
+
 # G7 — nghiệm thu và bàn giao
 
 Tiếp sau G6/T03. Không reset DB, không dùng ba tài khoản trắng cho QA, không triển khai production. Các ô chỉ được đánh dấu khi đã có nguồn kiểm chứng.

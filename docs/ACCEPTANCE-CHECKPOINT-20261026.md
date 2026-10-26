@@ -1,79 +1,89 @@
-# Nghiệm thu ngày 26/10/2026 — đã có gì, còn thiếu gì?
+# Nghiệm thu ngày 26/10/2026
 
-Hệ thống local đang được nghiệm thu tiếp trên dữ liệu QA riêng. **Chưa kết luận hoàn tất mọi G, mọi luồng của ba vai hoặc redesign toàn hệ thống.** Mốc này thay thông tin “CI đang bị chặn billing” trong báo cáo ngày 25/10; báo cáo cũ vẫn là bằng chứng của thời điểm cũ.
+Hành trình QA mới đã đi hết từ CV đến chứng nhận với Gmail, Gemini, LangSmith, GitHub và Docker thật. Các bước qua UI và API được phân biệt bên dưới. **Chưa kết luận nghiệm thu mọi nhánh của ba vai hoặc redesign toàn hệ thống.**
 
-## 1. Đọc kết quả theo đúng loại bằng chứng
+## Đọc nhanh tình trạng
 
-| Loại kiểm tra | Kết quả đã có | Phạm vi và giới hạn |
+| Phần | Kết quả | Còn giới hạn gì? |
 |---|---|---|
-| BE unit | **114 suites / 859 tests đạt**, lint file đổi và Nest build đạt | Source BE `91a9175a99555036e3fdd247e94146b875c9716f`; log local `live-authority-be-unit.log`, `review-authority-build.log` |
-| FE unit | **106 files / 644 tests đạt**, typecheck, lint file đổi và production build đạt | Source FE `28cc4c1eb838d9e08f4f71f637e2df7b58cde38f`; log `live-frontend-unit.log`, `live-frontend-build-admin-draft.log` |
-| Script contracts | **25 tests đạt** | Bao gồm chờ review đang chạy, không đổi kết quả failed/needs_changes thành đạt và chặn SHA đổi |
-| SQL thật local | **9/9 tests đạt** | DB dùng một lần mới, RBAC thật; chỉ GitHub/runner/AI là fixtures trong suite SQL này. Không phải bằng chứng dịch vụ ngoài thật |
-| SQL runtime mở rộng | **30/31 đạt; chưa đạt toàn bộ local** | Ba suite trên DB disposable đúng guard: replay sau provider outage vượt timeout 5 giây trong hai lượt local. Giữ nguyên timeout/assertion; không ghi 31/31. Gate SQL2019 của BE `91a9175` sẽ kiểm lại đúng source trên CI |
-| CI cặp đã có receipt | **BE release + runner + FE quality + full-stack SQL2019 đạt** | Cặp BE `0b137cd` / FE `28cc4c1`; các link bên dưới. Bản sửa Agent `91a9175` phải được pin và chạy gate riêng; không dùng receipt cũ gán cho code mới |
-| Bài QA riêng | **2/2 Playwright tests đạt** | Source của PR sửa được so khớp 6 blob/SHA với bài đã chạy local; đây là kiểm thử bài nộp, tách khỏi 644 tests FE |
+| CV, thư, phỏng vấn | Nhận ba thư thật; Agent chọn Frontend/lịch; phỏng vấn 10 câu, **91,8**, đậu lượt 1 | CV tổng hợp và tài khoản QA; bước nhận CV/phỏng vấn chủ yếu qua API |
+| Bài nộp và chấm | **4/4 task** được giảng viên duyệt; có bài lỗi, trả bài, sửa và nộp lại | AI không tự thay quyết định giảng viên |
+| Kết quả cuối | Đánh giá chính thức **96,1**; KPI **98,8**; chứng nhận hợp lệ; PDF/XLSX đã đối chiếu | Không suy điểm AI của task thành điểm đánh giá cuối |
+| GitHub invitation | Tạo mới 201 → nhận; sau đó mất quyền → mời lại trên UI → hủy pending ở GitHub → UI mời lại → accepted readback | Không giả lập hết hạn 7 ngày; không có ảnh click nhận lời mời trên GitHub |
+| CI | BE release, runner, FE quality và full-stack xanh | Chưa merge bộ PR sản phẩm |
+| UI | Đã click các luồng chính và kết quả sau hoàn tất của ba vai | Chưa kiểm hết78 route và mọi trạng thái; redesign mới chưa toàn diện |
 
-CI có nguồn: [BE release](https://github.com/vanhoi04082006-pixel/V-Intern-BE/actions/runs/40221754231), [runner](https://github.com/vanhoi04082006-pixel/V-Intern-BE/actions/runs/40221754243), [FE quality](https://github.com/vanhoi04082006-pixel/V-Intern-FE/actions/runs/40225981150), [full-stack](https://github.com/vanhoi04082006-pixel/V-Intern-FE/actions/runs/40225981181). Hai PR tiếp tục cập nhật: [BE #12](https://github.com/vanhoi04082006-pixel/V-Intern-BE/pull/12), [FE #22](https://github.com/vanhoi04082006-pixel/V-Intern-FE/pull/22). Chưa merge bộ PR sản phẩm.
+## 1. Một bộ số liệu có nguồn
 
-Các log local nằm trong `.runtime` của workspace; state, email gốc, CV và credential nằm riêng trong `manual-runtime`, không đưa vào Git. Tổng test ở các báo cáo ngày trước là baseline lịch sử, không phải số hiện hành.
+| Kiểm tra | Kết quả | Source và bằng chứng |
+|---|---|---|
+| BE unit | **114 suites / 859 tests đạt** | Code 91a9175a99555036e3fdd247e94146b875c9716f; lint file đổi và Nest build đạt |
+| FE unit | **107 files / 649 tests đạt** | Code 9ef1ff6d6282555bb0346ba0323e7966bd0691d0; typecheck, lint file đổi, production build đạt |
+| Script contracts | **25 đạt** | Chờ background review qua GET; giữ assertion SHA/inconclusive/override |
+| SQL notification/RBAC | **9/9 đạt** | Database QA; PermissionsService/RBAC thật |
+| SQL mở rộng local | **30/31** | Provider-outage replay test 5 giây timeout; không tăng timeout hoặc bỏ assertion. SQL2019 CI của cùng BE code đạt |
+| Bài QA cuối | **6/6 Playwright đạt** | Validation, sửa bằng bàn phím, reload, filter/xóa, JSON tải thật, giữ dữ liệu hỏng |
 
-## 2. Hành trình dịch vụ thật đã đi đến đâu?
+CI: [BE release](https://github.com/vanhoi04082006-pixel/V-Intern-BE/actions/runs/40235227782) · [runner](https://github.com/vanhoi04082006-pixel/V-Intern-BE/actions/runs/40235227783) · [FE quality](https://github.com/vanhoi04082006-pixel/V-Intern-FE/actions/runs/40241676421) · [full-stack](https://github.com/vanhoi04082006-pixel/V-Intern-FE/actions/runs/40241676508).
 
-CV tổng hợp được gửi qua API thật, Gmail nhận thư xác minh, thư lịch và thư tài khoản riêng. Agent thật phân tích CV, chọn Frontend và đặt lịch trong khung mở. Tài khoản QA đăng nhập bằng thông tin từ thư, hoàn thành 10 câu phỏng vấn; evaluator thật trả **91,8 điểm, đậu ở lượt 1**. LangSmith được đọc lại theo trace metadata; không coi trace local là trace đã tới dịch vụ ngoài.
+FE full-stack pin đúng BE 91a9175. Hai PR sản phẩm vẫn draft: [BE #12](https://github.com/vanhoi04082006-pixel/V-Intern-BE/pull/12), [FE #22](https://github.com/vanhoi04082006-pixel/V-Intern-FE/pull/22). Các số 840/638, 644 và các mốc CI cũ trong báo cáo lịch sử thuộc phiên bản trước.
 
-Giảng viên tạo/phân công phiên, Agent lập kế hoạch và phát hành một Sprint có bốn task. Repo QA tạo dưới owner mặc định; sinh viên có quyền push nhưng không có admin. PR được kiểm tra đúng repo, author và SHA. Webhook HTTPS tạm có ping 200 và sự kiện PR được ghi nhận. Đây là nghiệm thu webhook của repo QA, không phải cấu hình webhook public thường trực cho toàn hệ thống.
+Nguồn máy đọc được: [live-service-journey-20261026.json](reports/live-service-journey-20261026.json). Report chỉ chứa metadata đã chọn, điểm, SHA, trạng thái, artifact hash và readback; không chứa credential, email, CV hoặc thư gốc. Log local ở .runtime; bằng chứng riêng ở manual-runtime/final-integration-20261025, đều trong workspace dự án.
 
-```mermaid
+Bản sửa GitHub sau hết phân công: 9ef1ff6, 107 files / 649 tests local đạt; typecheck/lint và [quality CI gồm production build](https://github.com/vanhoi04082006-pixel/V-Intern-FE/actions/runs/40252418448) đạt. [Full-stack mới](https://github.com/vanhoi04082006-pixel/V-Intern-FE/actions/runs/40252418106) đang chạy lúc cập nhật; cặp 3c6709a / 91a9175 phía trên đã xanh đầy đủ.
+
+## 2. Bài lỗi, sửa và hoàn thành
+
+~~~mermaid
 flowchart LR
-  A[CV và xác minh Gmail] --> B[Agent chọn role và lịch]
-  B --> C[Phỏng vấn thật: 91,8]
-  C --> D[Phiên và Sprint: 4 task]
-  D --> E[Bài lỗi: Docker 1/2, AI 58,5]
-  E --> F[Giảng viên trả bài trên UI]
-  F --> G[PR sửa: Docker 2/2, AI 100]
-  G --> H[AI vẫn inconclusive vì giới hạn source]
-  H --> I[Giảng viên đối chiếu và duyệt thủ công 90]
-  I --> J[Task đầu done; 3 task sau còn mở]
-```
+  A[CV và Gmail] --> B[Agent chọn role và lịch]
+  B --> C[Phỏng vấn 91,8]
+  C --> D[Sprint 4 task]
+  D --> E[Bài lỗi 58,5 - trả bài]
+  E --> F[Sửa - duyệt thủ công 90]
+  F --> G[Ba task tiếp: 98,5 /99 /100]
+  G --> H[Đánh giá 96,1]
+  H --> I[KPI 98,8 và chứng nhận]
+~~~
 
-PR QA [bài lỗi #1](https://github.com/hbuivanhoi6-stack/vintern-so-tay-hoc-tap-ca-nhan-qa-live-frontend-notes-mvnvp-20261025-13df4e04/pull/1), [bản sửa #2](https://github.com/hbuivanhoi6-stack/vintern-so-tay-hoc-tap-ca-nhan-qa-live-frontend-notes-mvnvp-20261025-13df4e04/pull/2), [task lưu trữ #3](https://github.com/hbuivanhoi6-stack/vintern-so-tay-hoc-tap-ca-nhan-qa-live-frontend-notes-mvnvp-20261025-13df4e04/pull/3). Bản sửa chỉ được merge vào repo bài QA sau khi kiểm tra giảng viên đã duyệt và SHA còn khớp; việc này không merge FE/BE.
+| Bài QA | Docker | Agent | Quyết định giảng viên qua UI |
+|---|---|---|---|
+| PR #1, cố ý sai validation | 1/2 | 58,5; citation đúng dòng lỗi | Trả bài58,5 |
+| PR #2, sửa nền tảng | 2/2 |100 nhưng **inconclusive**, lockfile37.717 byte vượt giới hạn30.000 byte/tệp | Duyệt 90, có lý do/audit; so khớp 6 blob/SHA và chạy test. Không gọi đây là AI tự duyệt |
+| PR #3, lưu/khôi phục |1/1|98,5; source đủ, không finding/limitation|Duyệt thường 98,5|
+| PR #4, tìm kiếm/xóa |3/3|99; source đủ, không finding/limitation|Duyệt thường 99|
+| PR #5, xuất/bàn giao |1/1|100; source đủ, không finding/limitation|Duyệt thường 100|
 
-Task lưu trữ tiếp theo đã qua Docker **1/1** và Agent **98,5**, không findings/limitations, trạng thái `awaiting_instructor`. Bước nộp task này qua API; kết quả đã mở xem trên UI sinh viên. Trước đó đã phát hiện JSON model sai định dạng và một lượt xin đọc quá ngân sách; cả hai lượt lỗi vẫn được giữ. Bản sửa dùng cùng Zod/JSON Schema cho provider–server và ràng buộc quyết định theo số lượt tool còn lại. Không tăng ngân sách hai lần đọc, không sửa chuỗi JSON hoặc bỏ finding để đạt. Giảng viên chưa được tính đã duyệt task này khi chưa lưu quyết định.
+Các PR bài QA ở [repository nghiệm thu](https://github.com/hbuivanhoi6-stack/vintern-so-tay-hoc-tap-ca-nhan-qa-live-frontend-notes-mvnvp-20261025-13df4e04). Chỉ merge PR 2–5 vào repo bài QA sau duyệt/SHA; bài lỗi PR 1 được giữ. Không merge FE/BE theo đó.
 
-### Vì sao AI 100 mà vẫn chưa tự kết luận đạt?
+Lượt stage2 từng trả JSON sai rồi vượt tool budget được giữ trong nhật ký. Sửa bằng schema sinh từ validator và quyết định biết số lượt tool còn lại; không sửa chuỗi JSON, bỏ finding, nới budget hoặc timeout để đạt.
 
-Điểm và độ đầy đủ bằng chứng là hai thông tin khác nhau. Collector đọc source có giới hạn 30.000 byte/tệp, 20 tệp và tổng dung lượng; lockfile QA 37.717 byte vượt giới hạn. Sau khi sửa hỗ trợ `.cjs/.mjs`, hai tệp test/config đã đọc được, nhưng lockfile vẫn chưa được Agent đọc. Không bỏ cảnh báo hoặc đổi validator để có kết quả xanh.
+Giảng viên nhập rubric 98/100/90/92 với trọng số 35/30/20/15, server tính 96,1. Agent chỉ gợi ý; giảng viên lưu, submit và finalize qua UI. KPI 98,8 lấy chất lượng 96,1, tiến độ 100 và đúng hạn 100. Lương 9.880.000 đồng **ảo**, một giao dịch; chạy lại batch sinh 0 giao dịch. Chứng nhận xác minh công khai valid. PDF báo cáo 32.500 byte, XLSX 11.425 byte / 5 sheet, PDF chứng nhận 31.274 byte; SHA256 trong JSON.
 
-Giảng viên thử duyệt thường bị chặn. Nhánh thủ công sau đó ghi rõ: đã so khớp sáu blob/SHA, kiểm tra 72 package khóa có integrity, chạy local Playwright 2/2 và trusted runner 2/2; chỉ chấm ba tiêu chí của task đầu. Audit giữ lý do này. **AI vẫn inconclusive; điểm chính thức 90 là quyết định của giảng viên.** Đây là bằng chứng nhánh chấm thủ công có kiểm soát, không phải AI tự duyệt hoặc bằng chứng ba task sau đã đạt.
+## 3. Những gì đã click trên giao diện
 
-## 3. Những thao tác đã click trên UI
+| Vai | Thao tác và kết quả đã quan sát |
+|---|---|
+| Sinh viên | Login, Sprint/task, đọc lỗi/citation, bình luận, nộp lại PR, xem runner/Agent; sau hoàn thành mở trang chủ lịch sử, đánh giá 96,1, KPI 98,8 và nguồn chất lượng, sổ lương ảo, chứng nhận list/detail, sao chép mã có báo thành công, tra cứu công khai hợp lệ |
+| Giảng viên | Dashboard→phiên→task; trả bài; kiểm chặn duyệt thường khi evidence thiếu; duyệt thủ công có audit; duyệt thường ba bài sau; Agent gợi ý đánh giá, lưu/submit/finalize; hai lần mời lại GitHub và tải lại thấy accepted |
+| Admin | Login QA, dashboard, health refresh, tích hợp/Agent, JSON nháp sai và9 contract hợp lệ, preview mail che credential, hàng đợi email và outcomes batch. Batch/chứng nhận/xuất dữ liệu còn có bước qua API |
 
-| Vai | Đã thao tác và quan sát | Chưa được suy ra |
-|---|---|---|
-| Sinh viên | Login, dashboard thấy Sprint/task; mở bài nộp, đọc lỗi và liên kết dòng code; gửi bình luận; nhận bài trả lại; nộp PR sửa qua form; xem Docker/Agent và retry | Chưa kiểm hết mọi tab, mọi trạng thái tuyển dụng và outcomes trên UI mới |
-| Giảng viên | Login, dashboard → phiên → task; xem rubric/runner; trả bài 58,5; kiểm tra chặn duyệt thiếu bằng chứng; duyệt 90 với lý do; task chuyển done | Chưa chấm xong bốn task hoặc hoàn thành phiên mới |
-| Admin | Login bằng bootstrap QA, dashboard, health refresh, trạng thái tích hợp/Agent, thử JSON sai và hợp lệ ở bản nháp seal, mở hàng đợi email | Không sửa role, credential, bộ seal hoặc dữ liệu thật chỉ để nghiệm thu; chưa kiểm hết 28 route Admin |
+Không coi một trang đã mở là mọi hành động của trang đã được nghiệm thu. Phiên QA đã completed; không mở lại chỉ để thử. Không dùng ba tài khoản trắng gốc.
 
-Ảnh và state UI riêng được lưu trong `manual-runtime/final-integration-20261025`. Mở được trang và click một số hành động không tương đương đã nghiệm thu toàn bộ vai.
+## 4. Dịch vụ ngoài và giới hạn thực tế
 
-## 4. Lỗi đã sửa trong vòng này
+- Gmail: nhận thư xác minh/lịch/tài khoản qua IMAP TLS ở đúng hộp thư QA, không chỉ SMTP accepted.
+- Gemini/LangSmith: Agent thật; đọc lại trace metadata từ LangSmith, không đưa raw CV/mail/code vào trace.
+- GitHub: invitation 201, pending, missing/reinvite và accepted được đối chiếu numeric ID. Phản hồi lúc nhận lời mời không rõ; readback độc lập xác nhận push=true/admin=false, pending = 0 rồi sản phẩm accepted. Không suy từ thao tác gửi thành công rằng đã nhận.
+- Webhook: HTTPS tạm, ping 200 và sự kiện PR thật. Hook QA đã inactive khi tunnel hết hạn; chưa có public webhook thường trực.
+- Docker: runner sealed suite độc lập. Không dùng CI của repo sinh viên thay trusted runner.
+- SQL: 46 migration ở hai DB native; cả 4 file data/log được đọc qua sys.database_files và nằm dưới folder dự án. Giữ DB chính và ba tài khoản trắng.
 
-1. Schema CV cho provider khớp validator; correction giới hạn, không tự bỏ citation sai.
-2. Auto review sau khi sinh viên nộp dùng đúng mentor server chọn, kiểm tra active/RBAC/phạm vi phiên; không cấp quyền staff cho sinh viên. Provenance giữ riêng người yêu cầu và actor giảng viên.
-3. Collector đọc module `.cjs/.mjs` với cùng giới hạn và lọc credential. Prompt version lưu trong review khớp version dùng khi gọi Agent.
-4. Fixture hết hạn email không còn phụ thuộc ngày cố định; test vẫn chặn mail hết hạn, double click và nguy cơ gửi trùng.
-5. Full-stack chờ background review kết thúc bằng GET trước khi khẳng định trạng thái; giữ assertion inconclusive, SHA và nhánh override có audit.
-6. FE giải thích lỗi thiếu bằng chứng/thiếu giảng viên thay thông báo 409 chung. Admin parse đúng phản hồi bản nháp có `stored:false`, không đòi `source` của cấu hình đã lưu.
-7. Nhãn SMTP trong cấu hình local được đồng bộ theo SMTP ngoài hiện dùng; không đổi credential. Cấu hình hiện diện/SMTP accepted vẫn không tự chứng minh thư tới Inbox.
-8. `code-review-v3` gửi JSON Schema được sinh từ validator; bước quyết định Agent biết số lượt đọc còn lại, schema chỉ cho `final` khi hết lượt. Server vẫn từ chối hành động xin đọc vượt budget. Lượt chấm thật task lưu trữ đã trả kết quả hợp lệ sau sửa.
+## 5. Việc còn mở
 
-## 5. Việc còn phải hoàn thành
+1. Đối chiếu đầy đủ nhánh muộn/no-show/hết lượt/miễn trừ/thay người với receipt từng G. Các ca giả lập có chủ đích vẫn ghi local, không gọi là provider ngoài thật.
+2. Câu chữ GitHub sau hết phân công đã sửa ở 9ef1ff6, có ba regression tests: giữ hướng dẫn lần đầu, giữ active repository và phân biệt lịch sử mà không tự suy hoàn thành. Cần kiểm UI bản mới khi chuyển lại vai sinh viên.
+3. Hoàn tất ma trận tương tác ba vai, responsive, keyboard và trạng thái lỗi/thành công cho toàn bộ trang.
+4. Triển khai redesign theo [manifest](https://github.com/vanhoi04082006-pixel/V-Intern-FE/blob/codex/g7-live-frontend/tasks/ui-route-asset-manifest.md), giữ trang chủ /. Inventory78 route là phạm vi cần làm, không phải78 route đã được redesign.
 
-- Hoàn tất ba task tiếp theo, đánh giá cuối, kết thúc phiên, KPI/lương ảo/chứng nhận và các bản xuất trong hành trình QA mới; phân biệt bước click UI với API.
-- Kiểm lại lifecycle invitation/mời lại bằng dịch vụ thật cho hành trình mới. Quyền push hiện hữu không thay bằng chứng đã gửi/nhận invitation mới.
-- Đối chiếu ngoại lệ trễ/no-show/hết lượt/miễn trừ/thay người với ma trận G và evidence đúng loại.
-- Chốt gate của cặp code cuối, đồng bộ các trang hướng dẫn liên quan và review bộ PR trước merge.
-- Redesign mới chưa triển khai toàn diện. FE inventory hiện 78 route; [manifest route/asset](https://github.com/vanhoi04082006-pixel/V-Intern-FE/blob/codex/g7-live-frontend/tasks/ui-route-asset-manifest.md) ghi rõ nhóm trang, icon/minh họa, tương tác và tiêu chí nghiệm thu. Không đổi trang chủ `/`.
-
-Hai database chính và ba tài khoản trắng gốc được giữ; không lặp reset. Chỉ chạy local. Không gộp các phần còn mở thành một tuyên bố “đã hoàn thiện tất cả”.
+Chỉ chạy local. Chưa tuyên bố tất cả G hoặc UI mới hoàn thành; không hạ gate để chốt.

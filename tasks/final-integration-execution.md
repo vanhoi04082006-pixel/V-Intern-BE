@@ -1,40 +1,35 @@
-# Chốt G → dịch vụ thật → bàn giao → UI
+# Tiến độ nghiệm thu và giao diện — 26/10/2026
 
-Theo yêu cầu ngày 25/10/2026: hoàn tất các G, nghiệm thu trọn luồng với dịch vụ thật, đồng bộ tài liệu, sau đó mới redesign và nghiệm thu UI mới. Không lấy bằng chứng fixture làm live. Giữ hai DB hiện tại và ba tài khoản trắng gốc.
+Đọc [checkpoint hiện hành](../docs/ACCEPTANCE-CHECKPOINT-20261026.md) và [receipt JSON](../docs/reports/live-service-journey-20261026.json). Bảng này mô tả việc đã kiểm thực tế; không lấy trạng thái implementation thay cho kết quả UI hoặc dịch vụ ngoài.
 
-| Bước | Hoàn thành khi | Trạng thái hiện tại | Bằng chứng / việc tiếp theo |
+| Bước | Hoàn thành khi | Hiện tại | Bằng chứng / bước tiếp theo |
 |---|---|---|---|
-| F01 — đối chiếu G | Master checklist khớp implementation và evidence từng G | Đang đối chiếu | Có mục G6 đã triển khai nhưng checklist cũ chưa tick; chưa sửa thành đạt khi chưa truy nguồn |
-| F02 — runtime | API, web, SQL, runner chạy đúng source, cấu hình ngoài không lộ secret | Đang chạy local | Hai API 8080/8081 nạp source Agent mới, web 3001/3004; SQL native và Docker runner riêng. Nhãn SMTP đã khớp transport thật; không sửa credential |
-| F03 — CI | Gate BE, FE, full-stack chạy đúng SHA và success | Cặp 0b137cd / 28cc4c1 đã đạt; đang kiểm tra pin mới | BE release 40221754231 + runner 40221754243, FE quality 40225981150 + full-stack 40225981181 success. Đang chạy lại cho BE 91a9175 / FE 7f43048. Giữ đủ gate/assertion/timeout; không gán receipt cũ cho code mới |
-| F04 — CV đến phỏng vấn | CV QA → xác minh email thật → Agent thật chọn role/slot → 2 mail → login/đổi mật khẩu → phỏng vấn/chấm thật, trace đọc lại được | Đạt hành trình dịch vụ thật qua API | CV tổng hợp → Gmail nhận 3 thư thật → 3 Agent chọn Frontend/lịch → login → phỏng vấn 10 câu → AI 91,8 điểm, attempt 1; LangSmith đọc lại trace metadata. Chưa thay thế nghiệm thu click UI |
-| F05 — GitHub đến kết quả | Repo QA thật, invitation nhận/mời lại, PR đúng danh tính, webhook thật, runner thật, Agent thật, giảng viên duyệt/sửa, kết quả | Đang nghiệm thu, đã chấm bài lỗi thật | Repo owner mặc định; student có push, không admin; PR #1 đúng danh tính/SHA; webhook HTTPS ping 200 và PR event; Docker 1/2 checks, Agent 58,5 needs_changes. Đã sửa lỗi automatic review dùng actor sinh viên thay vì mentor server chọn; 18 focused tests đạt. Còn sửa/nộp lại, duyệt và kết quả; quyền collaborator hiện hữu chưa chứng minh invitation lifecycle mới |
-| F06 — ngoại lệ G4–G6 | Trễ/no-show, dưới ngưỡng, hết lượt, nộp trễ/miễn trừ/thay người/quyền repo có evidence đúng loại | Regression local đã có; live còn thiếu | Mọi thay người QA do vai giảng viên duyệt, không dùng tài khoản trắng |
-| F07 — đồng bộ bàn giao | Plan, README, handover và JSON cùng nguồn/mốc, secret không vào Git | Chờ kết quả F01–F06 | Cần đồng bộ xác nhận Inbox; ghi rõ blocker ngoài quyền điều khiển |
-| F08 — redesign | Tất cả tab theo hướng sổ tay việt quất, icon/minh họa riêng, feedback đầy đủ | Inventory và manifest đã có; chưa triển khai toàn diện | FE 78 route: intern 23, instructor 19, Admin 28, public 8. Xem `tasks/ui-route-asset-manifest.md`; giữ asset nền tảng ở 5165ced, chưa coi là redesign đã hoàn tất |
-| F09 — nghiệm thu UI | Responsive, keyboard, reduced motion, lỗi/thành công, hai vai và Admin, regression đúng source | Chưa làm | Không dùng số test G7 làm nghiệm thu giao diện mới |
+| F01 — đối chiếu G | Mỗi mục khớp code và receipt đúng loại | Đã xác định phạm vi, tiếp tục ngoại lệ | G1–G4 có báo cáo; G5 có vòng mời lại mới; G6 có receipt local/SQL và GitHub pending thật. Xem ma trận bên dưới |
+| F02 — runtime | Source đúng, lưu trữ trong dự án | Đang chạy local | BE 8080/8081:91a9175;  FE 3001 đã restart build 3c6709a, QA 3004 (dev có sửa 9ef1ff6); hai DB 46 migration,4 file dưới dự án; ba tài khoản trắng giữ nguyên |
+| F03 — CI | BE/runner/FE/full-stack xanh đúng SHA | Đạt cặp hiện hành | BE release 40235227782, runner 40235227783, FE quality 40241676421, full-stack 40241676508; FE 3c6709a pin BE 91a9175 |
+| F04 — CV đến phỏng vấn | CV→Gmail→Agent role/slot→login→phỏng vấn→trace | Đạt hành trình thật, chủ yếu API | Ba thư Inbox; 10 câu sequential; 91,8/đậu/lượt 1; LangSmith readback |
+| F05 — GitHub đến outcomes | Invitation/PR/runner/Agent/duyệt/kết quả | Đạt hành trình QA thật, có bước UI/API |4/4 task done; điểm 96,1/KPI 98,8/lương ảo/chứng nhận/PDF/XLSX. Hai lần click mời lại, pending bị hủy thật được phục hồi; accepted readback push=true/admin=false |
+| F06 — ngoại lệ G4–G6 | Negative cases có receipt và không gọi fixture là live | Còn đối chiếu phạm vi | Local/SQL đã có; không chạy đồng hồ giả để gọi là no-show thật. Quyền accepted không rõ provenance phải được giữ, không thu hồi bừa |
+| F07 — bàn giao | README/plan/handover/JSON đồng bộ, đã push | Đã đồng bộ, chuẩn bị push | Cập nhật 649 FE, 4 task và outcomes; cần kiểm link/secret, review và push |
+| F08 — redesign | Toàn bộ tab theo một ngôn ngữ thiết kế | Inventory 78 route; chuẩn bị lát shared foundation | Xem manifest FE, asset 5165ced được bảo toàn. Trang chủ / giữ nguyên |
+| F09 — nghiệm thu UI | Ba vai,5 độ rộng, keyboard, feedback và regression | Đã click luồng chính; chưa đủ toàn hệ thống | Không dùng số unit để gọi 78 route đã nghiệm thu |
 
-## Lượt kiểm thử tiếp theo bằng giao diện
+## Đối chiếu G và phần bằng chứng
 
-- [x] Sinh viên: đăng nhập, dashboard thấy Sprint/task, mở bài nộp, đọc lỗi Agent/runner thật và gửi bình luận.
-- [x] Giảng viên: mở đúng phiên/Sprint, xem bài lỗi, yêu cầu sửa, mở bài nộp lại, xác nhận điểm từ bằng chứng (task đầu; override có audit được ghi riêng).
-- [x] Sinh viên: nộp PR #2 đã sửa bằng form; UI “Đang xác minh code”, lưu đúng SHA, chuyển review; xem kết quả Docker 2/2 và AI 100 nhưng inconclusive do lockfile vượt giới hạn.
-- [ ] Admin: dashboard, dịch vụ, thư gửi, thư viện/Agent, cấu hình GitHub; kiểm tra dữ liệu và quyền, không chỉnh credential hay tiêu thụ tài khoản trắng.
-- [ ] Hoàn tất 4 task và luồng đánh giá/KPI/chứng nhận; ghi riêng bước API và bước click.
-- [ ] Responsive và UI mới chỉ đánh dấu đạt sau khi triển khai/kiểm tra tương ứng.
+| G | Implementation / kiểm chứng đã có | Còn phải phân biệt |
+|---|---|---|
+| G1 | RuntimeAgent, role động, retrieval scope, checkpoint/tool budget, trace. Unit/SQL và LangSmith ngoài thật | Không tự động gửi raw mail/CV/code vào trace |
+| G2 | Sáu bài nhỏ, starter/solution/faulty, thư viện nuôi bảy Agent; suitesDocker. Hành trình mới chạy bàiNotes | Một bài QA mới không thay cho kiểm lại cả thư viện |
+| G3 | CV→role→slot→mail và credential, idempotency. Hành trình mới dùng Gemini/Gmail thật | Negative SMTP timeout vẫn là test có chủ đích; Inbox đọc lại khác SMTP accepted |
+| G4 | Phòng chờ,15 phút,3 lượt,ranh giới 50/70; local/SQL regression. Phỏng vấn thật 91,8 | No-show/hết lượt/role đề xuất không được gọi đã xảy ra trong lần passed |
+| G5 | Numeric ID, branded mail, resend/recovery, provenance 201, webhook và GitHub thật | Accepted xác minh bằng API; không có ảnh click nhận. Webhook tạm đã tắt khi tunnel hết hạn |
+| G6 | D01–D03/T01–T03 đã triển khai; [policy](../docs/reports/g6-foundation-evidence-20261025.json), [thay người](../docs/reports/g6-replacement-evidence-20261025.json), [worker GitHub thật](../docs/reports/g6-access-live-20261025.json) | G6 GitHub dùng SQL QA disposable; không nói đó là thay người trên phiên chính. Pending do hệ thống cấp đã thu hồi thật; accepted không rõ nguồn giữ để Admin đối chiếu |
+| G7 | Hành trình mới có bài lỗi/sửa,4 task,đánh giá/KPI/chứng nhận,3 vai UI và cặp CI xanh. Tài liệu cập nhật | Chưa chốt mọi nhánhUI/responsive hoặc merge stack; local SQL mở rộng30/31 còn timeout gốc5 giây |
 
-Nguồn hiện tại: evidence riêng đã lọc `manual-runtime/final-integration-20261025/live-evidence.json`, các log `.runtime/review-automatic-red.log`, `review-authority-green.log`, `review-authority-build.log`. Thư, CV và state chứa credential không được commit. Baseline trước bản sửa mới: BE 112 suites/845 tests; FE 638 tests lịch sử, focused communications hiện 3 tests. Chưa ghi số regression mới khi chưa chạy đủ.
+## Lỗi UX phát hiện trong nghiệm thu
 
-### Cập nhật ngày 26/10
+- Trang chủ sau hết phân công từng hiển thị chờ dự án lần đầu: đã sửa tại3c6709a, kiểmUI có lịch sử/kết quả.
+- Trang GitHub sau hết phân công vẫn dùng câu chữ lần đầu: đã sửa tại 9ef1ff6, có ba regression tests; phải giữ active flow và không suy mọi lịch sử là completed.
+- Bảng điểm có nhãn tiêu chí dự phòng; cần cải thiện khả năng đọc nhưng không suy nhãn từ thứ tự mảng.
 
-- BE hiện 114 suites / 858 unit tests; focused SQL notification/RBAC 9 tests. Collector hỗ trợ `.cjs/.mjs` vẫn chặn credential và tệp >30.000 byte. Không bỏ qua lockfile lớn để đổi kết luận thành đạt.
-- Giảng viên click trả bài lỗi 58,5; task về doing. Sinh viên click nộp PR sửa; giảng viên thử duyệt thường bị chặn khi AI inconclusive, sau đó duyệt 90 với lý do đối chiếu đủ 6 blob/SHA, 72 package có integrity, local browser 2/2 và runner 2/2. Audit giữ lý do thủ công; AI vẫn inconclusive. Task done; PR QA #2 được merge sau khi xác minh approval/SHA. Đây là nghiệm thu nhánh chấm thủ công, không phải AI tự duyệt.
-- PR QA #3 cho nhiệm vụ lưu trữ đã tạo; chưa nộp/chấm. 3 task còn lại và outcomes chưa hoàn tất hành trình mới.
-- FE production build đạt sau khi bảo tồn/tạo lại cache compiler; không đổi bundler hay gate. Feedback thiếu bằng chứng đang được sửa để không chỉ báo lỗi 409 chung chung.
-- Admin đang được kiểm tra bằng tài khoản bootstrap của DB QA; credentials cũ trong file accounts bị từ chối đúng cách, không reset mật khẩu hay dữ liệu.
-- Admin đã click health refresh, kiểm tra JSON sai/hợp lệ không lưu, preview credential bị che và hàng đợi email; đã sửa parser bản nháp và xác nhận lại UI. FE hiện 106 file / 644 tests, production build đạt.
-- Task lưu trữ đã nộp qua API, mở xem trên UI. Sau sửa JSON Schema/remainingToolCalls, Docker 1/1, Agent thật 98,5, findings/limitations rỗng, awaiting_instructor. Các lượt lỗi JSON/tool-budget cũ vẫn giữ; không dùng override che lỗi.
-- BE hiện 114 suites / 859 tests. SQL notification riêng 9/9; bộ SQL runtime mở rộng 30/31 ở hai lượt local vì replay sau restart vượt timeout 5 giây. Không tăng timeout hoặc ghi đạt toàn bộ; đối chiếu CI 91a9175 và tiếp tục theo dõi hiệu năng local.
-- Webhook QA tạm đã tắt đúng hook 703045072 sau khi tunnel kết thúc; vẫn giữ receipt ping/PR. Không tuyên bố webhook public thường trực đã cấu hình.
-
-Chỉ ghi “hoàn tất tất cả” khi các điều kiện trên đã đạt. Nếu dịch vụ ngoài chặn, ghi dịch vụ, lỗi thực tế, phần đã làm và điều kiện mở lại; không tắt gate, đổi assertion hoặc bịa receipt.
+Chỉ cập nhật thành Đạt khi receipt có source, thời gian, kết quả và phạm vi. Giữ hai DB chính; không reset hoặc dùng các tài khoản trắng để tiêu thụ luồng.

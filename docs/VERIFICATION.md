@@ -1,6 +1,6 @@
 # Kiểm chứng Backend — 24/10/2026
 
-> **Checkpoint 26/10/2026:** [đọc số liệu, CI theo SHA, luồng dịch vụ thật và phần còn mở](ACCEPTANCE-CHECKPOINT-20261026.md). BE 859 / FE 644 unit tests hiện hành; dữ liệu 840/638 và local G7 bên dưới thuộc mốc cũ. Repo đã public và cặp CI có receipt xanh; không còn mô tả billing là blocker hiện tại. Chưa kết luận nghiệm thu toàn bộ ba vai hoặc UI mới.
+> **Checkpoint 26/10/2026:** [nguồn kiểm chứng và việc còn mở](ACCEPTANCE-CHECKPOINT-20261026.md). BE 859 / FE 649 unit tests; CI xanh đúng SHA. Hành trình QA thật đã hoàn thành 4/4 task, đánh giá 96,1, KPI 98,8, chứng nhận và vòng mời lại GitHub. Có cả bước UI/API; chưa nghiệm thu mọi nhánh hoặc redesign toàn bộ.
 
 **G2/P02:** code `36393f3` đạt **90 suite / 734 unit**, build/lint; **4 suite / 39 SQL/HTTP** local trong một lượt DB disposable. CI [40064643895](https://github.com/vanhoi04082006-pixel/V-Intern-BE/actions/runs/40064643895) success với **33 suite / 313 SQL/HTTP** chung, retrieval 8/material migration 4/career migration 5 ở các lượt riêng. Đã thêm sáu mẫu MINI vào mỗi DB local; counts/digest dữ liệu được bảo vệ giữ nguyên. Có 18 draft tri thức đa Agent, không tự publish. [Báo cáo P02](reports/mini-project-content-20261024.md) ghi nguồn và giới hạn; P03/P04 và phần còn lại G2 vẫn mở.
 
