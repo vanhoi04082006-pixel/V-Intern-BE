@@ -328,8 +328,7 @@
   "remaining": [
     "reconcile G exception receipts with master checklist; remote negative-provider permutations are not all live",
     "complete whole-system three-role UI matrix",
-    "full 78-route redesign and responsive/accessibility acceptance",
-    "browser verification of GitHub history copy after frontend fix"
+    "full 78-route redesign and responsive/accessibility acceptance"
   ],
   "ci": {
     "beRelease": "https://github.com/vanhoi04082006-pixel/V-Intern-BE/actions/runs/40235227782",
@@ -346,9 +345,10 @@
         "url": "https://github.com/vanhoi04082006-pixel/V-Intern-FE/actions/runs/40252418448"
       },
       "fullStack": {
-        "status": "in_progress",
+        "status": "success",
         "url": "https://github.com/vanhoi04082006-pixel/V-Intern-FE/actions/runs/40252418106"
-      }
+      },
+      "checkedAtUtc": "2026-10-26T03:04:10.276Z"
     }
   }
 }

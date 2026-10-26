@@ -10,8 +10,8 @@
 | F04 — CV đến phỏng vấn | CV→Gmail→Agent role/slot→login→phỏng vấn→trace | Đạt hành trình thật, chủ yếu API | Ba thư Inbox; 10 câu sequential; 91,8/đậu/lượt 1; LangSmith readback |
 | F05 — GitHub đến outcomes | Invitation/PR/runner/Agent/duyệt/kết quả | Đạt hành trình QA thật, có bước UI/API |4/4 task done; điểm 96,1/KPI 98,8/lương ảo/chứng nhận/PDF/XLSX. Hai lần click mời lại, pending bị hủy thật được phục hồi; accepted readback push=true/admin=false |
 | F06 — ngoại lệ G4–G6 | Negative cases có receipt và không gọi fixture là live | Còn đối chiếu phạm vi | Local/SQL đã có; không chạy đồng hồ giả để gọi là no-show thật. Quyền accepted không rõ provenance phải được giữ, không thu hồi bừa |
-| F07 — bàn giao | README/plan/handover/JSON đồng bộ, đã push | Đã đồng bộ, chuẩn bị push | Cập nhật 649 FE, 4 task và outcomes; cần kiểm link/secret, review và push |
-| F08 — redesign | Toàn bộ tab theo một ngôn ngữ thiết kế | Inventory 78 route; chuẩn bị lát shared foundation | Xem manifest FE, asset 5165ced được bảo toàn. Trang chủ / giữ nguyên |
+| F07 — bàn giao | README/plan/handover/JSON đồng bộ, đã push | Đã push BE b44c15c / FE d9a4e08; bổ sung receipt mới | Checkpoint nghiệp vụ: FE 649 test, 4 task và outcomes; CI 9ef1ff6 xanh đầy đủ. Tài liệu và secret scan đã kiểm |
+| F08 — redesign | Toàn bộ tab theo một ngôn ngữ thiết kế | Đã triển khai nền chung; còn chi tiết từng tab | [Nền sổ tay FE](https://github.com/vanhoi04082006-pixel/V-Intern-FE/blob/codex/notebook-workspace/docs/design/NOTEBOOK-FOUNDATION-20261026.md): code 4808210, 12 icon, hai companion, token/sidebar/tab/section cả ba vai; 651 test, build và 15 probe responsive trên ba trang mẫu. Chưa hoàn tất 78 route |
 | F09 — nghiệm thu UI | Ba vai,5 độ rộng, keyboard, feedback và regression | Đã click luồng chính; chưa đủ toàn hệ thống | Không dùng số unit để gọi 78 route đã nghiệm thu |
 
 ## Đối chiếu G và phần bằng chứng

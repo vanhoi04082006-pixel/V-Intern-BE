@@ -30,7 +30,7 @@ FE full-stack pin đúng BE 91a9175. Hai PR sản phẩm vẫn draft: [BE #12](h
 
 Nguồn máy đọc được: [live-service-journey-20261026.json](reports/live-service-journey-20261026.json). Report chỉ chứa metadata đã chọn, điểm, SHA, trạng thái, artifact hash và readback; không chứa credential, email, CV hoặc thư gốc. Log local ở .runtime; bằng chứng riêng ở manual-runtime/final-integration-20261025, đều trong workspace dự án.
 
-Bản sửa GitHub sau hết phân công: 9ef1ff6, 107 files / 649 tests local đạt; typecheck/lint và [quality CI gồm production build](https://github.com/vanhoi04082006-pixel/V-Intern-FE/actions/runs/40252418448) đạt. [Full-stack mới](https://github.com/vanhoi04082006-pixel/V-Intern-FE/actions/runs/40252418106) đang chạy lúc cập nhật; cặp 3c6709a / 91a9175 phía trên đã xanh đầy đủ.
+Bản sửa GitHub sau hết phân công: 9ef1ff6, 107 files / 649 tests local đạt; typecheck/lint và [quality CI gồm production build](https://github.com/vanhoi04082006-pixel/V-Intern-FE/actions/runs/40252418448) đạt. [Full-stack mới](https://github.com/vanhoi04082006-pixel/V-Intern-FE/actions/runs/40252418106) đã đạt; cặp 3c6709a / 91a9175 phía trên đã xanh đầy đủ.
 
 ## 2. Bài lỗi, sửa và hoàn thành
 
@@ -82,7 +82,7 @@ Không coi một trang đã mở là mọi hành động của trang đã đư�
 ## 5. Việc còn mở
 
 1. Đối chiếu đầy đủ nhánh muộn/no-show/hết lượt/miễn trừ/thay người với receipt từng G. Các ca giả lập có chủ đích vẫn ghi local, không gọi là provider ngoài thật.
-2. Câu chữ GitHub sau hết phân công đã sửa ở 9ef1ff6, có ba regression tests: giữ hướng dẫn lần đầu, giữ active repository và phân biệt lịch sử mà không tự suy hoàn thành. Cần kiểm UI bản mới khi chuyển lại vai sinh viên.
+2. Câu chữ GitHub sau hết phân công đã sửa ở 9ef1ff6, có ba regression tests: giữ hướng dẫn lần đầu, giữ active repository và phân biệt lịch sử mà không tự suy hoàn thành. Đã kiểm UI: login sinh viên, mở từ drawer và thấy hướng dẫn hành trình tiếp theo.
 3. Hoàn tất ma trận tương tác ba vai, responsive, keyboard và trạng thái lỗi/thành công cho toàn bộ trang.
 4. Triển khai redesign theo [manifest](https://github.com/vanhoi04082006-pixel/V-Intern-FE/blob/codex/g7-live-frontend/tasks/ui-route-asset-manifest.md), giữ trang chủ /. Inventory78 route là phạm vi cần làm, không phải78 route đã được redesign.
 
