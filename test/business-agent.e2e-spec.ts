@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { INestApplication, ValidationPipe } from "@nestjs/common";
 import { Test } from "@nestjs/testing";
+import { ConfigService } from "@nestjs/config";
 import { DataSource } from "typeorm";
 import source from "../src/database/data-source";
 import { AppModule } from "../src/app.module";
@@ -22,6 +23,8 @@ import type { AiInvocation } from "../src/ai/ai-invocation";
 import { businessAgentResources } from "./fixtures/business-agent-resources";
 import { BUSINESS_HOLDOUTS } from "./fixtures/business-agent-holdouts";
 import { BusinessAgentScope } from "../src/agents/runtime/business-agent-scope.service";
+import { AgentTelemetry } from "../src/agents/runtime/agent-telemetry.service";
+import { AgentStateStore } from "../src/agents/runtime/agent-state.store";
 import { businessAgent } from "../src/agents/definitions/business-agents";
 import { KnowledgeRetrievalService } from "../src/knowledge/knowledge-retrieval.service";
 import { ensureMiniProjectKnowledge } from "../src/knowledge/mini-project-knowledge-seed";
@@ -87,6 +90,12 @@ async function boot() {
   const module = await Test.createTestingModule({ imports: [AppModule] })
     .overrideProvider(DataSource)
     .useValue(db)
+    // Contract runs keep real SQL events while avoiding the operator's live
+    // LangSmith workspace, just like the Agent HTTP and runtime suites.
+    .overrideProvider(AgentTelemetry)
+    .useValue(new AgentTelemetry(new AgentStateStore(db), new ConfigService({
+      AGENT_LANGSMITH_ENABLED: "false",
+    })))
     .overrideProvider(AI_PROVIDER_TOKEN)
     .useValue(provider)
     .compile();
