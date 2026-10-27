@@ -152,9 +152,10 @@ export class RecruitmentRoundsService {
         [id],
       );
       if (!slots.length)
-        throw new BadRequestException(
-          "Cần mở ít nhất một khung giờ trước khi mở đợt tuyển.",
-        );
+        throw new BadRequestException({
+          code: "RECRUITMENT_ROUND_SLOT_REQUIRED",
+          message: "Cần mở ít nhất một khung giờ trong tương lai trước khi mở đợt tuyển.",
+        });
       for (const slot of slots) await this.readiness(slot.roleCode);
     }
     await this.db.query("UPDATE recruitment_rounds SET status=@1 WHERE id=@0", [
