@@ -1,3 +1,5 @@
+> **Cập nhật 27/10:** [kiểm thử nghiệp vụ hiện hành](../docs/BUSINESS-ACCEPTANCE-20261027.md) và [tiến độ](final-integration-execution.md). Các trạng thái ngày 24–25/10 dưới đây được giữ như lịch sử; phần billing/native/live đã có receipt mới.
+
 # G5 — Quyền truy cập repository và lời mời GitHub
 
 Tiếp G4, theo H01–H04 trong [kế hoạch](todo.md). Repo do tài khoản chung Admin cấu hình tạo; không lấy tài khoản `gh` của máy làm chủ repo.

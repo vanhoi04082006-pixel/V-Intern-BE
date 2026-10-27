@@ -1,5 +1,7 @@
 # Nghiệm thu ngày 26/10/2026
 
+> Lượt tiếp theo: [nghiệp vụ 27/10](BUSINESS-ACCEPTANCE-20261027.md). Các số liệu sau thuộc source ghi riêng bên dưới.
+
 Hành trình QA mới đã đi hết từ CV đến chứng nhận với Gmail, Gemini, LangSmith, GitHub và Docker thật. Các bước qua UI và API được phân biệt bên dưới. **Chưa kết luận nghiệm thu mọi nhánh của ba vai hoặc redesign toàn hệ thống.**
 
 ## Đọc nhanh tình trạng
@@ -18,10 +20,10 @@ Hành trình QA mới đã đi hết từ CV đến chứng nhận với Gmail, 
 | Kiểm tra | Kết quả | Source và bằng chứng |
 |---|---|---|
 | BE unit | **114 suites / 859 tests đạt** | Code 91a9175a99555036e3fdd247e94146b875c9716f; lint file đổi và Nest build đạt |
-| FE unit | **107 files / 649 tests đạt** | Code 9ef1ff6d6282555bb0346ba0323e7966bd0691d0; typecheck, lint file đổi, production build đạt |
+| FE unit | **109 files / 660 tests đạt** | Source 603ee3f; số liệu theo receipt nghiệp vụ 27/10. Mốc 649 test của 9ef1ff6 là lượt trước đó |
 | Script contracts | **25 đạt** | Chờ background review qua GET; giữ assertion SHA/inconclusive/override |
 | SQL notification/RBAC | **9/9 đạt** | Database QA; PermissionsService/RBAC thật |
-| SQL mở rộng local | **30/31** | Provider-outage replay test 5 giây timeout; không tăng timeout hoặc bỏ assertion. SQL2019 CI của cùng BE code đạt |
+| SQL mở rộng local | **31/31 đạt theo kết quả mới** | Fixture 254cabd8e5097d86bc6971f03419944b40b2f592, LangSmith export cô lập trong test module; timeout vẫn 5 giây. Giữ log 30/31 trước đó; xem receipt nghiệp vụ 27/10 và log được giữ riêng |
 | Bài QA cuối | **6/6 Playwright đạt** | Validation, sửa bằng bàn phím, reload, filter/xóa, JSON tải thật, giữ dữ liệu hỏng |
 
 CI: [BE release](https://github.com/vanhoi04082006-pixel/V-Intern-BE/actions/runs/40235227782) · [runner](https://github.com/vanhoi04082006-pixel/V-Intern-BE/actions/runs/40235227783) · [FE quality](https://github.com/vanhoi04082006-pixel/V-Intern-FE/actions/runs/40241676421) · [full-stack](https://github.com/vanhoi04082006-pixel/V-Intern-FE/actions/runs/40241676508).

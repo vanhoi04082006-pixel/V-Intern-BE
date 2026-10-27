@@ -1,3 +1,5 @@
+> **Cập nhật 27/10:** [kiểm thử nghiệp vụ hiện hành](../docs/BUSINESS-ACCEPTANCE-20261027.md) và [tiến độ](final-integration-execution.md). Các trạng thái ngày 24–25/10 dưới đây được giữ như lịch sử; phần billing/native/live đã có receipt mới.
+
 # G3 — Hồ sơ CV, email và lịch phỏng vấn
 
 G3 kế tiếp G2, giữ nguyên dữ liệu, 3 lượt phỏng vấn và API hiện hành. G4 mới áp dụng cổng bắt đầu/đi trễ 15 phút. Không coi SMTP chấp nhận là email đã tới hộp thư.

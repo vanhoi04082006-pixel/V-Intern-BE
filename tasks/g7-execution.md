@@ -1,3 +1,5 @@
+> **Cập nhật 27/10:** [kiểm thử nghiệp vụ hiện hành](../docs/BUSINESS-ACCEPTANCE-20261027.md) và [tiến độ](final-integration-execution.md). Các trạng thái ngày 24–25/10 dưới đây được giữ như lịch sử; phần billing/native/live đã có receipt mới.
+
 > Nghiệm thu hiện hành 26/10: [tiến độ có nguồn](final-integration-execution.md) — hành trình thật đã xong 4/4 task và outcomes, CI xanh; chưa chốt toàn hệ thống. Các trạng thái cũ bên dưới giữ làm lịch sử.
 
 # G7 — nghiệm thu và bàn giao

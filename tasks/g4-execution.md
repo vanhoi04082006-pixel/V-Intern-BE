@@ -1,3 +1,5 @@
+> **Cập nhật 27/10:** [kiểm thử nghiệp vụ hiện hành](../docs/BUSINESS-ACCEPTANCE-20261027.md) và [tiến độ](final-integration-execution.md). Các trạng thái ngày 24–25/10 dưới đây được giữ như lịch sử; phần billing/native/live đã có receipt mới.
+
 # G4 — Phỏng vấn theo lịch
 
 Tiếp G3 (`7e489fb` BE / `62fdfe9` FE), theo phạm vi đã được duyệt. Triển khai trên `codex/g4-scheduled-interviews`; giữ DB/tài khoản trắng và các gate cũ.

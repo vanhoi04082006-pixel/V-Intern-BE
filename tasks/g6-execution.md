@@ -1,3 +1,5 @@
+> **Cập nhật 27/10:** [kiểm thử nghiệp vụ hiện hành](../docs/BUSINESS-ACCEPTANCE-20261027.md) và [tiến độ](final-integration-execution.md). Các trạng thái ngày 24–25/10 dưới đây được giữ như lịch sử; phần billing/native/live đã có receipt mới.
+
 # G6 — Nộp trễ, điểm trừ và thay thành viên
 
 Theo D01–D03/T01–T03 trong [todo](todo.md). G5 đã xác minh live pending/accepted và webhook; chu trình nhận mới/mời lại thật còn chưa kiểm. Bản sửa Sprint planned đã publish và kiểm Chrome trên local. G6 được kiểm trên database disposable; chưa kích hoạt migration G6 ở hai DB native.

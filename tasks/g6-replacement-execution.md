@@ -1,3 +1,5 @@
+> **Cập nhật 27/10:** [kiểm thử nghiệp vụ hiện hành](../docs/BUSINESS-ACCEPTANCE-20261027.md) và [tiến độ](final-integration-execution.md). Các trạng thái ngày 24–25/10 dưới đây được giữ như lịch sử; phần billing/native/live đã có receipt mới.
+
 # G6 T02–T03 — Thay thành viên có phê duyệt
 
 Tiếp T01 backend đã kiểm. Đã bật trên hai DB native ngày 25/10/2026, giữ nguyên dữ liệu cũ.

@@ -1,8 +1,22 @@
 # Tiến độ nghiệm thu và giao diện — 26/10/2026
 
-Đọc [checkpoint hiện hành](../docs/ACCEPTANCE-CHECKPOINT-20261026.md) và [receipt JSON](../docs/reports/live-service-journey-20261026.json). Bảng này mô tả việc đã kiểm thực tế; không lấy trạng thái implementation thay cho kết quả UI hoặc dịch vụ ngoài.
+## Tiếp tục nghiệp vụ — 27/10/2026
 
-| Bước | Hoàn thành khi | Hiện tại | Bằng chứng / bước tiếp theo |
+Người dùng tạm dừng redesign, ưu tiên hoàn tất các G và kiểm thử luồng nghiệp vụ. Giữ nguyên hai DB chính và ba tài khoản trắng. Mọi ca tạo dữ liệu lỗi/ngoại lệ dùng DB QA hoặc DB disposable riêng; phân biệt provider fixture với dịch vụ ngoài thật.
+
+| Mục | Điều kiện hoàn thành | Trạng thái |
+|---|---|---|
+| N01 — đối chiếu bằng chứng | G1–G7 khớp receipt hiện hành, sửa số liệu cũ có nguồn | Đang đối chiếu; receipt SQL mới đã ghi 31/31, không còn 30/31 ở mốc mới |
+| N02 — nhánh G3–G4 | CV/mail/lịch, no-show, role và giới hạn lượt đạt regression SQL, phân loại đúng fixture | Đạt 48/48 SQL/HTTP, source 254cabd; không gọi fixture là provider thật |
+| N03 — nhánh G5–G6 | Mời lại/quyền, vi phạm/miễn trừ/thay người và bảo toàn lịch sử | 17/17 invitation; 52 ca participation theo kết quả mới nhất. Lượt nhóm đầu có 1 timeout, advisor riêng 3/3 đạt; không che log đỏ |
+| N04 — UI ba vai | Click thao tác nghiệp vụ, kiểm pending/result và dữ liệu sau tải lại | Đạt các ca chọn lọc: báo cáo/policy, KPI/chứng nhận/quyền/Mentor, Admin validation/audit. Chưa phải mọi nhánh UI |
+| N05 — bàn giao | Plan/receipt/README đồng bộ, code/docs đã push và CI đúng SHA | Đã đồng bộ tài liệu/JSON; đang công bố và kiểm CI của commit tài liệu |
+
+Phần giao diện F08/F09 được tạm gác theo chỉ đạo mới, không đánh dấu hoàn thành.
+
+Đọc [báo cáo nghiệp vụ 27/10](../docs/BUSINESS-ACCEPTANCE-20261027.md), [checkpoint 26/10](../docs/ACCEPTANCE-CHECKPOINT-20261026.md) và [receipt JSON](../docs/reports/live-service-journey-20261026.json). Bảng này mô tả việc đã kiểm thực tế; không lấy trạng thái implementation thay cho kết quả UI hoặc dịch vụ ngoài.
+
+| Bước (mốc 26/10) | Hoàn thành khi | Trạng thái ở mốc đó | Bằng chứng / bước tiếp theo |
 |---|---|---|---|
 | F01 — đối chiếu G | Mỗi mục khớp code và receipt đúng loại | Đã xác định phạm vi, tiếp tục ngoại lệ | G1–G4 có báo cáo; G5 có vòng mời lại mới; G6 có receipt local/SQL và GitHub pending thật. Xem ma trận bên dưới |
 | F02 — runtime | Source đúng, lưu trữ trong dự án | Đang chạy local | BE 8080/8081:91a9175;  FE 3001 đã restart build 3c6709a, QA 3004 (dev có sửa 9ef1ff6); hai DB 46 migration,4 file dưới dự án; ba tài khoản trắng giữ nguyên |
@@ -24,7 +38,7 @@
 | G4 | Phòng chờ,15 phút,3 lượt,ranh giới 50/70; local/SQL regression. Phỏng vấn thật 91,8 | No-show/hết lượt/role đề xuất không được gọi đã xảy ra trong lần passed |
 | G5 | Numeric ID, branded mail, resend/recovery, provenance 201, webhook và GitHub thật | Accepted xác minh bằng API; không có ảnh click nhận. Webhook tạm đã tắt khi tunnel hết hạn |
 | G6 | D01–D03/T01–T03 đã triển khai; [policy](../docs/reports/g6-foundation-evidence-20261025.json), [thay người](../docs/reports/g6-replacement-evidence-20261025.json), [worker GitHub thật](../docs/reports/g6-access-live-20261025.json) | G6 GitHub dùng SQL QA disposable; không nói đó là thay người trên phiên chính. Pending do hệ thống cấp đã thu hồi thật; accepted không rõ nguồn giữ để Admin đối chiếu |
-| G7 | Hành trình mới có bài lỗi/sửa,4 task,đánh giá/KPI/chứng nhận,3 vai UI và cặp CI xanh. Tài liệu cập nhật | Chưa chốt mọi nhánhUI/responsive hoặc merge stack; local SQL mở rộng30/31 còn timeout gốc5 giây |
+| G7 | Hành trình mới có bài lỗi/sửa,4 task,đánh giá/KPI/chứng nhận,3 vai UI và cặp CI xanh. Tài liệu cập nhật | Chưa chốt mọi nhánhUI/responsive hoặc merge stack; local SQL mở rộng đã đạt 31/31 ở fixture 254cabd, timeout gốc 5 giây; giữ log lỗi trước đó |
 
 ## Lỗi UX phát hiện trong nghiệm thu
 
