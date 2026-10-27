@@ -1,4 +1,16 @@
-# Tiến độ nghiệm thu và giao diện — 26/10/2026
+# Tiến độ nghiệm thu và giao diện — 28/10/2026
+
+## Bổ sung nghiệp vụ và skill — 28/10/2026
+
+| Mục | Điều kiện hoàn thành | Kết quả |
+|---|---|---|
+| N06 — phản hồi tuyển dụng | Thiếu lịch không mở được đợt, có hướng dẫn và regression | Đạt: BE a81de95 / FE 244c275, mã RECRUITMENT_ROUND_SLOT_REQUIRED; đã click nhánh lỗi và nhánh mở/đóng |
+| N07 — UI bổ sung ba vai | Có thao tác, trạng thái sau tải lại và log lỗi đầu | Sáu kịch bản đã kiểm: policy không hồi tố, lịch tuyển, sinh viên/quyền và Admin audit. Audit có một timeout 15 giây trước khi retry đạt; N04 tổng thể vẫn mở |
+| N08 — gate local | Không giảm assertion, timeout hoặc quality gate | BE 115 suite/860 test; FE worktree 113 file/676 test; lint/typecheck/build đạt. BE lint còn 15 cảnh báo; FE build hai lần lỗi trước khi cache mới đạt |
+| N09 — skill Cloudflare | Nguồn chính thức, pin và khả dụng cho mọi project Codex | Đã cài security-audit pin c1c8a8c; 20 file trên E, liên kết user-scope đã xác minh. Chưa gọi đây là full audit các repo |
+
+Xem [báo cáo 28/10](../docs/BUSINESS-ACCEPTANCE-20261028.md), [receipt tổng hợp](../docs/reports/business-acceptance-20261028.json) và [cách dùng skill](../docs/SECURITY-AUDIT-WORKFLOW.md). Chưa merge stack PR, chưa nghiệm thu hết mọi nhánh UI; redesign tiếp tục tạm dừng. CI của bản cập nhật đọc theo SHA cuối trên PR, không lấy số test của FE worktree để gán cho branch đã push.
+
 
 ## Tiếp tục nghiệp vụ — 27/10/2026
 

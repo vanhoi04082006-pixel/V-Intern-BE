@@ -1,3 +1,5 @@
+**Nghiệp vụ 28/10/2026:** [sáu kịch bản UI ba vai, lỗi tuyển dụng và gate local](docs/BUSINESS-ACCEPTANCE-20261028.md) · [skill audit Cloudflare](docs/SECURITY-AUDIT-WORKFLOW.md). BE 860 test; FE worktree local 676 test, gồm redesign đang giữ riêng. Có timeout audit đã hồi phục và hai lỗi build trước khi cache mới đạt. G7 chưa đóng mọi nhánh UI; chưa merge.
+
 **Nghiệp vụ 27/10/2026:** [kết quả ba vai, nhánh ngoại lệ và dịch vụ thật](docs/BUSINESS-ACCEPTANCE-20261027.md). 117 ca SQL/HTTP duy nhất đạt theo ma trận mới nhất; có một timeout ở lượt nhóm đầu, advisor chạy riêng 3/3 đạt, giữ nguyên 5 giây. Mentor Gemini thật và trace LangSmith mới đã kiểm. Redesign tạm dừng; không coi lượt này là nghiệm thu mọi trang hoặc merge PR.
 
 **Checkpoint 26/10/2026:** [nguồn kiểm chứng và việc còn mở](docs/ACCEPTANCE-CHECKPOINT-20261026.md). BE 859 / FE 660 unit tests; source và CI ghi riêng trong checkpoint. Hành trình QA thật đã hoàn thành 4/4 task, đánh giá 96,1, KPI 98,8, chứng nhận và vòng mời lại GitHub. Có cả bước UI/API; chưa nghiệm thu mọi nhánh hoặc redesign toàn bộ.
