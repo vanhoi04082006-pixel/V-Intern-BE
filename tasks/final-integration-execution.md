@@ -6,11 +6,11 @@ Người dùng tạm dừng redesign, ưu tiên hoàn tất các G và kiểm th
 
 | Mục | Điều kiện hoàn thành | Trạng thái |
 |---|---|---|
-| N01 — đối chiếu bằng chứng | G1–G7 khớp receipt hiện hành, sửa số liệu cũ có nguồn | Đang đối chiếu; receipt SQL mới đã ghi 31/31, không còn 30/31 ở mốc mới |
+| N01 — đối chiếu bằng chứng | G1–G7 khớp receipt hiện hành, sửa số liệu cũ có nguồn | Đạt: đã cập nhật M07–M15 và checkpoint; SQL mở rộng 31/31 có nguồn, giữ log cũ |
 | N02 — nhánh G3–G4 | CV/mail/lịch, no-show, role và giới hạn lượt đạt regression SQL, phân loại đúng fixture | Đạt 48/48 SQL/HTTP, source 254cabd; không gọi fixture là provider thật |
 | N03 — nhánh G5–G6 | Mời lại/quyền, vi phạm/miễn trừ/thay người và bảo toàn lịch sử | 17/17 invitation; 52 ca participation theo kết quả mới nhất. Lượt nhóm đầu có 1 timeout, advisor riêng 3/3 đạt; không che log đỏ |
 | N04 — UI ba vai | Click thao tác nghiệp vụ, kiểm pending/result và dữ liệu sau tải lại | Đạt các ca chọn lọc: báo cáo/policy, KPI/chứng nhận/quyền/Mentor, Admin validation/audit. Chưa phải mọi nhánh UI |
-| N05 — bàn giao | Plan/receipt/README đồng bộ, code/docs đã push và CI đúng SHA | Đã đồng bộ tài liệu/JSON; đang công bố và kiểm CI của commit tài liệu |
+| N05 — bàn giao | Plan/receipt/README đồng bộ, code/docs đã push và CI đúng SHA | Đã công bố bản đã lược metadata riêng ở cả hai repo; trạng thái gate theo SHA tại PR [BE #12](https://github.com/vanhoi04082006-pixel/V-Intern-BE/pull/12) và [FE #23](https://github.com/vanhoi04082006-pixel/V-Intern-FE/pull/23). Chưa merge; source redesign giữ local |
 
 Phần giao diện F08/F09 được tạm gác theo chỉ đạo mới, không đánh dấu hoàn thành.
 

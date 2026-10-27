@@ -44,6 +44,8 @@ Lượt Agent tư vấn bị timeout đã hoàn thành khi kiểm riêng với c
 | Sinh viên đã hoàn tất | Xem sổ giao dịch | Một giao dịch, 9.880.000 đồng ảo; không sinh thêm giao dịch khi xem |
 | Sinh viên đã hoàn tất | Mở chứng nhận và xác minh công khai | Chứng nhận hợp lệ; nhập mã sai thì kết quả hợp lệ cũ bị xóa và hiện lỗi |
 | Sinh viên đang làm | Thử mở KPI của tài khoản QA khác | Không nhận dữ liệu KPI đó; UI hiện lỗi có thể thử lại, chỉ giữ sổ giao dịch của chính mình |
+| Sinh viên đang làm | Mở Sprint Board và đổi Sprint đang xem | Hai Sprint planned hiển thị; task đổi theo Sprint đã chọn |
+| Sinh viên đang làm | Bắt đầu task khi phụ thuộc chưa hoàn tất | Server chặn, UI nêu nhiệm vụ đang chặn và giữ trạng thái Cần làm |
 | Sinh viên đang làm | Tạo hội thoại Mentor, chọn task, gửi câu hỏi, tải lại | Có phản hồi thật; cả câu hỏi và câu trả lời được lưu |
 | Admin | Kiểm tra JSON chấm điểm sai | Có lỗi JSON cụ thể; không lưu/kích hoạt cấu hình |
 | Admin | Lọc audit theo `report.created` | Có thao tác tạo báo cáo tương ứng với báo cáo QA vừa tạo |
