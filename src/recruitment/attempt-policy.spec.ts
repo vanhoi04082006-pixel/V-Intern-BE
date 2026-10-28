@@ -1,7 +1,11 @@
-import { computeAttemptGate } from './attempt-policy';
+import { computeAttemptGate, recruitmentAttemptLimit } from './attempt-policy';
 
 /** Retake policy (Phase 4 spec 19/69) — pure gate logic. */
 describe('attempt policy (spec 19)', () => {
+  it.each([3, 4, 99, Infinity, NaN, 0, -1, 0.2])('caps configured attempts at three and rejects invalid value %s', (raw) => {
+    expect(recruitmentAttemptLimit(raw)).toBe(3);
+  });
+  it('allows a stricter configured limit', () => { expect(recruitmentAttemptLimit(2)).toBe(2); });
   const now = new Date('2026-01-10T12:00:00Z');
   const config = { maxAttempts: 3, retakeCooldownHours: 24 };
 

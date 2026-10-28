@@ -72,6 +72,26 @@ describe("GitHub submission evidence boundaries", () => {
     };
   }
 
+  it.each(['tests/notes.spec.cjs', 'playwright.config.mjs'])('collects standard JavaScript module source %s with the same SHA and bounds', async filename => {
+    const service = serviceWith(remote({ filename, sha: blobSha, status: 'added', patch: '+export const answer = 42;' }));
+    const evidence = await service.collect('task', snapshot);
+    expect(evidence).toMatchObject({ complete: true, files: [{ path: filename, sha: blobSha, content: 'export const answer = 42;\n' }] });
+  });
+  it('does not admit oversized JavaScript modules to obtain a complete review', async () => {
+    const fallback = remote({ filename: 'tests/large.spec.cjs', sha: blobSha, status: 'added', patch: '+large test' });
+    const service = serviceWith(async path => path.includes('/git/blobs/') ? { encoding: 'base64', size: 30001, content: Buffer.alloc(30001, 'x').toString('base64') } : fallback(path));
+    const evidence = await service.collect('task', snapshot);
+    expect(evidence.complete).toBe(false); expect(evidence.files).toHaveLength(0);
+    expect(evidence.warnings).toContain('File quá lớn hoặc không đọc được: tests/large.spec.cjs');
+  });
+  it('keeps credentials out of CommonJS source and marks the evidence incomplete', async () => {
+    const fallback = remote({ filename: 'config.cjs', sha: blobSha, status: 'added', patch: '+module config' });
+    const source = 'module.exports = { password: "synthetic-secret-for-test" };';
+    const service = serviceWith(async path => path.includes('/git/blobs/') ? { encoding: 'base64', size: Buffer.byteLength(source), content: Buffer.from(source).toString('base64') } : fallback(path));
+    const evidence = await service.collect('task', snapshot);
+    expect(evidence.complete).toBe(false); expect(evidence.files).toHaveLength(0);
+    expect(JSON.stringify(evidence)).not.toContain('synthetic-secret-for-test');
+  });
   it("collects the saved base/head comparison instead of mutable PR file responses", async () => {
     const fallback = remote({
       filename: "src/locked.ts",

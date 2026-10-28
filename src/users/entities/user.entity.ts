@@ -22,6 +22,15 @@ export class User {
   @Column({ type: 'nvarchar', length: 255, name: 'passwordHash' })
   passwordHash!: string;
 
+  @Column({ type: 'bit', default: false })
+  mustChangePassword!: boolean;
+
+  @Column({ type: 'datetime2', nullable: true })
+  temporaryPasswordExpiresAt!: Date | null;
+
+  @Column({ type: 'int', default: 0 })
+  authVersion!: number;
+
   @Column({ type: 'nvarchar', length: 16, name: 'status', default: 'pending' })
   status!: UserStatus;
 

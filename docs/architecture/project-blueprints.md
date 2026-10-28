@@ -1,15 +1,46 @@
-# Thư viện blueprint dự án
+# Dự án mẫu và phiên bản đề bài
 
-`templates/learning-library.ts` cung cấp sáu mẫu nhỏ: Task Management, Mini Shop, Notes, Student Management, Room Booking và Blog CMS. `learning-blueprints.ts` giữ nội dung nghiệp vụ theo từng miền; thông tin chung chỉ dùng cho quy trình bàn giao. Notes là offline frontend, không giả định có API server.
+G2/P01 bổ sung learningPackage v1, revision bất biến và assessment riêng theo version. [Hướng dẫn đầy đủ](../SMALL-PROJECT-LIBRARY.md) giải thích public/private, permissions, API, migration và ranh giới P02–P04; các blueprint cũ bên dưới tiếp tục hoạt động.
 
-Mỗi definition có slug, duration, team size, role responsibilities/skills, phạm vi, functional/nonfunctional requirements và business rules. Architecture ghi overview, entities, API suggestions và frontend pages. Hai sprint có task key, dependencies, priority, complexity, estimatedHours, skillTags, recommendedOrder, expectedOutput và DoD; milestone tham chiếu đúng task keys. Đây là đầu vào lập kế hoạch, không phải lời khẳng định các dự án mẫu đã được code sẵn.
+## Blueprint dùng để làm gì?
 
-DTO giới hạn kích thước input. `validateBlueprint` kiểm tra slug, tổng thời lượng, sức chứa đội, key duy nhất, dependency tồn tại/không vòng/không đi ngược sprint và milestone phù hợp ngày hoàn thành. Metadata mới optional để đọc được definition lịch sử; khi gửi metadata thì phải nhất quán. Tạo và cập nhật dùng cùng validation. UI đọc task qua disclosure, hiển thị quy tắc, kiến trúc, milestone và hướng dẫn, không in JSON thô.
+Một blueprint mô tả một dự án có thể tổ chức nhiều lần: mục tiêu, phạm vi, công nghệ, đội hình, lộ trình và tiêu chí nghiệm thu. Nó không phải một dự án sinh viên đã hoàn thành. Giảng viên đọc blueprint để biết cần giao gì và đánh giá trên căn cứ nào.
 
-`npm run seed:library` chỉ dùng database development local. Seed thêm mẫu thiếu; nâng phiên bản chỉ khi nội dung V1 giống hoàn toàn bản bundled cũ và còn active/version1. Template đã sửa hoặc archived được giữ nguyên. Seed chạy lại không tăng version tiếp. `template_runs.snapshotJson` không bị seed sửa: phiên đã tạo tiếp tục dùng blueprint/version lúc tạo; phiên mới dùng bản hiện hành. Không cần migration schema cho các field JSON này.
+Các trường sâu nằm trong `definition` JSON. Metadata ngoài cùng giúp tìm kiếm/thư viện; service giữ metadata và definition đồng bộ khi sửa.
 
-Start Template tạo session upcoming, project và role slots trong transaction, pin snapshot; requestId chống tạo trùng. Một mẫu tạo nhiều phiên độc lập. AI Planner đọc snapshot đầy đủ, tạo draft để giảng viên chỉnh và publish. Dependency của blueprint là key; plan publish chuyển key sang task UUID thật. Chỉ task được giảng viên duyệt Done mới mở điều kiện task phụ thuộc.
+| Phần | Câu hỏi trả lời cho người đọc |
+|---|---|
+| Mục tiêu và phạm vi | Làm sản phẩm gì, vì sao, điều gì không làm? |
+| Roles/capacity | Cần những vị trí nào và bao nhiêu người? |
+| Yêu cầu chức năng/phi chức năng | Sản phẩm phải làm được gì, dưới điều kiện nào? |
+| Sprint/task/DoD | Học và bàn giao theo giai đoạn nào? |
+| Milestone/đầu ra/acceptance | Dựa trên bằng chứng gì để nghiệm thu? |
+| Kiến trúc và test contract | Thành phần nào kết nối với nhau, test gì được tin cậy? |
 
-Admin editor gửi expectedVersion khi PATCH; metadata-only name/category/difficulty cũng cập nhật definition và tăng version trong transaction, không tạo summary khác nội dung snapshot tương lai. Stale version trả409 TEMPLATE_VERSION_CONFLICT. Template code không đổi; mã session/project dùng prefix tối đa48ký tự để không vượt giới hạn64. API cũ không gửi expectedVersion vẫn tương thích, các editor mới luôn gửi.
+## Khi tạo phiên từ mẫu
 
-Kiểm chứng: DTO/domain/seed unit, SQL HTTP template-library kiểm tra tạo/cập nhật, graph sai, snapshot bất biến, nhiều phiên, request đồng thời và quyền truy cập. Frontend có kiểm thử detail/disclosure, nội dung cũ và tạo phiên. Seed không xóa dữ liệu hoặc ghi đè template tùy chỉnh.
+```mermaid
+flowchart LR
+  T[Template version N] --> R[Run snapshot N]
+  R --> P[Project riêng]
+  R --> S[Session upcoming]
+  S --> A[Đội hình và kế hoạch của phiên]
+```
+
+Start template tạo project/session/role slots trong transaction. `requestId` ổn định giúp thao tác bấm lại trả cùng run. Một mẫu có nhiều run, nhưng task, roster và repository không dùng chéo giữa các phiên.
+
+Snapshot giữ đề bài và version lúc tạo. Khi Admin sửa template lên version mới, các phiên cũ không tự thay yêu cầu giữa chừng.
+
+## Sửa, archive và khôi phục
+
+Editor mới gửi `expectedVersion`; một editor đang giữ bản cũ nhận `409 TEMPLATE_VERSION_CONFLICT` để tải lại và so sánh. Template code giữ nguyên. Đổi name/category/difficulty vẫn cập nhật definition và tăng version, tránh thư viện nói một đằng trong khi đề bài ghi một nẻo.
+
+Archive ngăn tạo phiên mới nhưng không xóa run cũ. Restore cho phép dùng lại. Mã project/session được rút prefix để template code dài vẫn không làm vượt giới hạn mã.
+
+## Kiểm tra trước khi sử dụng
+
+Đọc đủ đầu ra và acceptance, không chỉ tên mẫu. Kiểm tra graph phụ thuộc không tự tham chiếu/vòng lặp, role đủ capacity và hạn task nằm trong cửa sổ kế hoạch. Seed có tính lặp an toàn cho cấu hình bundled; không chạy seed như một cách xóa hoặc ghi đè mẫu tùy chỉnh.
+
+Ví dụ: đổi một tiêu chí API của mẫu mới không làm suite đã seal cho task cũ tự phù hợp. Spec hash và suite binding cần được đối chiếu lại ở luồng runner.
+
+Nguồn: [templates](../../src/templates), [template policy](../../src/templates/template-policy.ts), [kế hoạch](learning-plans.md), [runner](grading-runner.md).

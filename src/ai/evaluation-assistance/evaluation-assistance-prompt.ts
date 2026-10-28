@@ -8,11 +8,11 @@ import type { PerformanceMetrics } from '../../performance/performance-calculato
  * draft suggestion the instructor may choose to copy manually through the
  * normal authorized evaluation flow — nothing is applied automatically.
  *
- * PROMPT VERSIONING (spec 51): 'evaluation-assistance-v1' is independent of
+ * PROMPT VERSIONING (spec 51): 'evaluation-assistance-v2' is independent of
  * the recruitment prompt — never reused across features.
  */
 
-export const EVALUATION_ASSISTANCE_PROMPT_VERSION = 'evaluation-assistance-v1';
+export const EVALUATION_ASSISTANCE_PROMPT_VERSION = 'evaluation-assistance-v2';
 export const EVALUATION_ASSISTANCE_TASK = 'evaluation-assistance';
 
 export interface AssistanceCriterionInput {
@@ -76,7 +76,11 @@ export function buildEvaluationAssistanceSystemPrompt(): string {
     'OUTPUT FORMAT (strict JSON, no markdown fence, no extra fields):',
     '{"criterionSuggestions":[{"criterionCode":string,"suggestedScore":number,"evidence":string[],"comment":string|null}],"strengths":string[],"improvementAreas":string[],"summary":string,"confidence":number}',
     '- suggestedScore: 0..100 within the criterion maxScore, one decimal.',
-    '- evidence: short factual references (e.g. "taskCompletionRate=75.0", "overdueOpenTaskCount=2").',
+    '- Write feedback in Vietnamese. Use only the exact supplied criterion codes.',
+    '- evidence: at most 6 non-empty strings per criterion, each at most 300 characters; factual references only (e.g. "taskCompletionRate=75.0", "overdueOpenTaskCount=2").',
+    '- comment: null or a non-empty string of at most 1000 characters.',
+    '- strengths and improvementAreas: at most 8 non-empty strings each, every string at most 300 characters.',
+    '- summary: a non-empty string of at most 2000 characters. Never use strings where the schema requires an array.',
     '- confidence: 0..1 self-assessed reliability of the whole suggestion.',
   ].join('\n');
 }

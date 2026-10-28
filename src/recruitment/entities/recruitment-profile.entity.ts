@@ -20,7 +20,7 @@ export class RecruitmentProfile {
   @Column('uuid', { name: 'userId' })
   userId!: string;
 
-  /** Recruitment role code (frontend|backend|qa|business_analyst) — spec 8. */
+  /** Immutable career catalog code; never an RBAC role. */
   @Column({ type: 'nvarchar', length: 32, name: 'selectedRole', nullable: true })
   selectedRole!: string | null;
 

@@ -1,0 +1,354 @@
+{
+  "checkedAtUtc": "2026-10-26T00:30:30.653Z",
+  "scope": "Actual synthetic journey using native API and real Gemini/LangSmith/Gmail/GitHub/Docker. Mixed UI/API steps are separated; not full-system UI acceptance.",
+  "source": {
+    "beCode": "91a9175a99555036e3fdd247e94146b875c9716f",
+    "feBaseCode": "28cc4c1eb838d9e08f4f71f637e2df7b58cde38f",
+    "fePostCompletionFix": "3c6709a",
+    "feCode": "9ef1ff6d6282555bb0346ba0323e7966bd0691d0"
+  },
+  "localChecks": {
+    "be": {
+      "suites": 114,
+      "tests": 859,
+      "status": "passed"
+    },
+    "fe": {
+      "files": 107,
+      "tests": 649,
+      "status": "passed",
+      "source": "9ef1ff6d6282555bb0346ba0323e7966bd0691d0",
+      "log": "live-frontend-unit-github-history.log"
+    },
+    "scriptContracts": {
+      "tests": 25,
+      "status": "passed"
+    },
+    "notificationSql": {
+      "tests": 9,
+      "status": "passed"
+    },
+    "extendedSql": {
+      "tests": 31,
+      "passed": 30,
+      "failed": 1,
+      "status": "local timeout; unchanged 5-second provider-outage replay test"
+    },
+    "courseworkBrowser": {
+      "tests": 6,
+      "status": "passed"
+    }
+  },
+  "services": {
+    "gmail": {
+      "actualInboxReadback": true,
+      "messages": [
+        "verification",
+        "schedule",
+        "credentials"
+      ],
+      "method": "IMAP TLS against the exact controlled QA alias"
+    },
+    "github": {
+      "connected": true,
+      "login": "hbuivanhoi6-stack",
+      "numericIdMatches": true
+    },
+    "langsmith": {
+      "readBack": true,
+      "runId": "01ee4304-b4f3-4335-b6b8-c7a1f1dc8948",
+      "traceIdMatches": true
+    },
+    "webhook": {
+      "actualPingHttpStatus": 200,
+      "pullRequestEventReceived": true,
+      "temporary": true,
+      "qaHookDeactivated": true
+    },
+    "invitation": {
+      "newInvitationVerifiedByGitHub201": true,
+      "events": [
+        {
+          "action": "invited",
+          "status": "pending",
+          "invitationId": "339616499",
+          "createdAt": "2026-10-25T15:37:18.706Z"
+        },
+        {
+          "action": "reconciled",
+          "status": "accepted",
+          "invitationId": null,
+          "createdAt": "2026-10-25T15:38:57.584Z"
+        },
+        {
+          "action": "reconciled",
+          "status": "failed",
+          "invitationId": null,
+          "createdAt": "2026-10-25T23:48:36.544Z"
+        },
+        {
+          "action": "invited",
+          "status": "pending",
+          "invitationId": "339657185",
+          "createdAt": "2026-10-26T00:03:20.647Z"
+        },
+        {
+          "action": "reconciled",
+          "status": "failed",
+          "invitationId": null,
+          "createdAt": "2026-10-26T00:07:46.966Z"
+        },
+        {
+          "action": "invited",
+          "status": "pending",
+          "invitationId": "339657691",
+          "createdAt": "2026-10-26T00:11:47.647Z"
+        },
+        {
+          "action": "reconciled",
+          "status": "accepted",
+          "invitationId": null,
+          "createdAt": "2026-10-26T00:28:37.187Z"
+        }
+      ],
+      "recoveryPendingRemoved": true,
+      "resendClickedByInstructor": true,
+      "acceptedReconciled": true,
+      "restoredPush": true,
+      "admin": false,
+      "remotePendingForStudent": 0,
+      "acceptActionAcknowledged": false,
+      "acceptanceClickCaptured": false,
+      "note": "Invitation acceptance was independently verified by remote permissions and product reconciliation after ambiguous API responses. No simulated expiry or UI acceptance click."
+    }
+  },
+  "recruitment": {
+    "attempt": 1,
+    "score": 91.8,
+    "decision": "passed",
+    "role": "frontend",
+    "sequentialQuestions": 10
+  },
+  "submissions": [
+    {
+      "variant": "broken",
+      "url": "https://github.com/hbuivanhoi6-stack/vintern-so-tay-hoc-tap-ca-nhan-qa-live-frontend-notes-mvnvp-20261025-13df4e04/pull/1",
+      "headSha": "24f8a1e7934c3e531f22f8d7e71dad03758f6d63",
+      "ai": {
+        "status": "needs_changes",
+        "score": 58.5,
+        "promptVersion": "code-review-v1",
+        "findings": [
+          {
+            "severity": "major",
+            "file": "src/main.tsx",
+            "line": 4,
+            "message": "Biến `validateTitle` đang được gán cứng là `false`, khiến cho yêu cầu kiểm tra tiêu đề trống không hoạt động khi lưu ghi chú."
+          }
+        ],
+        "limitations": [
+          "Thiếu tập tin kiểm thử đơn vị hoặc kiểm thử tự động (unit/integration tests) đi kèm trong mã nguồn."
+        ],
+        "sourceComplete": true
+      },
+      "trustedRunner": {
+        "status": "completed",
+        "passed": 1,
+        "failed": 1,
+        "suiteDigest": "d169c9b94b9bccdbcf7faf83253389f555cebef93bbda5b3a2ad32c17a33f7fc"
+      },
+      "instructor": {
+        "status": "rework",
+        "score": 58.5,
+        "manualOverrideRecorded": false
+      }
+    },
+    {
+      "variant": "fixed",
+      "url": "https://github.com/hbuivanhoi6-stack/vintern-so-tay-hoc-tap-ca-nhan-qa-live-frontend-notes-mvnvp-20261025-13df4e04/pull/2",
+      "headSha": "22bba8192911d792e805c6e63f07890e0596542c",
+      "ai": {
+        "status": "inconclusive",
+        "score": 100,
+        "promptVersion": "code-review-v1",
+        "findings": [],
+        "limitations": [
+          "Thiếu thông tin về việc lưu trữ vào localStorage do đây là phạm vi của nhiệm vụ tiếp theo (s1-t2)."
+        ],
+        "sourceComplete": false
+      },
+      "trustedRunner": {
+        "status": "completed",
+        "passed": 2,
+        "failed": 0,
+        "suiteDigest": "d169c9b94b9bccdbcf7faf83253389f555cebef93bbda5b3a2ad32c17a33f7fc"
+      },
+      "instructor": {
+        "status": "approved",
+        "score": 90,
+        "manualOverrideRecorded": true
+      }
+    },
+    {
+      "variant": "stage2",
+      "url": "https://github.com/hbuivanhoi6-stack/vintern-so-tay-hoc-tap-ca-nhan-qa-live-frontend-notes-mvnvp-20261025-13df4e04/pull/3",
+      "headSha": "97a3d805b987a39833599a4f56bdc32234c651d2",
+      "ai": {
+        "status": "awaiting_instructor",
+        "score": 98.5,
+        "promptVersion": "code-review-v3",
+        "findings": [],
+        "limitations": [],
+        "sourceComplete": true
+      },
+      "trustedRunner": {
+        "status": "completed",
+        "passed": 1,
+        "failed": 0,
+        "suiteDigest": "b043bfd43fc9e6fea05fbbbd99acbd1f1c57bffa7cc54921966b22f47c5dba51"
+      },
+      "instructor": {
+        "status": "approved",
+        "score": 98.5,
+        "manualOverrideRecorded": false
+      }
+    },
+    {
+      "variant": "stage3",
+      "url": "https://github.com/hbuivanhoi6-stack/vintern-so-tay-hoc-tap-ca-nhan-qa-live-frontend-notes-mvnvp-20261025-13df4e04/pull/4",
+      "headSha": "e6faf8895d85146a38713f293fdae783da73ab2f",
+      "ai": {
+        "status": "awaiting_instructor",
+        "score": 99,
+        "promptVersion": "code-review-v3",
+        "findings": [],
+        "limitations": [],
+        "sourceComplete": true
+      },
+      "trustedRunner": {
+        "status": "completed",
+        "passed": 3,
+        "failed": 0,
+        "suiteDigest": "d83b339a4a717be3a4bfe6704f387a0b7dca0f17420f8c51647a3695ba95abc7"
+      },
+      "instructor": {
+        "status": "approved",
+        "score": 99,
+        "manualOverrideRecorded": false
+      }
+    },
+    {
+      "variant": "complete",
+      "url": "https://github.com/hbuivanhoi6-stack/vintern-so-tay-hoc-tap-ca-nhan-qa-live-frontend-notes-mvnvp-20261025-13df4e04/pull/5",
+      "headSha": "814982573b4f95692f4888b88d38d4c8cf2baac2",
+      "ai": {
+        "status": "awaiting_instructor",
+        "score": 100,
+        "promptVersion": "code-review-v3",
+        "findings": [],
+        "limitations": [],
+        "sourceComplete": true
+      },
+      "trustedRunner": {
+        "status": "completed",
+        "passed": 1,
+        "failed": 0,
+        "suiteDigest": "aa7324b519e422f06c4292292dac226a1ced8a33a375ba43a0fcaf68927f4672"
+      },
+      "instructor": {
+        "status": "approved",
+        "score": 100,
+        "manualOverrideRecorded": false
+      }
+    }
+  ],
+  "outcomes": {
+    "evaluationScore": 96.1,
+    "evaluationStatus": "finalized",
+    "kpiScore": 98.8,
+    "kpiStatus": "calculated",
+    "virtualSalary": true,
+    "duplicateSalaryGenerated": 0,
+    "certificateValid": true,
+    "files": [
+      {
+        "name": "qa-final-report.pdf",
+        "bytes": 32500,
+        "sha256": "eb123f74e3544bf65d26a7794e6a9d0f44f93a56dcef786daa85e511d70f6993"
+      },
+      {
+        "name": "qa-final-report.xlsx",
+        "bytes": 11425,
+        "sha256": "c9cf754c9afb4dbd3f0d4c011ba010f862f90373a7e88b2d6fbdfba909dd7fb3"
+      },
+      {
+        "name": "qa-final-certificate.pdf",
+        "bytes": 31274,
+        "sha256": "b1a203069a1ee3efac86dbb7de8efb816712131dc04a4954054ef71f7fb6e578"
+      }
+    ]
+  },
+  "ui": {
+    "roles": [
+      "intern",
+      "instructor",
+      "admin"
+    ],
+    "clicked": [
+      "student login/dashboard/task/comment/resubmission/review",
+      "instructor session/task/rework/ordinary approval/manual override with audit",
+      "admin health/draft validation/redacted preview",
+      "instructor evaluation scores/real Agent suggestion/submit/finalize",
+      "student final evaluation list/detail: 96.1",
+      "student KPI list/detail and quality source: 98.8 / 96.1",
+      "student virtual salary ledger: one transaction, 9,880,000 virtual VND",
+      "student certificate list/detail/copy success",
+      "public certificate verification: valid",
+      "instructor missing invitation: resend -> pending -> accepted after refresh"
+    ],
+    "postCompletionHomeFix": "Shows results/history rather than first-assignment waiting; evaluation, KPI, virtual salary and certificate checked on UI.",
+    "wholeSystemRedesigned": false,
+    "allRoutesAccepted": false
+  },
+  "nativeStorage": {
+    "checkedAtUtc": "2026-10-25T21:41:44.399Z",
+    "databases": [
+      {
+        "database": "VIntern_M2_BROWSER",
+        "migrations": 46,
+        "protectedOriginalAccountsPresent": 3
+      },
+      {
+        "database": "VIntern_Test_Learning_20261014",
+        "migrations": 46
+      }
+    ],
+    "allFourFilesUnderProject": true
+  },
+  "remaining": [
+    "reconcile G exception receipts with master checklist; remote negative-provider permutations are not all live",
+    "complete whole-system three-role UI matrix",
+    "full 78-route redesign and responsive/accessibility acceptance"
+  ],
+  "ci": {
+    "beRelease": "https://github.com/vanhoi04082006-pixel/V-Intern-BE/actions/runs/40235227782",
+    "runner": "https://github.com/vanhoi04082006-pixel/V-Intern-BE/actions/runs/40235227783",
+    "feQuality": "https://github.com/vanhoi04082006-pixel/V-Intern-FE/actions/runs/40241676421",
+    "fullStack": "https://github.com/vanhoi04082006-pixel/V-Intern-FE/actions/runs/40241676508",
+    "feHead": "3c6709a78ebb7f808167981aab94ef8e45b70f52",
+    "compatibleBe": "91a9175a99555036e3fdd247e94146b875c9716f",
+    "status": "success",
+    "latestFe": {
+      "head": "9ef1ff6d6282555bb0346ba0323e7966bd0691d0",
+      "quality": {
+        "status": "success",
+        "url": "https://github.com/vanhoi04082006-pixel/V-Intern-FE/actions/runs/40252418448"
+      },
+      "fullStack": {
+        "status": "success",
+        "url": "https://github.com/vanhoi04082006-pixel/V-Intern-FE/actions/runs/40252418106"
+      },
+      "checkedAtUtc": "2026-10-26T03:04:10.276Z"
+    }
+  }
+}

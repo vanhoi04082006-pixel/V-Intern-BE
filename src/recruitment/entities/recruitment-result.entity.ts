@@ -5,7 +5,8 @@ import { Column, CreateDateColumn, Entity, Index, PrimaryGeneratedColumn } from 
  * evaluation outcome. Unique per session (no duplicate results, spec 34/40).
  *
  * Scores are decimal(5,1) — no binary-float persistence (spec 35).
- * decision is computed by the BACKEND formula (70/30, >= 70 — spec 4/36);
+ * decision is computed by the BACKEND formula (70/30, >70 passes);
+ * scores 50..70 retain failed eligibility with answer-backed alternative-role guidance.
  * AI-provided decisions are never stored here.
  */
 @Entity({ name: 'recruitment_results' })

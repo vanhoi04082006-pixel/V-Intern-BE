@@ -1,0 +1,353 @@
+{
+  "checkedAtUtc": "2026-10-25T11:24:01.519Z",
+  "implementation": {
+    "backend": "61a7318620796bf32c55d409e14ee7616afdb517",
+    "frontend": "cb3769282857cfa3fe054484db99a9f2e410740c",
+    "note": "Documentation publication commits follow these implementation commits; final cloud CI is blocked before execution."
+  },
+  "quality": {
+    "backend": {
+      "suites": 111,
+      "unitTests": 840,
+      "lintErrors": 0,
+      "existingLintWarnings": 15,
+      "productionAuditVulnerabilities": 0,
+      "sourceLog": "g7-be-unit-final.log"
+    },
+    "frontend": {
+      "files": 105,
+      "unitTests": 638,
+      "typecheck": true,
+      "lint": true,
+      "build": true,
+      "auditVulnerabilities": 0,
+      "sourceLog": "g7-fe-unit.log"
+    },
+    "recruitmentSql2019": {
+      "suites": 4,
+      "tests": 48,
+      "recoveryCases": 15,
+      "sourceLog": "g7-recruitment-isolated-final.log",
+      "note": "One earlier loaded-host run timed out at the unchanged five-second assertion window; isolated rerun passed. No timeout/assertion was weakened."
+    },
+    "repositoryAccessSql2019": {
+      "queueWorkerHttp": 21,
+      "ledgerInvitations": 17,
+      "grantMigration": 3,
+      "note": "Distinct suites; not summed with historical release totals."
+    }
+  },
+  "fullstack": {
+    "scope": "Same checked-in assertions as cloud full-stack gate, local ports 8083/3007; disposable SQL2019, explicit provider/GitHub fixtures; no cloud CI success claimed",
+    "results": [
+      {
+        "step": "phase715-dev-fixtures.mjs",
+        "startedAtUtc": "2026-10-25T10:03:26.879Z",
+        "completedAtUtc": "2026-10-25T10:03:59.308Z",
+        "exitCode": 0
+      },
+      {
+        "step": "phase715-live-browser.mjs",
+        "startedAtUtc": "2026-10-25T10:03:59.317Z",
+        "completedAtUtc": "2026-10-25T10:05:10.703Z",
+        "exitCode": 0
+      },
+      {
+        "step": "phase7-work-live.mjs",
+        "startedAtUtc": "2026-10-25T10:05:10.713Z",
+        "completedAtUtc": "2026-10-25T10:05:25.157Z",
+        "exitCode": 0
+      },
+      {
+        "step": "phase7-outcomes-fixture.mjs",
+        "startedAtUtc": "2026-10-25T10:05:25.161Z",
+        "completedAtUtc": "2026-10-25T10:05:37.621Z",
+        "exitCode": 0
+      },
+      {
+        "step": "phase7-outcomes-live.mjs",
+        "startedAtUtc": "2026-10-25T10:05:37.622Z",
+        "completedAtUtc": "2026-10-25T10:06:16.103Z",
+        "exitCode": 0
+      },
+      {
+        "step": "project-first-live.mjs",
+        "startedAtUtc": "2026-10-25T10:06:16.110Z",
+        "completedAtUtc": "2026-10-25T10:07:25.512Z",
+        "exitCode": 0
+      },
+      {
+        "step": "phase7-instructor-live.mjs",
+        "startedAtUtc": "2026-10-25T10:07:25.517Z",
+        "completedAtUtc": "2026-10-25T10:07:53.998Z",
+        "exitCode": 0
+      },
+      {
+        "step": "phase7-admin-live.mjs",
+        "startedAtUtc": "2026-10-25T10:25:01.452Z",
+        "completedAtUtc": "2026-10-25T10:25:48.578Z",
+        "exitCode": 0
+      },
+      {
+        "step": "career-roles-live.mjs",
+        "startedAtUtc": "2026-10-25T10:25:48.584Z",
+        "completedAtUtc": "2026-10-25T10:26:37.605Z",
+        "exitCode": 0
+      },
+      {
+        "step": "knowledge-library-live.mjs",
+        "startedAtUtc": "2026-10-25T10:26:37.615Z",
+        "completedAtUtc": "2026-10-25T10:27:03.110Z",
+        "exitCode": 0
+      },
+      {
+        "step": "mini-project-library-live.mjs",
+        "startedAtUtc": "2026-10-25T10:27:03.117Z",
+        "completedAtUtc": "2026-10-25T10:27:46.970Z",
+        "exitCode": 0
+      },
+      {
+        "step": "phase7-navigation-live.mjs",
+        "startedAtUtc": "2026-10-25T10:27:46.977Z",
+        "completedAtUtc": "2026-10-25T10:29:12.854Z",
+        "exitCode": 0
+      },
+      {
+        "step": "phase7-uat-auth-live.mjs",
+        "startedAtUtc": "2026-10-25T10:29:12.861Z",
+        "completedAtUtc": "2026-10-25T10:29:30.284Z",
+        "exitCode": 0
+      },
+      {
+        "step": "phase7-uat-ui-live.mjs",
+        "startedAtUtc": "2026-10-25T10:29:30.287Z",
+        "completedAtUtc": "2026-10-25T10:30:10.637Z",
+        "exitCode": 0
+      },
+      {
+        "step": "phase7-uat-negative-live.mjs",
+        "startedAtUtc": "2026-10-25T10:30:10.641Z",
+        "completedAtUtc": "2026-10-25T10:30:13.792Z",
+        "exitCode": 0
+      },
+      {
+        "step": "phase7-uat-finance-fixture.mjs",
+        "startedAtUtc": "2026-10-25T10:30:13.793Z",
+        "completedAtUtc": "2026-10-25T10:30:25.370Z",
+        "exitCode": 0
+      },
+      {
+        "step": "phase7-uat-finance-live.mjs",
+        "startedAtUtc": "2026-10-25T10:30:25.371Z",
+        "completedAtUtc": "2026-10-25T10:30:36.281Z",
+        "exitCode": 0
+      }
+    ]
+  },
+  "credentialRecovery": {
+    "checkedAtUtc": "2026-10-25T09:25:44.818Z",
+    "credentialRecovery201": true,
+    "localSmtpReceived": true,
+    "passwordRotated": true,
+    "noPasswordInApi": true,
+    "widths": [
+      390,
+      768,
+      1024,
+      1280,
+      1440
+    ],
+    "scope": "Production QA build; actual local SMTP, disposable SQL; explicit Agent provider fixture"
+  },
+  "nativeActivation": {
+    "checkedAtUtc": "2026-10-25T10:59:28.259Z",
+    "apply": true,
+    "reports": [
+      {
+        "database": "VIntern_M2_BROWSER",
+        "filesProjectLocal": true,
+        "pending": [
+          "CreateParticipation1763500800000",
+          "CreateReplacementWorkflow1763587200000",
+          "TrackRepositoryGrants1763673600000"
+        ],
+        "migrations": [
+          "CreateParticipation1763500800000",
+          "CreateReplacementWorkflow1763587200000",
+          "TrackRepositoryGrants1763673600000"
+        ],
+        "protectedTables": 96,
+        "existingRows": 1563,
+        "allExistingColumnsPreserved": true
+      },
+      {
+        "database": "VIntern_Test_Learning_20261014",
+        "filesProjectLocal": true,
+        "pending": [
+          "CreateParticipation1763500800000",
+          "CreateReplacementWorkflow1763587200000",
+          "TrackRepositoryGrants1763673600000"
+        ],
+        "migrations": [
+          "CreateParticipation1763500800000",
+          "CreateReplacementWorkflow1763587200000",
+          "TrackRepositoryGrants1763673600000"
+        ],
+        "protectedTables": 96,
+        "existingRows": 5590,
+        "allExistingColumnsPreserved": true
+      }
+    ]
+  },
+  "nativeReadiness": {
+    "checkedAtUtc": "2026-10-25T11:11:42.415Z",
+    "services": [
+      {
+        "port": 8080,
+        "health": "ok"
+      },
+      {
+        "port": 8081,
+        "health": "ok"
+      }
+    ],
+    "databases": [
+      {
+        "database": "VIntern_M2_BROWSER",
+        "pendingMigrations": false,
+        "outbox": {
+          "total": 2,
+          "pendingUnexpired": 0
+        },
+        "replacements": 0
+      },
+      {
+        "database": "VIntern_Test_Learning_20261014",
+        "pendingMigrations": false,
+        "outbox": {
+          "total": 0,
+          "pendingUnexpired": null
+        },
+        "replacements": 0
+      }
+    ],
+    "originalBlankAccounts": [
+      {
+        "role": "admin",
+        "passwordLogin": true
+      },
+      {
+        "role": "instructor",
+        "passwordLogin": true
+      },
+      {
+        "role": "intern",
+        "passwordLogin": true
+      }
+    ],
+    "browser": [
+      {
+        "role": "instructor",
+        "width": 390,
+        "overflow": false
+      },
+      {
+        "role": "instructor",
+        "width": 768,
+        "overflow": false
+      },
+      {
+        "role": "instructor",
+        "width": 1024,
+        "overflow": false
+      },
+      {
+        "role": "instructor",
+        "width": 1280,
+        "overflow": false
+      },
+      {
+        "role": "instructor",
+        "width": 1440,
+        "overflow": false
+      },
+      {
+        "role": "intern",
+        "width": 390,
+        "overflow": false
+      },
+      {
+        "role": "intern",
+        "width": 768,
+        "overflow": false
+      },
+      {
+        "role": "intern",
+        "width": 1024,
+        "overflow": false
+      },
+      {
+        "role": "intern",
+        "width": 1280,
+        "overflow": false
+      },
+      {
+        "role": "intern",
+        "width": 1440,
+        "overflow": false
+      }
+    ],
+    "legacyAlias307": true
+  },
+  "smtp": {
+    "checkedAtUtc": "2026-10-25T10:18:15.273Z",
+    "provider": "Gmail",
+    "smtpStatus": "accepted",
+    "code": "SMTP_ACCEPTED",
+    "receipts": [
+      {
+        "outcome": "accepted",
+        "code": "SMTP_ACCEPTED"
+      }
+    ],
+    "messageCount": 1,
+    "legacyQueueProcessed": false,
+    "inboxDeliveryConfirmed": false,
+    "smtpWorkerEnabled": true,
+    "legacyQueueReview": [
+      {
+        "database": "VIntern_M2_BROWSER",
+        "pendingUnexpiredBeforeEnable": 0
+      },
+      {
+        "database": "VIntern_Test_Learning_20261014",
+        "pendingUnexpiredBeforeEnable": 0
+      }
+    ]
+  },
+  "githubLive": {
+    "evidence": "g6-access-live-20261025.json",
+    "scope": "Real pending invitation created with 201 provenance, cancelled by worker and QA repo archived; not a new accepted collaborator or live PR grading proof."
+  },
+  "cloudCi": {
+    "status": "BLOCKED",
+    "reason": "The job was not started because recent account payments have failed or spending limit needs to be increased.",
+    "backendRun": "https://github.com/vanhoi04082006-pixel/V-Intern-BE/actions/runs/40181206900",
+    "frontendFullstackRun": "https://github.com/vanhoi04082006-pixel/V-Intern-FE/actions/runs/40181583370",
+    "frontendQualityRun": "https://github.com/vanhoi04082006-pixel/V-Intern-FE/actions/runs/40181583342",
+    "stepsExecuted": 0,
+    "priorG6Green": {
+      "backend": 40177251482,
+      "frontend": [
+        40177324082,
+        40177323942
+      ]
+    }
+  },
+  "limitations": [
+    "Cloud CI G7 not executed; draft stack not merged.",
+    "Recipient Inbox confirmation not provided.",
+    "Full external-services CV-to-PR-to-live-model journey not claimed; local roleplay uses declared provider/GitHub fixtures.",
+    "Accepted or unproven repository permissions require human review."
+  ]
+}

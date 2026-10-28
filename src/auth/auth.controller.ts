@@ -20,6 +20,8 @@ import { REFRESH_COOKIE_NAME, REFRESH_COOKIE_PATH } from './auth.constants';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { RegistrationService } from './registration.service';
+import { AllowTemporaryPassword } from './temporary-password.policy';
+import { ChangePasswordDto } from './dto/change-password.dto';
 const configuredRegistrationLimit = Number(process.env.THROTTLE_REGISTER_PER_MIN ?? 5);
 const registrationLimit = Number.isSafeInteger(configuredRegistrationLimit) && configuredRegistrationLimit > 0 ? configuredRegistrationLimit : 5;
 
@@ -102,9 +104,17 @@ export class AuthController {
   }
 
   @Get('me')
+  @AllowTemporaryPassword()
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Fresh principal from DB (roles + permissions)' })
   async me(@CurrentUser('userId') userId: string) {
     return this.authService.me(userId);
+  }
+  @Post('change-password')
+  @AllowTemporaryPassword()
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
+  async changePassword(@CurrentUser('userId') userId: string, @Body() dto: ChangePasswordDto, @Res({ passthrough: true }) res: Response) {
+    const result = await this.authService.changePassword(userId, dto.currentPassword, dto.newPassword);
+    res.clearCookie(REFRESH_COOKIE_NAME, { path: REFRESH_COOKIE_PATH }); return result;
   }
 }

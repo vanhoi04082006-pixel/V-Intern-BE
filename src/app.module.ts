@@ -1,4 +1,9 @@
+import { CommunicationsModule } from './communications/communications.module';
+import { ApplicationsModule } from './applications/applications.module';
 import { GithubModule } from './github/github.module';
+import { CareerRolesModule } from './career-roles/career-roles.module';
+import { KnowledgeModule } from './knowledge/knowledge.module';
+import { AgentsModule } from './agents/agents.module';
 import { AdminSystemModule } from './admin/admin-system.module';
 import { SharingModule } from './sharing/sharing.module';
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
@@ -46,6 +51,8 @@ import { ReportsModule } from './reports/reports.module';
 
 @Module({
   imports: [
+    CommunicationsModule,
+    ApplicationsModule,
     AdminSystemModule,
     ConfigModule.forRoot({ isGlobal: true, load: [() => appConfig(process.env)] }),
     ThrottlerModule.forRootAsync({
@@ -85,6 +92,9 @@ import { ReportsModule } from './reports/reports.module';
     RbacModule,
     GroupsModule,
     CatalogsModule,
+    CareerRolesModule,
+    KnowledgeModule,
+    AgentsModule,
     SettingsModule,
     AuditModule,
     NotificationsModule,

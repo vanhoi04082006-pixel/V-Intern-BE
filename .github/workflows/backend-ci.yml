@@ -33,6 +33,7 @@ on:
   pull_request:
     branches:
       - main
+      - 'codex/**'
   push:
     branches:
       - main
@@ -243,6 +244,21 @@ jobs:
           })().catch(error => { console.error(error.message); process.exitCode = 1; });
           NODE
 
+      - name: Create isolated career-role migration database
+        env:
+          E2E_DB_NAME: VIntern_E2E_CareerRoles_${{ github.run_id }}_${{ github.run_attempt }}
+          DB_ADMIN_USERNAME: sa
+          DB_ADMIN_PASSWORD: ${{ env.SA_PASSWORD }}
+          DB_PASSWORD: ${{ env.APP_PASSWORD }}
+        run: npm run db:create:e2e
+
+      - name: Verify career-role migration, history references and safe rollback
+        env:
+          DB_NAME: VIntern_E2E_CareerRoles_${{ github.run_id }}_${{ github.run_attempt }}
+          E2E_DB_NAME: VIntern_E2E_CareerRoles_${{ github.run_id }}_${{ github.run_attempt }}
+          DB_PASSWORD: ${{ env.APP_PASSWORD }}
+        run: npm run test:career-roles:migration
+
       # ── Real runtime boot (spec 19/20) ────────────────────────────────
       - name: Boot the real API — poll /api/v1/health, then /api/docs + OpenAPI
         env:
@@ -273,9 +289,171 @@ jobs:
       - name: E2E — platform + academic + sprint/task + recruitment + evaluation/performance/kpi/salary/certificates + concurrency
         env:
           DB_PASSWORD: ${{ env.APP_PASSWORD }}
-        run: npm run test:e2e
+        # Retrieval fixtures contain immutable published knowledge. Keep them off the shared
+        # database whose knowledge-storage suite proves an initially empty content library.
+        run: npm run test:e2e -- --testPathIgnorePatterns='knowledge-retrieval.e2e-spec.ts|business-agent.e2e-spec.ts'
+
+      - name: Business Agent tool, scope, restart and revocation — isolated SQL Server 2019 database
+        env:
+          DB_NAME: VIntern_E2E_CI_${{ github.run_id }}_${{ github.run_attempt }}97
+          E2E_DB_NAME: VIntern_E2E_CI_${{ github.run_id }}_${{ github.run_attempt }}97
+          DB_ADMIN_USERNAME: sa
+          DB_ADMIN_PASSWORD: ${{ env.SA_PASSWORD }}
+          DB_PASSWORD: ${{ env.APP_PASSWORD }}
+        run: |
+          set -euo pipefail
+          npm run db:create:e2e
+          npm run test:e2e -- --runTestsByPath test/business-agent.e2e-spec.ts
+
+      - name: Retrieval scope and provenance — isolated SQL Server 2019 database
+        env:
+          DB_NAME: VIntern_E2E_CI_${{ github.run_id }}_${{ github.run_attempt }}99
+          E2E_DB_NAME: VIntern_E2E_CI_${{ github.run_id }}_${{ github.run_attempt }}99
+          DB_ADMIN_USERNAME: sa
+          DB_ADMIN_PASSWORD: ${{ env.SA_PASSWORD }}
+          DB_PASSWORD: ${{ env.APP_PASSWORD }}
+        run: |
+          set -euo pipefail
+          npm run db:create:e2e
+          npm run test:e2e -- --runTestsByPath test/knowledge-retrieval.e2e-spec.ts
+
+      - name: Template material migration and preserved legacy snapshots — dedicated SQL 2019 database
+        env:
+          DB_NAME: VIntern_E2E_CI_${{ github.run_id }}_${{ github.run_attempt }}98
+          E2E_DB_NAME: VIntern_E2E_CI_${{ github.run_id }}_${{ github.run_attempt }}98
+          DB_ADMIN_USERNAME: sa
+          DB_ADMIN_PASSWORD: ${{ env.SA_PASSWORD }}
+          DB_PASSWORD: ${{ env.APP_PASSWORD }}
+        run: |
+          set -euo pipefail
+          npm run db:create:e2e
+          npm run test:e2e -- --testRegex=template-materials-migration.sql-spec.ts$
 
       # ── Migration rollback verification (spec 16 + Phase 6 §79) ────────
+      - name: CV, scheduled booking and SMTP outbox — dedicated SQL 2019 database
+        env:
+          DB_NAME: VIntern_E2E_CI_${{ github.run_id }}_${{ github.run_attempt }}96
+          E2E_DB_NAME: VIntern_E2E_CI_${{ github.run_id }}_${{ github.run_attempt }}96
+          DB_ADMIN_USERNAME: sa
+          DB_ADMIN_PASSWORD: ${{ env.SA_PASSWORD }}
+          DB_PASSWORD: ${{ env.APP_PASSWORD }}
+        run: |
+          set -euo pipefail
+          npm run db:create:e2e
+          npm run migration:run
+          npm run test:e2e -- --testRegex='(applications|communications|scheduled-interviews|credential-recovery).sql-spec.ts$'
+
+      - name: G5 invitations and SMTP — isolated outbox database
+        env:
+          DB_NAME: VIntern_E2E_CI_${{ github.run_id }}_${{ github.run_attempt }}105
+          E2E_DB_NAME: VIntern_E2E_CI_${{ github.run_id }}_${{ github.run_attempt }}105
+          DB_ADMIN_USERNAME: sa
+          DB_ADMIN_PASSWORD: ${{ env.SA_PASSWORD }}
+          DB_PASSWORD: ${{ env.APP_PASSWORD }}
+        run: |
+          set -euo pipefail
+          npm run db:create:e2e
+          npm run migration:run
+          npm run test:e2e -- --testRegex='(github-invitations|github-grant-ledger).sql-spec.ts$'
+
+      - name: G6 GitHub grant provenance migration - no historical ownership inference
+        env:
+          DB_NAME: VIntern_E2E_CI_${{ github.run_id }}_${{ github.run_attempt }}111
+          E2E_DB_NAME: VIntern_E2E_CI_${{ github.run_id }}_${{ github.run_attempt }}111
+          DB_ADMIN_USERNAME: sa
+          DB_ADMIN_PASSWORD: ${{ env.SA_PASSWORD }}
+          DB_PASSWORD: ${{ env.APP_PASSWORD }}
+        run: |
+          set -euo pipefail
+          npm run db:create:e2e
+          npm run test:e2e -- --testRegex=repository-grants-migration.sql-spec.ts$
+
+      - name: G3 additive migration and protected rollback — empty database
+        env:
+          DB_NAME: VIntern_E2E_CI_${{ github.run_id }}_${{ github.run_attempt }}95
+          E2E_DB_NAME: VIntern_E2E_CI_${{ github.run_id }}_${{ github.run_attempt }}95
+          DB_ADMIN_USERNAME: sa
+          DB_ADMIN_PASSWORD: ${{ env.SA_PASSWORD }}
+          DB_PASSWORD: ${{ env.APP_PASSWORD }}
+        run: |
+          set -euo pipefail
+          npm run db:create:e2e
+          npm run test:e2e -- --testRegex=applications-migration.sql-spec.ts$
+
+      - name: G4 admission migration — empty schema and protected history rollback
+        env:
+          DB_NAME: VIntern_E2E_CI_${{ github.run_id }}_${{ github.run_attempt }}94
+          E2E_DB_NAME: VIntern_E2E_CI_${{ github.run_id }}_${{ github.run_attempt }}94
+          DB_ADMIN_USERNAME: sa
+          DB_ADMIN_PASSWORD: ${{ env.SA_PASSWORD }}
+          DB_PASSWORD: ${{ env.APP_PASSWORD }}
+        run: |
+          set -euo pipefail
+          npm run db:create:e2e
+          npm run test:e2e -- --testRegex=interview-admission-migration.sql-spec.ts$
+
+      - name: G6 participation ledger and grading regressions
+        env:
+          DB_NAME: VIntern_E2E_CI_${{ github.run_id }}_${{ github.run_attempt }}108
+          E2E_DB_NAME: VIntern_E2E_CI_${{ github.run_id }}_${{ github.run_attempt }}108
+          DB_ADMIN_USERNAME: sa
+          DB_ADMIN_PASSWORD: ${{ env.SA_PASSWORD }}
+          DB_PASSWORD: ${{ env.APP_PASSWORD }}
+        run: |
+          set -euo pipefail
+          npm run db:create:e2e
+          npm run migration:run
+          npm run test:e2e -- --testRegex='(participation.sql-spec|submission-notifications.e2e-spec|replacement-advisor.sql-spec|replacement-workflow.sql-spec|repository-access-queue.sql-spec|repository-access-worker.sql-spec|repository-access-http.sql-spec).ts$'
+
+      - name: G6 replacement migration preserves approvals and access job history
+        env:
+          DB_NAME: VIntern_E2E_CI_${{ github.run_id }}_${{ github.run_attempt }}110
+          E2E_DB_NAME: VIntern_E2E_CI_${{ github.run_id }}_${{ github.run_attempt }}110
+          DB_ADMIN_USERNAME: sa
+          DB_ADMIN_PASSWORD: ${{ env.SA_PASSWORD }}
+          DB_PASSWORD: ${{ env.APP_PASSWORD }}
+        run: |
+          set -euo pipefail
+          npm run db:create:e2e
+          npm run test:e2e -- --testRegex=replacement-workflow-migration.sql-spec.ts$
+
+      - name: G6 participation migration protects policies and reviewed scores
+        env:
+          DB_NAME: VIntern_E2E_CI_${{ github.run_id }}_${{ github.run_attempt }}109
+          E2E_DB_NAME: VIntern_E2E_CI_${{ github.run_id }}_${{ github.run_attempt }}109
+          DB_ADMIN_USERNAME: sa
+          DB_ADMIN_PASSWORD: ${{ env.SA_PASSWORD }}
+          DB_PASSWORD: ${{ env.APP_PASSWORD }}
+        run: |
+          set -euo pipefail
+          npm run db:create:e2e
+          npm run test:e2e -- --testRegex=participation-migration.sql-spec.ts$
+
+      - name: Student planned sprint visibility and assignment isolation
+        env:
+          DB_NAME: VIntern_E2E_CI_${{ github.run_id }}_${{ github.run_attempt }}107
+          E2E_DB_NAME: VIntern_E2E_CI_${{ github.run_id }}_${{ github.run_attempt }}107
+          DB_ADMIN_USERNAME: sa
+          DB_ADMIN_PASSWORD: ${{ env.SA_PASSWORD }}
+          DB_PASSWORD: ${{ env.APP_PASSWORD }}
+        run: |
+          set -euo pipefail
+          npm run db:create:e2e
+          npm run migration:run
+          npm run test:e2e -- --testRegex=student-sprint-visibility.sql-spec.ts$
+
+      - name: G5 invitation migration — populated legacy rows and protected audit rollback
+        env:
+          DB_NAME: VIntern_E2E_CI_${{ github.run_id }}_${{ github.run_attempt }}106
+          E2E_DB_NAME: VIntern_E2E_CI_${{ github.run_id }}_${{ github.run_attempt }}106
+          DB_ADMIN_USERNAME: sa
+          DB_ADMIN_PASSWORD: ${{ env.SA_PASSWORD }}
+          DB_PASSWORD: ${{ env.APP_PASSWORD }}
+        run: |
+          set -euo pipefail
+          npm run db:create:e2e
+          npm run test:e2e -- --testRegex=github-invitation-migration.sql-spec.ts$
+
       # The full current schema uses the entire migration registry. Reverting its latest row
       # does NOT remove Phase6. Preserve historical rollback gates on a
       # separate, empty six-migration baseline; never truncate product history.

@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, EntityManager, Repository } from 'typeorm';
@@ -11,12 +11,9 @@ import {
   RECRUITMENT_MAX_ATTEMPTS_DEFAULT,
   RECRUITMENT_RETAKE_COOLDOWN_HOURS_DEFAULT,
 } from './recruitment.constants';
-import {
-  RECRUITMENT_ROLE_CODES,
-  isRecruitmentRoleCode,
-  recruitmentRoleLabel,
-} from './recruitment-roles';
-import { computeAttemptGate } from './attempt-policy';
+import { CareerRolesService } from '../career-roles/career-roles.service';
+import { computeAttemptGate, recruitmentAttemptLimit } from './attempt-policy';
+import { InterviewAdmissionsService, ScheduledInterview } from './interview-admissions.service';
 import { RecruitmentProfileStatus } from './recruitment-status.machine';
 import { learningAssessment } from './learning-assessment';
 import { PermissionsService } from '../rbac/permissions.service';
@@ -26,6 +23,7 @@ const candidateVisibility = (actor: string) => `(a.id IS NULL OR EXISTS(SELECT 1
 
 /** Public shape of GET /recruitment/me (spec 41/19). */
 export interface RecruitmentMeResponse {
+  interviewSchedule?: ScheduledInterview;
   status: RecruitmentProfileStatus;
   selectedRole: string | null;
   selectedRoleLabel: string | null;
@@ -104,6 +102,8 @@ export class RecruitmentService {
     private readonly config: ConfigService,
     @InjectDataSource() private readonly dataSource: DataSource,
     private readonly permissions: PermissionsService,
+    private readonly careerRoles: CareerRolesService,
+    readonly admissions: InterviewAdmissionsService,
   ) {}
 
   /** Latest result for the profile, if any. */
@@ -130,6 +130,7 @@ export class RecruitmentService {
 
   /** GET /recruitment/me — current principal only (spec 41). */
   async me(userId: string): Promise<RecruitmentMeResponse> {
+    const interviewSchedule = await this.admissions.view(userId);
     const profile = await this.profiles.findOne({ where: { userId } });
     if (!profile) {
       return {
@@ -142,6 +143,7 @@ export class RecruitmentService {
         currentInterviewSessionId: null,
         recruitedAt: null,
         result: null,
+        interviewSchedule,
       };
     }
     const gate = computeAttemptGate(
@@ -158,7 +160,7 @@ export class RecruitmentService {
       status: profile.status,
       selectedRole: profile.selectedRole,
       selectedRoleLabel: profile.selectedRole
-        ? recruitmentRoleLabel(profile.selectedRole)
+        ? await this.careerRoles.label(profile.selectedRole)
         : null,
       attemptNumber: profile.attemptCount,
       attemptsRemaining: gate.attemptsRemaining,
@@ -166,6 +168,7 @@ export class RecruitmentService {
       currentInterviewSessionId: profile.currentInterviewSessionId,
       recruitedAt: profile.recruitedAt,
       result: latest ? toResultResponse(latest) : null,
+      interviewSchedule,
     };
   }
 
@@ -178,14 +181,10 @@ export class RecruitmentService {
     roleCode: string,
     ctx: { actorId?: string | null; ip?: string | null; userAgent?: string | null },
   ): Promise<RecruitmentMeResponse> {
-    if (!isRecruitmentRoleCode(roleCode)) {
-      throw new BadRequestException({
-        statusCode: 400,
-        code: 'RECRUITMENT_ROLE_REQUIRED',
-        message: `role must be one of: ${RECRUITMENT_ROLE_CODES.join(', ')}`,
-      });
-    }
     return this.dataSource.transaction(async (em) => {
+      if (await this.admissions.entry(em, userId, true)) throw new ConflictException({
+        code: 'RECRUITMENT_SCHEDULE_ROLE_LOCKED', message: 'Nghề phỏng vấn đã được xếp từ hồ sơ CV. Liên hệ giảng viên nếu cần lịch hoặc định hướng mới.',
+      });
       // Serialize concurrent role selections per user.
       const profile = await this.lockOrCreateProfile(em, userId);
       if (profile.status === 'passed') {
@@ -198,7 +197,8 @@ export class RecruitmentService {
           message: 'An interview is in progress — the role cannot be changed right now.',
         });
       }
-      profile.selectedRole = roleCode;
+      const career = await this.requireRecruitingRole(em, roleCode);
+      profile.selectedRole = career.code;
       // not_started/role_selected → role_selected; failed → role_selected
       // (retake preparation). Same-role re-selection is idempotent.
       profile.status = 'role_selected';
@@ -226,7 +226,7 @@ export class RecruitmentService {
       return {
         status: profile.status,
         selectedRole: profile.selectedRole,
-        selectedRoleLabel: recruitmentRoleLabel(profile.selectedRole!),
+        selectedRoleLabel: career.name,
         attemptNumber: profile.attemptCount,
         attemptsRemaining: gate.attemptsRemaining,
         nextEligibleAt: gate.nextEligibleAt,
@@ -235,6 +235,10 @@ export class RecruitmentService {
         result: null,
       };
     });
+  }
+
+  requireRecruitingRole(em: EntityManager, code: string) {
+    return this.careerRoles.requireRole(code, em, true);
   }
 
   /** GET /recruitment/me/result — the authoritative persisted outcome. */
@@ -377,7 +381,7 @@ export class RecruitmentService {
 
   private maxAttempts(): number {
     const raw = Number(this.config.get<number>('recruitment.maxAttempts', RECRUITMENT_MAX_ATTEMPTS_DEFAULT));
-    return raw > 0 ? Math.floor(raw) : RECRUITMENT_MAX_ATTEMPTS_DEFAULT;
+    return recruitmentAttemptLimit(raw);
   }
 
   attemptConfig() {

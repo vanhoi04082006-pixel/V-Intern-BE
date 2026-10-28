@@ -24,5 +24,14 @@ jobs:
       - name: Runner policy, HTTP and cleanup tests
         working-directory: grading-runner
         run: npm test
+      - name: Export reviewed six-project fixtures
+        run: |
+          npm ci --ignore-scripts
+          mkdir -p .runtime/tmp
+          node node_modules/ts-node/dist/bin.js src/scripts/export-mini-runner-fixtures.ts > .runtime/mini-fixtures.json
       - name: Build pinned images and run valid/broken submissions in restricted containers
-        run: sh grading-runner/build-and-smoke.sh
+        run: |
+          export TMPDIR="$GITHUB_WORKSPACE/.runtime/tmp"
+          export MINI_FIXTURES_FILE="$GITHUB_WORKSPACE/.runtime/mini-fixtures.json"
+          export MINI_REPORT_FILE="$GITHUB_WORKSPACE/.runtime/mini-docker-report.json"
+          sh grading-runner/build-and-smoke.sh

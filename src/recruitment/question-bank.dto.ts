@@ -1,15 +1,14 @@
-import { ArrayMaxSize, ArrayMinSize, ArrayUnique, IsArray, IsBoolean, IsIn, IsInt, IsOptional, IsString, Length, MaxLength, Min } from 'class-validator';
+import { ArrayMaxSize, ArrayMinSize, ArrayUnique, IsArray, IsBoolean, IsIn, IsInt, IsOptional, IsString, Length, Matches, MaxLength, Min } from 'class-validator';
 import { PaginationQueryDto } from '../common/pagination/pagination-query.dto';
-import { RECRUITMENT_ROLE_CODES } from './recruitment-roles';
 export class QuestionBankQueryDto extends PaginationQueryDto {
-  @IsOptional() @IsIn(RECRUITMENT_ROLE_CODES) roleCode?: string;
+  @IsOptional() @IsString() @Matches(/^[a-z][a-z0-9_]{1,31}$/) roleCode?: string;
   @IsOptional() @IsIn(['technical', 'introduction', 'english', 'communication']) phase?: string;
   @IsOptional() @IsIn(['easy', 'medium', 'hard']) difficulty?: string;
   @IsOptional() @IsIn(['active', 'retired']) status?: string;
   @IsOptional() @IsString() @MaxLength(100) search?: string;
 }
 export class QuestionContentDto {
-  @IsIn(RECRUITMENT_ROLE_CODES) roleCode!: string;
+  @IsString() @Matches(/^[a-z][a-z0-9_]{1,31}$/) roleCode!: string;
   @IsIn(['technical', 'introduction', 'english', 'communication']) phase!: string;
   @IsIn(['easy', 'medium', 'hard']) difficulty!: string;
   @IsIn(['vi', 'en']) language!: string;

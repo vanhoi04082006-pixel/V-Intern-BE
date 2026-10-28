@@ -8,6 +8,6 @@ RUN npm ci --ignore-scripts --no-audit --no-fund \
     && ./node_modules/.bin/playwright install --with-deps --only-shell chromium \
     && npm cache clean --force \
     && rm -rf /var/lib/apt/lists/*
-COPY tester.mjs api-flow.mjs ./
+COPY tester.mjs api-flow.mjs mini-check.mjs ./
 USER 10001:10001
 CMD ["node", "/runner/tester.mjs"]

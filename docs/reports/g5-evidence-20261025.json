@@ -1,0 +1,222 @@
+{
+  "manifestCreatedAtUtc": "2026-10-25T00:34:07.568Z",
+  "userFacingDate": "25/10/2026 UTC+7",
+  "backendCodeCommit": "52e2475b9fc2fae4a637a3dd14deea42f1aeab5b",
+  "frontendCodeCommit": "885b011618ca667f25c9b3d12ca9194dffbee76b",
+  "groups": {
+    "backendUnit": {
+      "suites": 104,
+      "tests": 791
+    },
+    "githubSql": {
+      "suites": 3,
+      "tests": 30
+    },
+    "migration": {
+      "tests": 2
+    },
+    "frontendUnit": {
+      "files": 100,
+      "tests": 610
+    },
+    "browser": {
+      "flows": 3,
+      "pageErrors": 0,
+      "checkedAtUtc": "2026-10-24T22:50:43.049Z",
+      "widths": [
+        390,
+        768,
+        1440
+      ]
+    },
+    "smtp": "Real protocol to test-owned loopback sink; not external inbox delivery"
+  },
+  "githubLive": {
+    "status": "verified_pending_accepted_and_webhook",
+    "owner": "hbuivanhoi6-stack",
+    "members": {
+      "checkedAtUtc": "2026-10-25T00:27:09.257Z",
+      "repositoryId": "1430503264",
+      "configuredOwner": "hbuivanhoi6-stack",
+      "before": [
+        {
+          "userId": "FB1BC553-EF8B-4EEA-A9D2-96B256A1E07C",
+          "githubUserId": "308760229",
+          "login": "bvhtesst-stack",
+          "status": "pending",
+          "invitationId": "339242127"
+        },
+        {
+          "userId": "C1A8D72B-F7C4-4861-B137-E39028665111",
+          "githubUserId": "307977746",
+          "login": "cherrytale983-hash",
+          "status": "accepted",
+          "invitationId": null
+        }
+      ],
+      "acceptance": {
+        "attempted": true,
+        "listHttpStatus": 404
+      },
+      "after": [
+        {
+          "githubUserId": "308760229",
+          "status": "pending",
+          "login": "bvhtesst-stack"
+        },
+        {
+          "githubUserId": "307977746",
+          "status": "accepted",
+          "login": "cherrytale983-hash"
+        }
+      ],
+      "synchronized": {
+        "processed": 2,
+        "skipped": 0,
+        "batchLimit": 5
+      },
+      "collaboratorWrites": 0
+    },
+    "webhook": {
+      "checkedAtUtc": "2026-10-24T23:57:10.664Z",
+      "configuredOwner": "hbuivanhoi6-stack",
+      "repositoryId": "1430503264",
+      "hookId": "702767747",
+      "delivery": {
+        "id": "3850193724992651264",
+        "guid": "77b38a44-d006-11f1-92db-d0fd2f0f49cc",
+        "event": "ping",
+        "httpStatus": 200
+      },
+      "receipt": {
+        "deliveryId": "77B38A44-D006-11F1-92DB-D0FD2F0F49CC",
+        "eventType": "ping",
+        "status": "processed",
+        "sessionId": "F1D9C582-B9BE-498F-869F-1E5D3ED28F30"
+      },
+      "negativeChecks": {
+        "otherRoute404": true,
+        "unsigned401": true,
+        "wrongRepository403": true
+      },
+      "redeliveryRequested": true,
+      "redeliveryDeduped": true,
+      "receiptCountAfterRedelivery": 1,
+      "temporaryHookDisabled": true,
+      "cleanupAtUtc": "2026-10-25T00:14:57.469Z",
+      "scope": "Temporary signed QA webhook; permanent public endpoint is not deployed."
+    },
+    "remaining": "New invitation acceptance/expiry/reinvite cycle has not been exercised live; student token returned 404 listing invitations."
+  },
+  "remoteCI": {
+    "status": "pending_final_hotfix_pair",
+    "previousBackendRun": "https://github.com/vanhoi04082006-pixel/V-Intern-BE/actions/runs/40142280613"
+  },
+  "sources": [
+    {
+      "path": ".runtime/g5-be-unit-final.log",
+      "sha256": "bd22e4c731c3c7ce0cae344ca202840c9d775fd6e33875f262bc798e7685fce6",
+      "lastModifiedAtUtc": "2026-10-24T22:17:47.539Z"
+    },
+    {
+      "path": ".runtime/g5-be-build-final.log",
+      "sha256": "7d3397f421b7573134296da1f550f75fb00da6deea3ef32bf14a326c566f4adc",
+      "lastModifiedAtUtc": "2026-10-24T22:17:48.306Z"
+    },
+    {
+      "path": ".runtime/g5-be-lint-final.log",
+      "sha256": "30076a1d7de6709d759fb55d6551c1ecd4f51839c91643f9c90595e41d9af26a",
+      "lastModifiedAtUtc": "2026-10-24T22:18:24.424Z"
+    },
+    {
+      "path": ".runtime/g5-domain-sql-final.log",
+      "sha256": "c6bb41ff183f1a34f3380dc3b69bf7231cf18eb9ea0e318aa3a3b407c2844c68",
+      "lastModifiedAtUtc": "2026-10-24T22:14:19.362Z"
+    },
+    {
+      "path": ".runtime/g5-migration.log",
+      "sha256": "51dc51952a98bcc063ab33de65b7f8d1a297b358e7a3cb4cba5d1b3cf9222a1f",
+      "lastModifiedAtUtc": "2026-10-24T22:06:36.789Z"
+    },
+    {
+      "path": ".runtime/g5-fe-unit-final.log",
+      "sha256": "b179cc75059b4da4d4e77949a07992cc5b6b1063d84f51623ef40e8fd80a9187",
+      "lastModifiedAtUtc": "2026-10-24T22:41:16.364Z"
+    },
+    {
+      "path": ".runtime/g5-fe-typecheck-final.log",
+      "sha256": "8041268fb6d70d4bda74549f8806ced8b30c7b022e35d0c9972ff60c0a7e360c",
+      "lastModifiedAtUtc": "2026-10-24T22:39:50.664Z"
+    },
+    {
+      "path": ".runtime/g5-fe-lint-final.log",
+      "sha256": "75d7fd14924d3a0e130f015263235d4e76e5a4e443bd324cdb7b5bf3ba912b1e",
+      "lastModifiedAtUtc": "2026-10-24T22:40:02.853Z"
+    },
+    {
+      "path": ".runtime/g5-fe-build-final.log",
+      "sha256": "7145a6f24074719f721a351a92333bc7e88c4a4aa901686de5f5230642899ca4",
+      "lastModifiedAtUtc": "2026-10-24T22:41:28.269Z"
+    },
+    {
+      "path": ".runtime/g5-browser-final.log",
+      "sha256": "3c6ed1e59bb61ce6d84134677876653597f1b7988840c8d7ee589fc6b9e4ec54",
+      "lastModifiedAtUtc": "2026-10-24T22:50:43.073Z"
+    },
+    {
+      "path": ".runtime/g5-github-live.log",
+      "sha256": "d6ab2f1c009dc9308edd1a27c86651f07bdae14df7dbd8d4aed0a05e9f23ec9d",
+      "lastModifiedAtUtc": "2026-10-24T22:23:26.871Z"
+    },
+    {
+      "path": "manual-runtime/g5-20261025/browser-result.json",
+      "sha256": "d6f8d522bcbe313e2f1840f5a67314a4d402e42291b20e806ec7f91c077fe51d",
+      "lastModifiedAtUtc": "2026-10-24T22:50:43.071Z"
+    },
+    {
+      "path": "manual-runtime/g5-20261025/native-activation.json",
+      "sha256": "71075d07a24b50dc265d6fb0c116ac18b3236b52b5b3bcc4a9d8abe81fb8a6d9",
+      "lastModifiedAtUtc": "2026-10-24T22:19:32.390Z"
+    },
+    {
+      "path": ".runtime/g5-be-unit-reconnected.log",
+      "sha256": "c8037d9bf8c8278b9eed9b86b89478a2604e909833bd203ab9c312261fa06988",
+      "lastModifiedAtUtc": "2026-10-25T00:24:00.275Z"
+    },
+    {
+      "path": ".runtime/g5-be-build-reconnected.log",
+      "sha256": "7d3397f421b7573134296da1f550f75fb00da6deea3ef32bf14a326c566f4adc",
+      "lastModifiedAtUtc": "2026-10-25T00:24:01.183Z"
+    },
+    {
+      "path": ".runtime/g5-be-lint-reconnected.log",
+      "sha256": "30076a1d7de6709d759fb55d6551c1ecd4f51839c91643f9c90595e41d9af26a",
+      "lastModifiedAtUtc": "2026-10-25T00:24:21.554Z"
+    },
+    {
+      "path": ".runtime/g5-worker-cooldown-green.log",
+      "sha256": "4b9b2aabf774443202c5e1d4854e2e65f7f0e3adc0760a804d0fcc93be705649",
+      "lastModifiedAtUtc": "2026-10-25T00:24:31.958Z"
+    },
+    {
+      "path": "manual-runtime/g5-20261025/members-live-result.json",
+      "sha256": "5ec5d38b08cf83030f62fc56cc1ffcf23ee95a9cc2c8e0f29561d88bbd964b32",
+      "lastModifiedAtUtc": "2026-10-25T00:27:09.249Z"
+    },
+    {
+      "path": "manual-runtime/g5-20261025/webhook-live-result.json",
+      "sha256": "de7f6dd034733e4bd83590d1a1175086b93b650e4a5ae1b7be2153c925c42846",
+      "lastModifiedAtUtc": "2026-10-25T00:14:57.472Z"
+    },
+    {
+      "path": "manual-runtime/g5-20261025/native-activation-cooldown.json",
+      "sha256": "f17503046e32434a66376223313bebf4173695c0dcc598bb787926e6972008dd",
+      "lastModifiedAtUtc": "2026-10-25T00:26:14.873Z"
+    },
+    {
+      "path": ".runtime/g5-sql-migration-waits.log",
+      "sha256": "8b2be231f8c2412f040811bcbfabdcbeafcd2c056aa9abf9450a4104aaae03cd",
+      "lastModifiedAtUtc": "2026-10-25T00:18:58.189Z"
+    }
+  ]
+}

@@ -8,6 +8,10 @@ import { GeminiProvider } from './providers/gemini.provider';
 import { RbacModule } from '../rbac/rbac.module';
 import { AiRuntimeService } from './ai-runtime.service';
 import { AiRuntimeController } from './ai-runtime.controller';
+import { KnowledgeModule } from '../knowledge/knowledge.module';
+import { AgentPersistenceModule } from '../agents/persistence.module';
+import { BusinessAgentEngine } from '../agents/runtime/business-agent-engine';
+import { BusinessAgentScope } from '../agents/runtime/business-agent-scope.service';
 
 /**
  * AI CORE module (Phase 4, spec 21/23/25).
@@ -52,9 +56,9 @@ const AiProviderTokenProvider: Provider = {
 };
 
 @Module({
-  imports: [RbacModule, TypeOrmModule.forFeature([AiRun])],
+  imports: [RbacModule, KnowledgeModule, AgentPersistenceModule, TypeOrmModule.forFeature([AiRun])],
   controllers: [AiRuntimeController],
-  providers: [AiRuntimeService, AiProviderTokenProvider, AiService],
+  providers: [AiRuntimeService, AiProviderTokenProvider, BusinessAgentScope, BusinessAgentEngine, AiService],
   exports: [AiService],
 })
 export class AiModule {}

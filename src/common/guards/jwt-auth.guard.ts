@@ -3,8 +3,10 @@ import { Reflector } from '@nestjs/core';
 import { JwtService } from '@nestjs/jwt';
 import { UsersService } from '../../users/users.service';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
+import { ALLOW_TEMPORARY_PASSWORD, enforceTemporaryPassword } from '../../auth/temporary-password.policy';
 
 interface JwtPayload {
+  av?: number;
   sub?: string;
   email?: string;
 }
@@ -71,6 +73,8 @@ export class JwtAuthGuard implements CanActivate {
       });
     }
 
+    if ((payload.av ?? 0) !== (user.authVersion ?? 0)) throw new UnauthorizedException({ code: 'TOKEN_REVOKED', message: 'Phiên đăng nhập đã hết hiệu lực.' });
+    enforceTemporaryPassword(user, this.reflector.getAllAndOverride<boolean>(ALLOW_TEMPORARY_PASSWORD, [context.getHandler(), context.getClass()]) === true);
     request.principal = { userId: user.id, email: user.email };
     return true;
   }

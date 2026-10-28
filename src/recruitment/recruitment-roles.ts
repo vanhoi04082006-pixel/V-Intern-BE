@@ -1,5 +1,6 @@
 /**
- * Recruitment roles (Phase 4, spec 8/9) — APPROVED stable codes.
+ * Bootstrap careers and legacy display defaults (Phase 4, spec 8/9).
+ * Runtime admissions/authoring validate against CareerRolesService, never this list.
  *
  * These are RECRUITMENT domain codes, deliberately NOT RBAC Role records:
  * "frontend" (recruitment) does not mean "intern" (authorization).

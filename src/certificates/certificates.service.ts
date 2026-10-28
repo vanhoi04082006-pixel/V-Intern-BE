@@ -12,7 +12,7 @@ import { KpiPeriod } from '../kpi/entities/kpi-period.entity';
 import { KpiResult } from '../kpi/entities/kpi-result.entity';
 import { Project } from '../projects/entities/project.entity';
 import { RecruitmentProfile } from '../recruitment/entities/recruitment-profile.entity';
-import { recruitmentRoleLabel } from '../recruitment/recruitment-roles';
+import { CareerRole } from '../career-roles/entities/career-role.entity';
 import { InternshipSession } from '../sessions/entities/internship-session.entity';
 import { User } from '../users/entities/user.entity';
 import { isUniqueViolation } from '../common/utils/db-errors';
@@ -146,7 +146,7 @@ export class CertificatesService {
             issuedAt,
             completedAt: facts.completedAssignment?.completedAt ?? null,
             holderNameSnapshot: (await em.getRepository(User).findOneBy({ id: input.userId }))?.displayName ?? null,
-            roleLabelSnapshot: facts.profile?.selectedRole ? recruitmentRoleLabel(facts.profile.selectedRole) : null,
+            roleLabelSnapshot: facts.profile?.selectedRole ? (await em.getRepository(CareerRole).findOneByOrFail({ code: facts.profile.selectedRole })).name : null,
             projectNameSnapshot: facts.completedAssignment?.projectId ? (await em.getRepository(Project).findOneBy({ id: facts.completedAssignment.projectId }))?.name ?? null : null,
             sessionNameSnapshot: facts.completedAssignment?.sessionId ? (await em.getRepository(InternshipSession).findOneBy({ id: facts.completedAssignment.sessionId }))?.name ?? null : null,
             issuedById: actorId,

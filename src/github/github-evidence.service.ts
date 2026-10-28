@@ -81,7 +81,7 @@ export class GithubEvidenceService {
       throw new ConflictException({
         code: "SESSION_REPOSITORY_REQUIRED",
         message:
-          "Repository của phiên chưa sẵn sàng. Giảng viên cần kết nối GitHub và tạo repo.",
+          "Repository của phiên chưa sẵn sàng. Admin cần kiểm tra tài khoản tạo repository chung.",
       });
     return repo;
   }
@@ -271,7 +271,7 @@ export class GithubEvidenceService {
               return null;
             }
             if (
-              !/\.(?:tsx?|jsx?|json|css|html|md|sql|py|java|go|rs|ya?ml|sh|vue|svelte|txt)$/i.test(
+              !/\.(?:tsx?|jsx?|cjs|mjs|json|css|html|md|sql|py|java|go|rs|ya?ml|sh|vue|svelte|txt)$/i.test(
                 file.filename,
               ) &&
               !/(?:^|\/)(?:Dockerfile|Makefile|\.gitignore)$/.test(

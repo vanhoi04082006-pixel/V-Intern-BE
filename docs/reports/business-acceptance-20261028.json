@@ -1,0 +1,60 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-10-28",
+  "timezone": "Asia/Bangkok",
+  "sources": {
+    "backend": "a81de95e3eb9602450abc428f37bdf3f1188aada",
+    "frontend": "244c2750e69ca24d895604f124616e6824aa5885",
+    "browserFrontend": "local worktree, paused redesign changes present"
+  },
+  "localChecks": {
+    "backend": {
+      "suites": 115,
+      "passed": 860,
+      "failed": 0,
+      "build": "passed",
+      "lintErrors": 0,
+      "lintWarnings": 15
+    },
+    "frontendWorktree": {
+      "files": 113,
+      "passed": 676,
+      "failed": 0,
+      "lint": "passed",
+      "typecheck": "passed",
+      "build": "passed with fresh production and Node caches",
+      "initialBuildFailures": 2
+    }
+  },
+  "browser": {
+    "scenarios": 6,
+    "passedAfterRecovery": 6,
+    "initialSqlTimeouts": 1,
+    "sqlTimeoutMs": 15000,
+    "cases": [
+      "active-session-policy-no-retroactivity",
+      "draft-round-missing-slot-error",
+      "round-and-slot-open-close-persistence",
+      "student-participation-view",
+      "student-role-route-guard",
+      "admin-audit-retry-filter-detail"
+    ]
+  },
+  "skill": {
+    "name": "security-audit",
+    "repository": "cloudflare/security-audit-skill",
+    "ref": "c1c8a8c1471069fb0e188eeaff69b8e8db6564a8",
+    "files": 20,
+    "scope": "Codex user; all projects",
+    "sourceStoredInProject": true,
+    "fullAuditPerformed": false
+  },
+  "limits": [
+    "Not all business UI branches accepted",
+    "Stacked PR review/integration not complete; no merge",
+    "Redesign paused and local",
+    "No fresh external-service journey in this run",
+    "Initial SQL timeout and two build failures retained; no root cause claim",
+    "Local frontend test count includes uncommitted redesign tests and does not represent remote CI"
+  ]
+}

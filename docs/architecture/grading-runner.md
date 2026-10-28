@@ -1,31 +1,58 @@
-# Hợp đồng runner tin cậy
+# Runner chấm code và bộ test tin cậy
 
-Mã thực thi service, Docker images, bộ test Notes, công cụ tạo catalog và Docker smoke CI đã có trong [grading-runner](../../grading-runner/README.md). Backend gọi service riêng; không cài dependency hoặc chạy code sinh viên trên host API. Bộ test do giảng viên/đơn vị vận hành quản lý, không lấy lệnh/test/counts từ PR sinh viên làm authority.
+## Tại sao runner phải riêng?
 
-## Cấu hình
+Bài sinh viên là code chưa tin cậy. Chạy trực tiếp trên API host có thể ảnh hưởng secret, dữ liệu và dịch vụ khác. Runner là service độc lập dùng container và bộ test do đơn vị vận hành/giảng viên kiểm soát.
 
-GRADING_RUNNER_URL là HTTPS `/grade`; localhost HTTP chỉ development. GRADING_RUNNER_TOKEN là bearer riêng; GRADING_RUNNER_SIGNING_KEY là khóa HMAC khác token. GRADING_SUITES_JSON map **templateCode:taskId → {id,digest}**. Không dùng suite chung theo template để chấm mọi task. Digest bao gồm repository chính xác, task/spec hash, image bất biến, lệnh chạy và toàn bộ checks. Dùng prepare-catalog.mjs để sinh từ đặc tả thật đã duyệt; không điền digest giả.
+```mermaid
+flowchart LR
+  A[BE: bài nộp và SHA] --> B[Catalog task/spec đã seal]
+  B --> R[Runner]
+  R --> S[Container ứng dụng sinh viên]
+  R --> T[Container tester riêng]
+  T --> S
+  R --> H[Ký kết quả ngoài sandbox]
+  H --> V[BE xác minh request, suite, SHA và chữ ký]
+```
 
-Ví dụ cấu trúc (thay suite thật):
+## Một suite gắn với cái gì?
 
-~~~json
-{"LEARN-NOTES-V1:REAL-TASK-UUID":{"id":"notes-foundation-reviewed-v1","digest":"<sha256-of-reviewed-suite>"}}
-~~~
+`GRADING_SUITES_JSON` map `templateCode:taskId` đến `{id,digest}`. Digest gắn repository, task/spec hash, image bất biến, lệnh và checks. Bộ test của task A không tự trở thành bộ test của task B, dù cùng template.
 
-POST body: repository, headSha, baseSha, templateCode, taskId, taskSpecHash, suiteId, suiteDigest, nonce, requestHash. taskSpecHash=SHA256(JSON.stringify(specification)). requestHash=SHA256(JSON.stringify toàn bộ request trước requestHash), theo đúng thứ tự adapter gửi. Không nhận ref mutable/repo/task/spec khác catalog. Sửa yêu cầu phải duyệt lại suite. Timeout adapter120s.
+Tạo catalog bằng công cụ trong [grading-runner](../../grading-runner/README.md), đọc yêu cầu thật và review trước khi seal. Sửa spec/image/test làm đổi digest; phải duyệt lại binding.
 
-Response: {payload,signature}. Payload gồm status:'completed', requestHash, headSha, suiteId, suiteDigest, passed, failed, summary. Counts là integer không âm, summary<=4000chars. signature=HMAC-SHA256(signingKey,JSON.stringify(payload)) hex64. Ký đúng bytes object payload gửi lại. Adapter so sánh constant-time, verify toàn request/suite/SHA; replay của bài khác không hợp lệ.
+## Request và response
 
-Worker mới ký thêm executionTimeMs (gồm thực thi và cleanup), score=round(passed/total×100,2) và checks[{name,passed,log}] từ tester riêng. Tên lấy từ suite tin cậy, log là kết luận kiểm chứng có giới hạn, không đưa stdout/secret/source tùy ý vào phản hồi. Adapter kiểm tra thời gian0–120000ms, tổng1–50, số dòng/số pass và score phải khớp; không chỉ tin vì chữ ký đúng. Evidence lưu toàn bộ chi tiết, UI hiển thị cùng AI review. Kết quả cũ có requestHash hợp lệ vẫn đọc được khi cả nhóm chi tiết chưa có; không bịa thời gian/score cho lịch sử cũ.
+| Hướng | Trường quan trọng |
+|---|---|
+| BE → runner | repository, headSha, baseSha, templateCode, taskId, taskSpecHash, suiteId, suiteDigest, nonce, requestHash |
+| Runner → BE | payload và signature |
+| Payload | completed status, requestHash, headSha, suiteId/digest, passed, failed, summary |
+| Bằng chứng chi tiết mới | executionTimeMs, score, checks có tên/kết quả/log giới hạn |
 
-## Yêu cầu triển khai
+`requestHash` dùng SHA-256 của bytes JSON theo hợp đồng adapter. `signature` là HMAC-SHA256 trên `JSON.stringify(payload)` bằng signing key riêng. BE so sánh chữ ký constant-time, kiểm tra lại toàn bộ binding và tính nhất quán của counts/score. Chỉ có chữ ký hợp lệ chưa đủ để bỏ qua schema hoặc request mismatch.
 
-Runner tải archive tối đa20MiB từ codeload GitHub cố định, không redirect/extract trên host. Bài sinh viên và tester ở hai container non-root riêng, root filesystem chỉ đọc, dropped capabilities, no-new-privileges, giới hạn CPU/RAM/PIDs/tmpfs/output/deadline. App dùng network none; tester chỉ chia sẻ namespace loopback của app. Không bridge, host gateway, Internet, published port, secret, Docker socket hoặc host IPC. Tester không mount source, không import test sinh viên; signer ở ngoài cả hai container. Dependency/image pin và review, install hooks không chạy trên host. Dọn tester trước app và kiểm tra không còn container; lỗi cleanup không sinh kết quả đạt.
+Kết quả cũ chưa có nhóm chi tiết execution/checks vẫn đọc theo hợp đồng legacy; không tạo thời gian chạy hoặc điểm test giả cho lịch sử.
 
-Suite kiểm tra tiêu chí của đúng task, có negative tests. Thiếu dependency/source/suite/runtime hoặc timeout/report/dọn tài nguyên lỗi trả503, không ký PASS. Suite chạy xong nhưng có check lỗi trả completed với failed>0 và tên check lỗi. Kết quả GitHub Actions của sinh viên chỉ bổ sung bằng chứng. Suite Notes có hợp đồng data-testid rõ trong README; không tự áp cho mọi UI/template hoặc yêu cầu task chưa bao phủ.
+## Ranh giới thực thi
 
-Runtime còn có profile node-http với entry đã duyệt trong `/work` và PORT3000, không chạy npm script hoặc cài dependency ngoài. Trusted API flow giữ token/ID trong tester riêng, thay biến từ response, kiểm tra JSON/HTTP và quyền hai tài khoản; tối đa20step/check, body response256KiB,3giây/request, cùng origin/no redirects. Tasks API suite có4nhóm CRUD/validation/ownership/delete. Đây là hợp đồng chức năng, chưa kiểm tra mọi framework, SQL engine hoặc persistence qua restart; chọn/điều chỉnh test theo task thật trước seal. Chi tiết endpoint và giới hạn ở README runner.
+- Archive chỉ lấy từ codeload GitHub cố định, có giới hạn kích thước; không extract source tùy ý trên API host.
+- App và tester là hai container non-root, root filesystem read-only, capabilities bị bỏ, no-new-privileges.
+- Có giới hạn CPU, RAM, PID, output và deadline; không có host secret, Docker socket hoặc mạng Internet của bài.
+- Tester không mount source/import test sinh viên; chỉ kiểm tra giao diện chức năng được duyệt.
+- Signer ở ngoài sandbox. Dọn tester trước app; cleanup lỗi không sinh kết quả đạt.
 
-Docker thực ngày15/10 đã chạy Tasks API4/4, bài bỏ validation3/4 và bài bỏ ownership3/4; Notes cũ vẫn2/2 và bài lỗi1/2. Image reviewed mới: runtime `sha256:3bbac01aa406e28c545b0390f56ec87461a285d2bf516dcffec4541558c053c9`, tester `sha256:3b13ce66cd235ae41b5d0010ba1566a7ba8ac228a773f8a4e276d3e30a804b6e`. Đổi image làm đổi digest suite, phải seal lại task.
+Runner có các profile và bộ test mẫu cụ thể, không phải một máy chấm mọi công nghệ tự động. Đọc README runner để biết entry, data-testid/API contract và giới hạn của suite đã chọn.
 
-Ngày16/10 đã tải source commit từ PR sinh viên GitHub thật, service Docker đạt2/2 ở bản sửa và phát hiện1/2 ở bản lỗi. Catalog hiện có một foundation task QA đã seal; contract khác cần binding riêng. Lỗi restrictive UMask của systemd đã sửa bằng chmod archive0444 sau ghi;16tests Windows/WSL đạt, giữ thư mục0700 và mount read-only. Raw spec xuất qua `/tasks/:id/spec/source`; không hash `/spec` chứa status phụ thuộc động. [Bằng chứng live](../LIVE-GITHUB.md). Remote CI chưa chạy. Manual teacher review cần lý do rõ ràng, được ghi audit.
+## Các kết quả cần phân biệt
+
+| Tình huống | Cách diễn giải |
+|---|---|
+| Suite chạy xong, có failed checks | Bài đã được kiểm tra và còn lỗi theo suite đó |
+| Thiếu suite/source/runtime hoặc timeout | Chưa đủ bằng chứng thực thi; không phải đã chạy đạt |
+| HMAC/request/SHA không khớp | Từ chối bằng chứng |
+| AI cho điểm tốt nhưng test lỗi | Giữ hai nguồn tách biệt để giảng viên quyết định |
+
+Giới hạn adapter gồm deadline và schema counts/checks; giá trị cụ thể nằm trong source/README runner. Không hạ các giới hạn hoặc bỏ negative tests chỉ để một bài được PASS.
+
+Nguồn: [runner source và cách chạy](../../grading-runner/README.md), [code-review](../../src/code-review), [GitHub review](github-code-review.md).

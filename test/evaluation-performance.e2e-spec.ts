@@ -168,13 +168,10 @@ describe('Phase 5 evaluation + performance e2e (spec 80/81)', () => {
   let i2UserId: string;
 
   it('setup: logins + session/project/assignments', async () => {
-    admin = await login(EMAILS.admin);
-    si = await login(EMAILS.si);
-    ix = await login(EMAILS.ix);
-    i1 = await login(EMAILS.i1);
-    i2 = await login(EMAILS.i2);
-    i1UserId = await userIdByEmail(EMAILS.i1);
-    i2UserId = await userIdByEmail(EMAILS.i2);
+    [admin, si, ix, i1, i2] = await Promise.all([
+      login(EMAILS.admin), login(EMAILS.si), login(EMAILS.ix), login(EMAILS.i1), login(EMAILS.i2),
+    ]);
+    [i1UserId, i2UserId] = await Promise.all([userIdByEmail(EMAILS.i1), userIdByEmail(EMAILS.i2)]);
 
     const session = await request(apiBase()).post('/api/v1/sessions').set('Authorization', `Bearer ${admin}`).send({
       code: `E2E-E5-S-${RUN}`, name: 'Phase 5 session', startDate: '2026-01-01T00:00:00.000Z', endDate: '2026-12-31T00:00:00.000Z',
@@ -192,16 +189,15 @@ describe('Phase 5 evaluation + performance e2e (spec 80/81)', () => {
 
     // Phase 4 lifecycle (spec 46): assignment REQUIRES a passed recruitment
     // profile — the suites seed it directly (same pattern as Phase 2/3 e2e).
-    await ensureRecruitedProfile(dataSource, i1UserId);
-    await ensureRecruitedProfile(dataSource, i2UserId);
-    for (const internUserId of [i1UserId, i2UserId]) {
+    await Promise.all([ensureRecruitedProfile(dataSource, i1UserId), ensureRecruitedProfile(dataSource, i2UserId)]);
+    await Promise.all([i1UserId, i2UserId].map(async internUserId => {
       const created = await request(apiBase()).post('/api/v1/assignments').set('Authorization', `Bearer ${admin}`).send({
         internId: internUserId,
         projectId,
         sessionId,
       });
       expect(created.status).toBe(201);
-    }
+    }));
 
     // si becomes session instructor (evaluations.view/manage scoping)
     await query(
@@ -423,23 +419,35 @@ describe('Phase 5 evaluation + performance e2e (spec 80/81)', () => {
   }
 
   it('performance: EXACT deterministic metrics for i1 (spec 81)', async () => {
-    // t1: SP5, due Feb 10, done ON TIME (history shifted to Feb 9)
-    const t1 = await createTask({ title: 'T1', storyPoints: 5, dueDate: '2026-02-10T00:00:00.000Z' });
-    await driveToDone(t1);
-    await query(`UPDATE task_status_histories SET createdAt = '2026-02-09T12:00:00' WHERE taskId = @0 AND toStatus = 'done'`, [t1]);
-    // t2: SP3, due Feb 5, done LATE (shifted to Feb 6)
-    const t2 = await createTask({ title: 'T2', storyPoints: 3, dueDate: '2026-02-05T00:00:00.000Z' });
-    await driveToDone(t2);
-    await query(`UPDATE task_status_histories SET createdAt = '2026-02-06T12:00:00' WHERE taskId = @0 AND toStatus = 'done'`, [t2]);
-    // t3: SP2, no due date, done
-    const t3 = await createTask({ title: 'T3', storyPoints: 2 });
-    await driveToDone(t3);
-    // t4: no SP, still doing
-    const t4 = await createTask({ title: 'T4' });
-    await request(apiBase()).patch(`/api/v1/tasks/${t4}`).set('Authorization', `Bearer ${admin}`).send({ status: 'doing' });
-    // t5: SP8, overdue open (due in the past, review)
-    const t5 = await createTask({ title: 'T5', storyPoints: 8, dueDate: '2026-02-01T00:00:00.000Z' });
-    await request(apiBase()).patch(`/api/v1/tasks/${t5}`).set('Authorization', `Bearer ${admin}`).send({ status: 'doing' });
+    // Independent fixture tasks can progress concurrently on a constrained host.
+    // Preserve each task's transition order and await all writes before metrics.
+    // The original five-second timeout and every metric assertion stay intact.
+    await Promise.all([
+      (async () => {
+        // SP5, due Feb 10, done ON TIME (history shifted to Feb 9).
+        const task = await createTask({ title: 'T1', storyPoints: 5, dueDate: '2026-02-10T00:00:00.000Z' });
+        await driveToDone(task);
+        await query(`UPDATE task_status_histories SET createdAt = '2026-02-09T12:00:00' WHERE taskId = @0 AND toStatus = 'done'`, [task]);
+      })(),
+      (async () => {
+        // SP3, due Feb 5, done LATE (history shifted to Feb 6).
+        const task = await createTask({ title: 'T2', storyPoints: 3, dueDate: '2026-02-05T00:00:00.000Z' });
+        await driveToDone(task);
+        await query(`UPDATE task_status_histories SET createdAt = '2026-02-06T12:00:00' WHERE taskId = @0 AND toStatus = 'done'`, [task]);
+      })(),
+      (async () => {
+        const task = await createTask({ title: 'T3', storyPoints: 2 });
+        await driveToDone(task);
+      })(),
+      (async () => {
+        const task = await createTask({ title: 'T4' });
+        await request(apiBase()).patch(`/api/v1/tasks/${task}`).set('Authorization', `Bearer ${admin}`).send({ status: 'doing' }).expect(200);
+      })(),
+      (async () => {
+        const task = await createTask({ title: 'T5', storyPoints: 8, dueDate: '2026-02-01T00:00:00.000Z' });
+        await request(apiBase()).patch(`/api/v1/tasks/${task}`).set('Authorization', `Bearer ${admin}`).send({ status: 'doing' }).expect(200);
+      })(),
+    ]);
 
     const metrics = await request(apiBase())
       .get(`/api/v1/performance/interns/${i1UserId}`)

@@ -4,6 +4,9 @@ import { GithubAuthService } from "./github-auth.service";
 import { GithubApiError, GithubClient } from "./github-client";
 import { GithubRepositoriesService } from "./github-repositories.service";
 import { GithubWebhookService } from './github-webhook.service';
+import { GithubRepositoryAccountService } from './github-repository-account.service';
+import { GithubInvitationsService } from './github-invitations.service';
+import { CommunicationsService } from '../communications/communications.service';
 
 const SESSION = "11111111-1111-4111-8111-111111111111";
 const OWNER = "22222222-2222-4222-8222-222222222222";
@@ -25,6 +28,9 @@ function fixture(
     remotePrivate?: boolean;
     remoteMissing?: boolean;
     resolvedMemberId?: number;
+    centralOwner?: string;
+    newRepository?: boolean;
+    adminActor?: string;
   } = {},
 ) {
   const repository = {
@@ -46,6 +52,8 @@ function fixture(
     { userId: "student", login: "old-student", githubUserId: 202 },
   ];
   const savedMembers = new Map<string, string>();
+  const memberStates = new Map<string, Record<string, unknown>>();
+  let exists = !options.newRepository;
   const connectionId = options.connectionId ?? 101;
   const connection = {
     userId: OWNER,
@@ -66,9 +74,15 @@ function fixture(
   };
   const writes: Array<{ path: string; method: string; body?: object }> = [];
   const reads: string[] = [];
+  let remoteCreated = false;
   const query = jest.fn(
     async (sql: string, params: unknown[] = []): Promise<unknown[]> => {
-      if (/SELECT.*FROM internship_sessions/is.test(sql))
+      if (sql === 'SELECT SYSUTCDATETIME() utcNow') return [{ utcNow: new Date() }];
+      if (sql.includes('SELECT * FROM session_repo_members')) return memberStates.has(String(params[1])) ? [memberStates.get(String(params[1]))!] : [];
+      if (sql.includes('SET leaseToken=@2')) { Object.assign(memberStates.get(String(params[1]))!, { leaseToken: params[2] }); return []; }
+      if (sql.includes('INSERT INTO session_repo_members')) { memberStates.set(String(params[1]), { userId: params[1], status: 'not_connected', invitationId: null, githubUserId: null, lastCheckedAt: null, leaseUntil: null, errorCode: null }); return []; }
+      if (sql.includes('UPDATE session_repo_members SET status=@2,githubUserId')) { Object.assign(memberStates.get(String(params[1]))!, { status: params[2], githubUserId: params[3], invitationId: params[5], lastCheckedAt: new Date(), errorCode: params[8] }); savedMembers.set(String(params[1]), String(params[2])); return []; }
+      if (sql.includes('SELECT se.id,se.code'))
         return [
           {
             id: SESSION,
@@ -78,20 +92,28 @@ function fixture(
           },
         ];
       if (/SELECT.*FROM session_repositories/is.test(sql))
-        return [{ ...repository }];
-      if (/SELECT.*FROM session_members\s+m/is.test(sql)) {
+        return exists ? [{ ...repository }] : [];
+      if (sql.startsWith('INSERT INTO session_repositories')) {
+        exists = true;
+        Object.assign(repository, { ownerUserId: params[1], repoName: params[3], githubOwnerId: params[5], status: 'provisioning' });
+        remote.name = repository.repoName;
+        return [];
+      }
+      if (sql.includes("SET status='ready'")) { repository.status = 'ready'; return []; }
+      if (sql.startsWith('SELECT m.userId,c.githubUserId')) return members.filter(member=>member.userId===params[1]);
+      if (sql.includes('FROM session_members WHERE')) {
         let limit = members.length;
         const literal = sql.match(/TOP\s*\(?\s*(\d+)\s*\)?/i);
         const parameter = sql.match(/TOP\s*\(?\s*@(\d+)\s*\)?/i);
         if (literal) limit = Number(literal[1]);
         if (parameter) limit = Number(params[Number(parameter[1])]);
         return members
-          .filter((member) => savedMembers.get(member.userId) !== "invited")
+          .filter((member) => !savedMembers.has(member.userId))
           .slice(0, limit);
       }
       if (/SELECT.*FROM session_repo_members/is.test(sql)) {
         if (params.length > 1)
-          return savedMembers.has(String(params[1]))
+          return memberStates.has(String(params[1]))
             ? [
                 {
                   userId: params[1],
@@ -129,9 +151,12 @@ function fixture(
       async (path: string, _token: string, method = "GET", body?: object) => {
         if (method !== "GET") {
           writes.push({ path, method, body });
+          if (method === 'POST') remoteCreated = true;
           return method === "POST" ? remote : undefined;
         }
         reads.push(path);
+        if (path.includes('/collaborators/')) throw new GithubApiError(404);
+        if (path.includes('/invitations?')) return [];
         if (path === "/user")
           return {
             id: options.authenticatedId ?? connectionId,
@@ -147,7 +172,7 @@ function fixture(
         if (path.startsWith("/users/"))
           return { id: 999, login: "old-student" };
         if (path.startsWith("/repos/")) {
-          if (options.remoteMissing) throw new GithubApiError(404);
+          if (options.remoteMissing && !remoteCreated) throw new GithubApiError(404);
           return remote;
         }
         throw new Error(`Unexpected GitHub request: ${path}`);
@@ -158,13 +183,30 @@ function fixture(
     db as unknown as DataSource,
     auth as unknown as GithubAuthService,
     client as unknown as GithubClient,
-    {} as PermissionsService,
+    { hasRole: jest.fn(async (userId: string) => userId === options.centralOwner || userId === options.adminActor) } as unknown as PermissionsService,
     { register: jest.fn() } as unknown as GithubWebhookService,
+    { credentials: jest.fn(async () => ({ userId: options.centralOwner ?? OWNER, token: 'fixture-token', connection })) } as unknown as GithubRepositoryAccountService,
+    new GithubInvitationsService(db as unknown as DataSource, client as unknown as GithubClient, { ready: () => false } as unknown as CommunicationsService),
   );
   return { service, writes, reads, savedMembers, repository };
 }
 
 describe("GitHub repository invitation trust boundaries", () => {
+  it('lets Admin configure a legacy repository webhook through the recorded teacher owner', async () => {
+    const f = fixture({ adminActor: 'admin' });
+    await expect(f.service.configureWebhook(SESSION, 'admin')).resolves.toMatchObject({ repository: { status: 'ready' } });
+  });
+  it('creates a new repository under the Admin credential without requiring teacher OAuth', async () => {
+    const f = fixture({ centralOwner: 'platform-admin', newRepository: true, remoteMissing: true });
+    await f.service.provision(SESSION, OWNER);
+    expect(f.repository.ownerUserId).toBe('platform-admin');
+    expect(f.writes.find(write => write.path === '/user/repos')?.body).toMatchObject({ name: 'vintern-project-course-session-11111111', private: false });
+  });
+  it('allows the session lead to invite using a separately authorized Admin repository owner', async () => {
+    const f = fixture({ centralOwner: 'platform-admin', repository: { ownerUserId: 'platform-admin' } });
+    await f.service.invite(SESSION, OWNER);
+    expect(f.writes).toHaveLength(1);
+  });
   it("invites the current username belonging to the linked immutable GitHub ID", async () => {
     const f = fixture();
     await f.service.invite(SESSION, OWNER);
@@ -175,14 +217,14 @@ describe("GitHub repository invitation trust boundaries", () => {
         body: { permission: "push" },
       },
     ]);
-    expect(f.savedMembers.get("student")).toBe("invited");
+    expect(f.savedMembers.get("student")).toBe("accepted");
   });
 
   it("never grants write access when a resolved recipient has a different GitHub ID", async () => {
     const f = fixture({ resolvedMemberId: 999 });
     await f.service.invite(SESSION, OWNER).catch(() => undefined);
     expect(f.writes).toEqual([]);
-    expect(f.savedMembers.get("student")).not.toBe("invited");
+    expect(f.savedMembers.get("student")).toBe("failed");
   });
 
   it("rejects a current session lead who does not own the recorded repository", async () => {
@@ -231,7 +273,7 @@ describe("GitHub repository invitation trust boundaries", () => {
     const f = fixture({ members });
     await f.service.invite(SESSION, OWNER);
     await f.service.invite(SESSION, OWNER);
-    expect([...f.savedMembers.values()]).toEqual(Array(7).fill("invited"));
+    expect([...f.savedMembers.values()]).toEqual(Array(7).fill("accepted"));
     expect(f.writes).toHaveLength(7);
     expect(new Set(f.writes.map((write) => write.path)).size).toBe(7);
   });

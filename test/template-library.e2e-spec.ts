@@ -9,13 +9,7 @@ import { DataSource } from 'typeorm';
 import { AppModule } from '../src/app.module';
 import { ensureRbac } from '../src/bootstrap/ensure-rbac';
 import { ENTITIES } from '../src/database/entities';
-import { InitPlatformCore1759872000000 } from '../src/database/migrations/1759872000000-InitPlatformCore';
-import { CreateAcademicCoreTables1759958400000 } from '../src/database/migrations/1759958400000-CreateAcademicCoreTables';
-import { CreateSprintTaskCoreTables1760044800000 } from '../src/database/migrations/1760044800000-CreateSprintTaskCoreTables';
-import { CreateProjectTemplates1760563200000 } from '../src/database/migrations/1760563200000-CreateProjectTemplates';
-import { CreateProjectRoleSlots1761254400000 } from '../src/database/migrations/1761254400000-CreateProjectRoleSlots';
-import { AddTemplateLibraryColumns1761427200000 } from '../src/database/migrations/1761427200000-AddTemplateLibraryColumns';
-import { AddTemplateRunRequest1761513600000 } from '../src/database/migrations/1761513600000-AddTemplateRunRequest';
+import migrationSource from '../src/database/data-source';
 import { Role } from '../src/rbac/entities/role.entity';
 import { User } from '../src/users/entities/user.entity';
 import { UserRole } from '../src/rbac/entities/user-role.entity';
@@ -109,15 +103,8 @@ beforeAll(async () => {
     type: 'mssql', host: DB_HOST, port: DB_PORT, database: DB_NAME, username: DB_USER, password: DB_PASS,
     options: { useUTC: true, encrypt: (process.env.DB_ENCRYPT ?? 'false') !== 'false', trustServerCertificate: true },
     synchronize: false, logging: false, entities: ENTITIES,
-    migrations: [
-      InitPlatformCore1759872000000,
-      CreateAcademicCoreTables1759958400000,
-      CreateSprintTaskCoreTables1760044800000,
-      CreateProjectTemplates1760563200000,
-      CreateProjectRoleSlots1761254400000,
-      AddTemplateLibraryColumns1761427200000,
-      AddTemplateRunRequest1761513600000,
-    ],
+    // This is a current AppModule integration test, not a historical rollback test.
+    migrations: migrationSource.options.migrations,
     migrationsRun: false,
   });
   await migDs.initialize();

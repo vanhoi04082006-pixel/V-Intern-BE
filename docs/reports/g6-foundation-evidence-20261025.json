@@ -1,0 +1,86 @@
+{
+  "checkedAtUtc": "2026-10-25T03:01:03.118Z",
+  "scope": "G6 D01-D03; synthetic accounts/disposable SQL only; native G6 migration NOT applied",
+  "backendCodeCommit": "928985521042bbab6ec501b4574727c713409a49",
+  "frontendCodeCommit": "75ec0db99a4ddb71d1cd704f2e115985cb711b72",
+  "results": {
+    "backendUnit": {
+      "suites": 105,
+      "tests": 805
+    },
+    "frontendUnit": {
+      "files": 102,
+      "tests": 624
+    },
+    "sql": {
+      "suites": 3,
+      "tests": 20
+    },
+    "migration": {
+      "tests": 3
+    },
+    "browser": {
+      "roles": 2,
+      "widthChecks": 10,
+      "pageErrors": 0
+    }
+  },
+  "remaining": [
+    "T01 Replacement Advisor Agent",
+    "T02 approval/replacement transaction",
+    "T03 safe repository access reconciliation",
+    "native activation and G6 final exact-pair CI"
+  ],
+  "sources": [
+    {
+      "path": ".runtime/g6-d03-combined-be-unit.log",
+      "sha256": "4bac945beb762a4469154fbfb95074617cb3ac00e93d354ef497b281cdd7c9a9",
+      "lastModifiedAtUtc": "2026-10-25T02:46:16.340Z"
+    },
+    {
+      "path": ".runtime/g6-d03-combined-be-lint.log",
+      "sha256": "30076a1d7de6709d759fb55d6551c1ecd4f51839c91643f9c90595e41d9af26a",
+      "lastModifiedAtUtc": "2026-10-25T02:46:43.157Z"
+    },
+    {
+      "path": ".runtime/g6-d03-combined-fe-unit.log",
+      "sha256": "d783a5d8f9fee9eaa0906834d9f8e4213dc066ffddad6fc5d4fa736d49655326",
+      "lastModifiedAtUtc": "2026-10-25T02:48:05.972Z"
+    },
+    {
+      "path": ".runtime/g6-d03-combined-fe-typecheck.log",
+      "sha256": "8041268fb6d70d4bda74549f8806ced8b30c7b022e35d0c9972ff60c0a7e360c",
+      "lastModifiedAtUtc": "2026-10-25T02:44:53.293Z"
+    },
+    {
+      "path": ".runtime/g6-d03-combined-fe-lint.log",
+      "sha256": "75d7fd14924d3a0e130f015263235d4e76e5a4e443bd324cdb7b5bf3ba912b1e",
+      "lastModifiedAtUtc": "2026-10-25T02:56:28.937Z"
+    },
+    {
+      "path": ".runtime/g6-qa-fe-build.log",
+      "sha256": "84d687507826ea7936f4e106542633598c7b16153c4406fbdd9fb6aa5f7b4e55",
+      "lastModifiedAtUtc": "2026-10-25T02:29:16.322Z"
+    },
+    {
+      "path": ".runtime/g6-be-d03-qa-build.log",
+      "sha256": "7d3397f421b7573134296da1f550f75fb00da6deea3ef32bf14a326c566f4adc",
+      "lastModifiedAtUtc": "2026-10-25T02:25:35.100Z"
+    },
+    {
+      "path": ".runtime/g6-d03-combined-sql.log",
+      "sha256": "fba8cb87a8206cb51101546940d0bb11bad8d88d6dd7c0007c903b542c174022",
+      "lastModifiedAtUtc": "2026-10-25T02:46:20.916Z"
+    },
+    {
+      "path": ".runtime/g6-migration-green.log",
+      "sha256": "f60bfb3860990548f2f48778f3cf30f98cceda0f837b8a8f3aabaa3dd85e944b",
+      "lastModifiedAtUtc": "2026-10-25T01:30:03.096Z"
+    },
+    {
+      "path": "manual-runtime/g6-20261025/participation-browser.json",
+      "sha256": "5676d242645a33cc96d6f7835f5fe52d760433389033353dfbfdff52d4112ca7",
+      "lastModifiedAtUtc": "2026-10-25T02:39:07.644Z"
+    }
+  ]
+}

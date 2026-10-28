@@ -1,5 +1,7 @@
 import {
   ForbiddenException,
+  BadRequestException,
+  ConflictException,
   Injectable,
   ServiceUnavailableException,
   UnauthorizedException,
@@ -9,7 +11,8 @@ import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { EntityManager, IsNull, Repository } from 'typeorm';
-import { compare } from 'bcryptjs';
+import { compare, hash } from 'bcryptjs';
+import { enforceTemporaryPassword } from './temporary-password.policy';
 import { AuditService } from '../audit/audit.service';
 import { User } from '../users/entities/user.entity';
 import { PermissionsService } from '../rbac/permissions.service';
@@ -50,7 +53,7 @@ export class AuthService {
   }
 
   private async signAccessToken(user: User): Promise<string> {
-    return this.jwt.signAsync({ sub: user.id, email: user.email });
+    return this.jwt.signAsync({ sub: user.id, email: user.email, av: user.authVersion ?? 0 });
   }
 
   private static readonly GENERIC_401 = {
@@ -115,6 +118,7 @@ export class AuthService {
       throw new UnauthorizedException(AuthService.GENERIC_401);
     }
 
+    enforceTemporaryPassword(user, true);
     return this.issueSession(user, ip, ua);
   }
 
@@ -208,7 +212,7 @@ export class AuthService {
             };
           }
           const user = await this.users.findActiveById(existing.userId);
-          if (!user) {
+          if (!user || user.mustChangePassword && (!user.temporaryPasswordExpiresAt || user.temporaryPasswordExpiresAt <= new Date())) {
             await em.update(
               RefreshToken,
               { familyId: existing.familyId, revokedAt: IsNull() },
@@ -269,6 +273,21 @@ export class AuthService {
 
   private refreshError(code: string, message: string): UnauthorizedException {
     return new UnauthorizedException({ statusCode: 401, code, message });
+  }
+
+  async changePassword(userId: string, currentPassword: string, newPassword: string) {
+    if (Buffer.byteLength(newPassword, 'utf8') > 72 || newPassword.length < 12 || !newPassword.trim() || currentPassword === newPassword) throw new BadRequestException('Mật khẩu mới cần 12–72 ký tự, tối đa 72 byte và khác mật khẩu cũ.');
+    const user = await this.users.findActiveById(userId);
+    if (!user || !await compare(currentPassword, user.passwordHash)) throw new UnauthorizedException(AuthService.GENERIC_401);
+    enforceTemporaryPassword(user, true);
+    const nextHash = await hash(newPassword, 10);
+    await this.refreshTokens.manager.transaction(async em => {
+      const changed = await em.query('UPDATE users SET passwordHash=@1,mustChangePassword=0,temporaryPasswordExpiresAt=NULL,authVersion=authVersion+1,updatedAt=SYSUTCDATETIME() OUTPUT inserted.id WHERE id=@0 AND passwordHash=@2 AND status=\'active\'', [userId, nextHash, user.passwordHash]);
+      if (!changed.length) throw new ConflictException('Mật khẩu vừa được thay đổi. Hãy đăng nhập lại.');
+      await em.update(RefreshToken, { userId, revokedAt: IsNull() }, { revokedAt: new Date() });
+    });
+    await this.audit.record({ actorId: userId, action: 'auth.password_changed', targetType: 'user', targetId: userId });
+    return { changed: true };
   }
 
   private async lockRefreshFamily(

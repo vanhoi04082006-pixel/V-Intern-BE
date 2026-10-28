@@ -26,6 +26,7 @@ describe('recruitment profile state machine (spec 63)', () => {
       ['not_started', 'role_selected'],
       ['role_selected', 'interview_in_progress'],
       ['interview_in_progress', 'evaluation_pending'],
+      ['interview_in_progress', 'role_selected'], // audited schedule preparation after session expiry/cancellation
       ['evaluation_pending', 'passed'],
       ['evaluation_pending', 'failed'],
       ['failed', 'role_selected'],

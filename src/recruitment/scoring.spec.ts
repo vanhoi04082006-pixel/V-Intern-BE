@@ -20,10 +20,10 @@ describe('recruitment scoring — Overall = 0.7×Technical + 0.3×Soft (spec 4/6
     expect(decideRecruitment(calculateOverallScore(58, 72))).toBe('failed');
   });
 
-  it('70/70 → 70.0 PASS (threshold inclusive)', () => {
+  it('70/70 → 70.0 does not pass; a candidate needs more than 70', () => {
     expect(calculateOverallScore(70, 70)).toBe(70);
-    expect(decideRecruitment(70)).toBe('passed');
-    expect(decideRecruitment(PASS_THRESHOLD)).toBe('passed');
+    expect(decideRecruitment(70)).toBe('failed');
+    expect(decideRecruitment(PASS_THRESHOLD)).toBe('failed');
   });
 
   it('69.9/69.9 → 69.9 FAIL (just below threshold)', () => {
@@ -52,7 +52,7 @@ describe('recruitment scoring — Overall = 0.7×Technical + 0.3×Soft (spec 4/6
 
   it('decision boundary sweep around 70', () => {
     expect(decideRecruitment(69.95)).toBe('failed'); // rounds to 70.0? no: 69.95 < 70 → failed
-    expect(decideRecruitment(70.0)).toBe('passed');
+    expect(decideRecruitment(70.0)).toBe('failed');
     expect(decideRecruitment(70.1)).toBe('passed');
   });
 });

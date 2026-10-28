@@ -1,0 +1,113 @@
+{
+  "manifestCreatedAtUtc": "2026-10-24T21:26:30.691Z",
+  "userFacingDate": "25/10/2026 UTC+7",
+  "backendCodeCommit": "ffee09f609bb461742158701ecf6af0d89cb6538",
+  "frontendCodeCommit": "b8f6cba0c2d7f3fbf429adbb8d372074eb7fa8dd",
+  "groups": {
+    "backendUnit": {
+      "suites": 101,
+      "tests": 775
+    },
+    "sqlShared": {
+      "suites": 34,
+      "tests": 318
+    },
+    "sqlG3G4": {
+      "suites": 3,
+      "tests": 33
+    },
+    "sqlG4Migration": {
+      "tests": 2
+    },
+    "frontendUnit": {
+      "files": 98,
+      "tests": 605
+    },
+    "browser": {
+      "checkedAtUtc": "2026-10-24T19:59:39.378Z",
+      "flows": 11,
+      "passed": 11,
+      "pageErrors": 0,
+      "model": "explicit deterministic transport; real Agent graphs and SQL",
+      "smtp": "real SMTP protocol to local-only sink, not inbox delivery",
+      "viewportWidths": [
+        390,
+        768,
+        1440
+      ]
+    }
+  },
+  "remoteCI": "Pending publication; local results do not claim remote checks passed",
+  "sources": [
+    {
+      "path": ".runtime/g4-be-unit-final.log",
+      "sha256": "d56a416608f06cdbb8ba123fa534a56d2affc6d2db6d12ffaf5900c21a7b5675",
+      "lastModifiedAtUtc": "2026-10-24T19:45:45.569Z"
+    },
+    {
+      "path": ".runtime/g4-be-build-final.log",
+      "sha256": "7d3397f421b7573134296da1f550f75fb00da6deea3ef32bf14a326c566f4adc",
+      "lastModifiedAtUtc": "2026-10-24T19:45:46.652Z"
+    },
+    {
+      "path": ".runtime/g4-be-lint-final.log",
+      "sha256": "30076a1d7de6709d759fb55d6551c1ecd4f51839c91643f9c90595e41d9af26a",
+      "lastModifiedAtUtc": "2026-10-24T19:46:04.789Z"
+    },
+    {
+      "path": ".runtime/g4-shared-sql.log",
+      "sha256": "190d2786674d782c508b3de3ce65c6271afd5aebf513dadfeaf8c376adf5eb7a",
+      "lastModifiedAtUtc": "2026-10-24T19:40:15.892Z"
+    },
+    {
+      "path": ".runtime/g4-domain-sql-verified.log",
+      "sha256": "0e755c00b7cb5ffeb09f25bdb60345d49d4117e911223b408a724e2b523cbd29",
+      "lastModifiedAtUtc": "2026-10-24T19:33:09.587Z"
+    },
+    {
+      "path": ".runtime/g4-migration.log",
+      "sha256": "5d171bdb24971af1a0d703efbe37489356fbc3c094da294ca51415e36b4291d3",
+      "lastModifiedAtUtc": "2026-10-24T18:57:14.261Z"
+    },
+    {
+      "path": ".runtime/g4-fe-unit-final.log",
+      "sha256": "5d6ea2032bf8ed67d432a62b4196388d71c1e2c20c07e4718707b4d547c194a2",
+      "lastModifiedAtUtc": "2026-10-24T19:45:59.255Z"
+    },
+    {
+      "path": ".runtime/g4-fe-typecheck-final.log",
+      "sha256": "8041268fb6d70d4bda74549f8806ced8b30c7b022e35d0c9972ff60c0a7e360c",
+      "lastModifiedAtUtc": "2026-10-24T19:45:59.750Z"
+    },
+    {
+      "path": ".runtime/g4-fe-lint-final.log",
+      "sha256": "75d7fd14924d3a0e130f015263235d4e76e5a4e443bd324cdb7b5bf3ba912b1e",
+      "lastModifiedAtUtc": "2026-10-24T19:46:04.070Z"
+    },
+    {
+      "path": ".runtime/g4-fe-build-final.log",
+      "sha256": "dd1ff5ac132195c3416162f6a274a58bf690f02d0dabcb7cc2225261fb966205",
+      "lastModifiedAtUtc": "2026-10-24T19:46:32.636Z"
+    },
+    {
+      "path": ".runtime/g4-browser-verified.log",
+      "sha256": "81eb55ef7eafd527b5fc3110177556828b7db93846ed501e816c12d1a18c82f8",
+      "lastModifiedAtUtc": "2026-10-24T19:59:39.377Z"
+    },
+    {
+      "path": ".runtime/g4-native-activation.log",
+      "sha256": "7e60a51f025a28a3ae65fb3ea0257952c144b94d7ebe71aac8b2dbb88eaa2865",
+      "lastModifiedAtUtc": "2026-10-24T19:49:10.760Z"
+    },
+    {
+      "path": "manual-runtime/g4-20261025/browser-result.json",
+      "sha256": "04813deb57482b18a0a57226ff81f274406329495f1711827b46ede27edecadb",
+      "lastModifiedAtUtc": "2026-10-24T19:59:39.381Z"
+    },
+    {
+      "path": "manual-runtime/g4-20261025/native-activation.json",
+      "sha256": "63b9802e4d3f6f7be8dfa6ca0db84779e8196ff2c69f8fa557fc021e27cac2e1",
+      "lastModifiedAtUtc": "2026-10-24T19:49:10.749Z"
+    }
+  ]
+}

@@ -4,6 +4,7 @@ import { createHash } from 'node:crypto';
 import { DataSource, IsNull, Repository } from 'typeorm';
 import { AuditService } from '../../audit/audit.service';
 import { AiService } from '../ai.service';
+import { generateRecommendationWithRepair } from './recommendation-repair';
 import { aiErrorCode } from '../ai-errors';
 import { Evaluation } from '../../evaluation/entities/evaluation.entity';
 import { EvaluationCriterion } from '../../evaluation/entities/evaluation-criterion.entity';
@@ -122,9 +123,10 @@ export class RecommendationsService {
     let recommendation: RecommendationData;
     let runId: string | null = null;
     try {
-      const result = await this.aiService.generateStructuredWithRun<RecommendationData>({
+      const result = await generateRecommendationWithRepair(this.aiService, {
         feature: RECOMMENDATION_TASK,
         userId: targetUserId,
+        actorId: principal.userId,
         resourceType: 'ai_recommendation_snapshot',
         resourceId: targetUserId,
         promptVersion: RECOMMENDATION_PROMPT_VERSION,

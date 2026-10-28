@@ -1,4 +1,5 @@
 import { createDatabaseSql } from '../src/database/create-database-sql';
+import { scriptedBusinessDecision } from './fixtures/business-agent-provider';
 import { createConnection } from 'node:net';
 import { randomUUID } from 'node:crypto';
 import { hash } from 'bcryptjs';
@@ -10,14 +11,7 @@ import { AppModule } from '../src/app.module';
 import { AI_PROVIDER_TOKEN, type AiProvider } from '../src/ai/ai-provider.interface';
 import { ensureRbac } from '../src/bootstrap/ensure-rbac';
 import { ENTITIES } from '../src/database/entities';
-import { InitPlatformCore1759872000000 } from '../src/database/migrations/1759872000000-InitPlatformCore';
-import { CreateAcademicCoreTables1759958400000 } from '../src/database/migrations/1759958400000-CreateAcademicCoreTables';
-import { CreateSprintTaskCoreTables1760044800000 } from '../src/database/migrations/1760044800000-CreateSprintTaskCoreTables';
-import { CreateRecruitmentAiCoreTables1760131200000 } from '../src/database/migrations/1760131200000-CreateRecruitmentAiCoreTables';
-import { AddRecruitmentReviewProvenance1760390400000 } from '../src/database/migrations/1760390400000-AddRecruitmentReviewProvenance';
-import { CreateEvaluationKpiSalaryCertificateTables1760217600000 } from '../src/database/migrations/1760217600000-CreateEvaluationKpiSalaryCertificateTables';
-import { CreateProjectRoleSlots1761254400000 } from '../src/database/migrations/1761254400000-CreateProjectRoleSlots';
-import { CreateAiGenerationBatches1761340800000 } from '../src/database/migrations/1761340800000-CreateAiGenerationBatches';
+import migrationSource from '../src/database/data-source';
 import { Role } from '../src/rbac/entities/role.entity';
 import { User } from '../src/users/entities/user.entity';
 import { UserRole } from '../src/rbac/entities/user-role.entity';
@@ -71,6 +65,7 @@ class ScriptableTestAiProvider implements AiProvider {
     task: string;
     validate: (raw: unknown) => T;
   }): Promise<{ data: T; provider: string; model: string; latencyMs: number; inputTokens: number | null; outputTokens: number | null }> {
+    const control = scriptedBusinessDecision(req, this.name, this.model); if (control) return control;
     const step = this.steps.shift();
     if (!step) throw new Error('No scripted AI step left');
     if (step.fail) {
@@ -106,7 +101,7 @@ beforeAll(async () => {
     type: 'mssql', host: DB_HOST, port: DB_PORT, database: DB_NAME, username: DB_USER, password: DB_PASS,
     options: { useUTC: true, encrypt: (process.env.DB_ENCRYPT ?? 'false') !== 'false', trustServerCertificate: true },
     synchronize: false, logging: false, entities: ENTITIES,
-    migrations: [InitPlatformCore1759872000000, CreateAcademicCoreTables1759958400000, CreateSprintTaskCoreTables1760044800000, CreateRecruitmentAiCoreTables1760131200000, AddRecruitmentReviewProvenance1760390400000, CreateEvaluationKpiSalaryCertificateTables1760217600000, CreateProjectRoleSlots1761254400000, CreateAiGenerationBatches1761340800000],
+    migrations: migrationSource.options.migrations,
     migrationsRun: false,
   });
   await migDs.initialize();

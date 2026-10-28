@@ -3,6 +3,7 @@ import { randomUUID } from 'crypto';
 import { DataSource, EntityManager } from 'typeorm';
 import { AuditLog } from '../audit/entities/audit-log.entity';
 import { PermissionsService } from '../rbac/permissions.service';
+import { CareerRolesService } from '../career-roles/career-roles.service';
 import { QuestionBankQueryDto, QuestionContentDto, UpdateQuestionDto } from './question-bank.dto';
 interface QuestionRow { id: string; roleCode: string; category: string; difficulty: string; prompt: string; rubricJson: string; isActive: boolean; sortOrder: number; version: number; updatedAt: Date }
 function view(row: QuestionRow) {
@@ -15,7 +16,7 @@ function view(row: QuestionRow) {
 }
 @Injectable()
 export class QuestionBankService {
-  constructor(private readonly db: DataSource, private readonly permissions: PermissionsService) {}
+  constructor(private readonly db: DataSource, private readonly permissions: PermissionsService, private readonly careers: CareerRolesService) {}
   private async authorize(actor: string) { if (!await this.permissions.hasRole(actor, 'admin')) throw new ForbiddenException('Question bank is restricted to administrators.'); }
   async list(actor: string, q: QuestionBankQueryDto) {
     await this.authorize(actor);
@@ -42,6 +43,7 @@ export class QuestionBankService {
     await this.db.transaction(async em => {
       // Serialize administrator edits/order allocation. Student interview snapshots are separate rows.
       await em.query("SELECT id FROM roles WITH(UPDLOCK,HOLDLOCK) WHERE code='admin'");
+      await this.careers.requireRole(input.roleCode, em);
       const [current]: QuestionRow[] = id ? await em.query('SELECT * FROM interview_questions WITH(UPDLOCK,HOLDLOCK) WHERE id=@0', [id]) : [];
       if (id && !current) throw new NotFoundException('Question not found.');
       if (current && current.version !== (input as UpdateQuestionDto).version) throw new ConflictException({ code: 'QUESTION_VERSION_CONFLICT', message: 'Câu hỏi đã thay đổi. Hãy tải lại trước khi lưu.' });

@@ -15,12 +15,15 @@ import { toPaginated } from '../common/pagination/paginated';
 import { isUniqueViolation } from '../common/utils/db-errors';
 import { Ownership } from '../rbac/ownership';
 import { PermissionsService } from '../rbac/permissions.service';
+import { CareerRolesService } from '../career-roles/career-roles.service';
 import { ChangeRequestDto, CreateTemplateDto, QueryTemplatesDto, StartTemplateDto, UpdateTemplateDto } from './template.dto';
 import { validateBlueprint } from './blueprint-validation';
+import { publicTemplateDefinition, validateTemplateContent } from './template-package';
+import { appendTemplateRevision, storedTemplateAssessment, TemplateRevisionsStore } from './template-revisions.store';
 interface TemplateRow { id: string; code: string; name: string; category: string | null; difficulty: string; status: string; version: number; definitionJson: string; createdAt: Date; archivedAt: Date | null; }
 @Injectable()
 export class TemplatesService {
-  constructor(private readonly db: DataSource, private readonly tasks: TasksService, private readonly permissions: PermissionsService) {}
+  constructor(private readonly db: DataSource, private readonly tasks: TasksService, private readonly permissions: PermissionsService, private readonly careers: CareerRolesService, private readonly revisions: TemplateRevisionsStore) {}
 
   private async assertProjectAccess(db: DataSource | EntityManager, projectId: string, actor: string, manage = false): Promise<void> {
     const rows: Array<{ mentorId: string | null }> = await db.query(
@@ -39,7 +42,7 @@ export class TemplatesService {
   }
 
   private parseDefinition(row: TemplateRow): CreateTemplateDto {
-    return JSON.parse(row.definitionJson) as CreateTemplateDto;
+    return publicTemplateDefinition(JSON.parse(row.definitionJson) as CreateTemplateDto);
   }
 
   private toSummary(row: TemplateRow) {
@@ -68,6 +71,7 @@ export class TemplatesService {
   private validateDefinition(definition: CreateTemplateDto): void {
     if (definition.name.trim().length < 2 || definition.description.trim().length < 10) throw new BadRequestException('Template name and description must contain meaningful text.');
     validateBlueprint(definition);
+    validateTemplateContent(definition);
     if (definition.roleDetails) {
       const codes = new Set(definition.roles ?? []);
       const bad = definition.roleDetails.filter((r) => !codes.has(r.code));
@@ -131,14 +135,19 @@ export class TemplatesService {
   }
 
   async create(dto: CreateTemplateDto, actor: string) {
+    if (dto.assessment !== undefined) await this.revisions.authorizeAssessment(actor, 'manage');
     if (dto.sprints.some(s => s.tasks.some(t => !dto.roles.includes(t.role)))) throw new BadRequestException('Task role must belong to template roles.');
     this.validateDefinition(dto);
+    validateTemplateContent(dto, dto.assessment);
+    const definition = publicTemplateDefinition(dto), definitionJson = JSON.stringify(definition);
     const id = randomUUID();
     const code = dto.code?.trim() || `TPL-${randomUUID().slice(0, 8).toUpperCase()}`;
     try {
       await this.db.transaction(async em => {
+        for (const code of dto.roles) await this.careers.requireRole(code, em);
         await em.query('INSERT INTO project_templates(id,code,name,category,difficulty,definitionJson,createdById) VALUES(@0,@1,@2,@3,@4,@5,@6)',
-          [id, code, dto.name, dto.category?.trim() || null, dto.difficulty, JSON.stringify(dto), actor]);
+          [id, code, dto.name, dto.category?.trim() || null, dto.difficulty, definitionJson, actor]);
+        await appendTemplateRevision(em, id, 1, definitionJson, actor, dto.assessment);
         await this.record(em, actor, 'template.created', id, { name: dto.name, code });
       });
     } catch (err) {
@@ -147,10 +156,11 @@ export class TemplatesService {
       }
       throw err;
     }
-    return { id, code, name: dto.name, version: 1, status: 'active', definition: dto };
+    return { id, code, name: dto.name, version: 1, status: 'active', definition };
   }
 
   async update(id: string, dto: UpdateTemplateDto, actor: string) {
+    if (dto.assessment !== undefined) await this.revisions.authorizeAssessment(actor, 'manage');
     return this.db.transaction(async em => {
       const rows: TemplateRow[] = await em.query('SELECT * FROM project_templates WITH(UPDLOCK,HOLDLOCK) WHERE id=@0', [id]);
       if (!rows.length) throw new NotFoundException('Template not found.');
@@ -159,7 +169,7 @@ export class TemplatesService {
       const sets: string[] = [];
       const params: unknown[] = [];
       let version = current.version;
-      if (dto.definition !== undefined || dto.name !== undefined || dto.category !== undefined || dto.difficulty !== undefined) {
+      if (dto.definition !== undefined || dto.name !== undefined || dto.category !== undefined || dto.difficulty !== undefined || dto.assessment !== undefined) {
         const definition: CreateTemplateDto = { ...(dto.definition ?? this.parseDefinition(current)),
           ...(dto.name !== undefined ? { name: dto.name } : {}), ...(dto.category !== undefined ? { category: dto.category } : {}), ...(dto.difficulty !== undefined ? { difficulty: dto.difficulty as CreateTemplateDto['difficulty'] } : {}) };
         if (definition.code && definition.code !== current.code) throw new BadRequestException('Template code cannot be changed.');
@@ -167,11 +177,17 @@ export class TemplatesService {
           throw new BadRequestException('Task role must belong to template roles.');
         }
         this.validateDefinition(definition);
+        const priorAssessment = await storedTemplateAssessment(em, id, current.version);
+        const assessment = dto.assessment === undefined ? priorAssessment : dto.assessment;
+        validateTemplateContent(definition, assessment);
+        await appendTemplateRevision(em, id, current.version, current.definitionJson, actor);
+        for (const code of definition.roles) await this.careers.requireRole(code, em);
         for (const [column, value] of [['name', definition.name], ['category', definition.category?.trim() || null], ['difficulty', definition.difficulty]] as const) { params.push(value); sets.push(`${column}=@${params.length - 1}`); }
         params.push(JSON.stringify(definition));
         sets.push(`definitionJson=@${params.length - 1}`);
         version = current.version + 1;
         sets.push(`version=${version}`);
+        await appendTemplateRevision(em, id, version, JSON.stringify(publicTemplateDefinition(definition)), actor, assessment);
       }
       if (dto.status !== undefined) {
         params.push(dto.status);
@@ -229,6 +245,7 @@ export class TemplatesService {
         throw new ConflictException({ statusCode: 409, code: 'TEMPLATE_ARCHIVED', message: 'Archived templates cannot start new sessions.' });
       }
       const definition = this.parseDefinition(template);
+      await appendTemplateRevision(em, id, template.version, template.definitionJson, actor);
       const existing: { n: number }[] = await em.query('SELECT COUNT(*) AS n FROM template_runs WHERE templateId=@0', [id]);
       const seq = Number(existing[0]?.n ?? 0) + 1;
       const base = (template.code || 'TPL').slice(0, 48);
@@ -262,7 +279,7 @@ export class TemplatesService {
       }
       const runId = randomUUID();
       await em.query('INSERT INTO template_runs(id,templateId,projectId,sessionId,templateVersion,snapshotJson,requesterId,requestId) VALUES(@0,@1,@2,@3,@4,@5,@6,@7)',
-        [runId, id, project.id, session.id, template.version, template.definitionJson, actor, dto.requestId ?? null]);
+        [runId, id, project.id, session.id, template.version, JSON.stringify(definition), actor, dto.requestId ?? null]);
       await this.record(em, actor, 'template.started', runId, { templateId: id, templateVersion: template.version, projectId: project.id, sessionId: session.id });
       return { id: runId, projectId: String(project.id).toLowerCase(), sessionId: String(session.id).toLowerCase(), templateVersion: template.version, deduped: false };
     });
@@ -285,6 +302,20 @@ export class TemplatesService {
     if (actor) await this.assertProjectAccess(this.db, projectId, actor);
     const rows: { snapshotJson: string; templateVersion: number }[] = await this.db.query('SELECT snapshotJson,templateVersion FROM template_runs WHERE projectId=@0',[projectId]);
     return rows.length ? { definition: JSON.parse(rows[0].snapshotJson) as object, templateVersion: rows[0].templateVersion } : null;
+  }
+  async ownLearningPackage(projectId: string, actor: string) {
+    if (!await this.permissions.hasRole(actor, 'intern')) throw new ForbiddenException('Chỉ sinh viên được đọc gói bài chính chủ.');
+    const [run]: Array<{ snapshotJson: string; templateVersion: number; code: string }> = await this.db.query("SELECT r.snapshotJson,r.templateVersion,t.code FROM assignments a JOIN template_runs r ON r.projectId=a.projectId AND r.sessionId=a.sessionId JOIN project_templates t ON t.id=r.templateId WHERE a.internId=@0 AND a.projectId=@1 AND a.status IN ('active','completed')", [actor, projectId]);
+    if (!run) throw new NotFoundException('Không tìm thấy gói bài của bạn.');
+    const definition = publicTemplateDefinition(JSON.parse(run.snapshotJson) as CreateTemplateDto);
+    return { templateCode: run.code, templateVersion: run.templateVersion, learningPackage: definition.learningPackage ?? null };
+  }
+  async projectAssessment(projectId: string, actor: string) {
+    await this.revisions.authorizeAssessment(actor, 'read');
+    await this.assertProjectAccess(this.db, projectId, actor);
+    const [run]: Array<{ templateId: string; templateVersion: number }> = await this.db.query('SELECT templateId,templateVersion FROM template_runs WHERE projectId=@0', [projectId]);
+    if (!run) throw new NotFoundException('Dự án không được tạo từ mẫu.');
+    return { version: run.templateVersion, assessment: await storedTemplateAssessment(this.db.manager, run.templateId, run.templateVersion) };
   }
   async changes(projectId: string, actor: string) {
     await this.assertProjectAccess(this.db, projectId, actor);

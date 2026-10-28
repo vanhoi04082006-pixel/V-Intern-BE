@@ -15,6 +15,7 @@ export class SubmissionRubricDto {
   @IsNumber({ maxDecimalPlaces: 1 }) @Min(0) @Max(100) dod!: number;
 }
 export class ReviewSubmissionDto {
+  @IsOptional() @IsNumber({ maxDecimalPlaces: 2 }) @Min(0) @Max(100) confirmedLatePenalty?: number;
   @IsOptional() @IsString() @MinLength(30) @MaxLength(2000) overrideReason?: string;
   @IsDefined() @ValidateNested() @Type(() => SubmissionRubricDto) rubric!: SubmissionRubricDto;
   @IsString() @MinLength(10) @MaxLength(4000) feedback!: string;

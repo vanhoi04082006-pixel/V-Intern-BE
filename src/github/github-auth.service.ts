@@ -107,6 +107,8 @@ export class GithubAuthService {
   async token(
     userId: string,
   ): Promise<{ token: string; connection: GithubConnection }> {
+    const active = await this.db.query("SELECT id FROM users WHERE id=@0 AND status='active'", [userId]);
+    if (!active.length) throw new ServiceUnavailableException({ code: 'GITHUB_ACCOUNT_INACTIVE', message: 'Tài khoản cung cấp kết nối GitHub đã bị khóa hoặc ngừng hoạt động.' });
     const existing = await this.connection(userId);
     if (!existing)
       throw new ServiceUnavailableException({
@@ -121,10 +123,11 @@ export class GithubAuthService {
   }
   async begin(userId: string) {
     this.requireConfigured();
+    const admin = await this.permissions.hasRole(userId, "admin");
     const instructor = await this.permissions.hasRole(userId, "instructor");
-    if (!instructor && !(await this.permissions.hasRole(userId, "intern")))
+    if (!admin && !instructor && !(await this.permissions.hasRole(userId, "intern")))
       throw new ForbiddenException(
-        "Tài khoản cần có vai trò giảng viên hoặc sinh viên.",
+        "Tài khoản cần có vai trò Admin, giảng viên hoặc sinh viên.",
       );
     const state = randomBytes(32).toString("base64url"),
       verifier = randomBytes(32).toString("base64url");
@@ -136,7 +139,7 @@ export class GithubAuthService {
         hash,
         userId,
         sealToken(verifier, this.secret(), `oauth:${hash}`),
-        instructor ? "instructor" : "intern",
+        admin ? "admin" : instructor ? "instructor" : "intern",
         new Date(Date.now() + 600000),
         connection ? connection.tokenVersion ?? 1 : 0,
       ],
@@ -144,7 +147,7 @@ export class GithubAuthService {
     const params = new URLSearchParams({
       client_id: this.config.get<string>("GITHUB_CLIENT_ID")!,
       redirect_uri: this.config.get<string>("GITHUB_CALLBACK_URL")!,
-      scope: instructor ? "read:user public_repo" : "read:user",
+      scope: admin ? "read:user public_repo" : "read:user",
       state,
       code_challenge: createHash("sha256").update(verifier).digest("base64url"),
       code_challenge_method: "S256",
@@ -234,6 +237,9 @@ export class GithubAuthService {
           "SELECT userId,tokenVersion FROM github_connections WITH(UPDLOCK,HOLDLOCK) WHERE userId=@0",
           [userId],
         );
+        const selected = await em.query('SELECT githubUserId FROM github_repository_account WHERE userId=@0', [userId]);
+        if (selected[0] && String(selected[0].githubUserId) !== String(identity.id))
+          throw new ConflictException('Không đổi danh tính tài khoản tạo repo chung qua kết nối lại. Hãy chọn Admin khác làm tài khoản chung trước.');
         if ((existing[0]?.tokenVersion ?? 0) !== rows[0].connectionVersion) throw new ConflictException({ code: 'GITHUB_CONNECTION_CHANGED', message: 'Kết nối đã thay đổi. Hãy bắt đầu lại.' });
         const params = [
           userId,
@@ -265,10 +271,14 @@ export class GithubAuthService {
         );
       throw e;
     }
-    return `${this.frontendOrigin()}/${rows[0].returnRole === "instructor" ? "instructor" : "intern"}/github?connected=1`;
+    return rows[0].returnRole === 'admin'
+      ? `${this.frontendOrigin()}/admin/settings?github=connected`
+      : `${this.frontendOrigin()}/${rows[0].returnRole === "instructor" ? "instructor" : "intern"}/github?connected=1`;
   }
   async disconnect(userId: string): Promise<{ disconnected: true }> {
     await this.db.transaction(async (em) => {
+      const selected = await em.query('SELECT id FROM github_repository_account WITH(UPDLOCK,HOLDLOCK) WHERE userId=@0', [userId]);
+      if (selected.length) throw new ConflictException('Đây là tài khoản tạo repo chung. Chọn tài khoản Admin khác trước khi ngắt kết nối.');
       await em.query("DELETE FROM github_oauth_states WHERE userId=@0", [
         userId,
       ]);

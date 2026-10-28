@@ -5,6 +5,10 @@ import { ensureRbac } from '../src/bootstrap/ensure-rbac';
 import { User } from '../src/users/entities/user.entity';
 import { Role } from '../src/rbac/entities/role.entity';
 import { UserRole } from '../src/rbac/entities/user-role.entity';
+import { GroupMember } from '../src/groups/entities/group-member.entity';
+import { GroupRole } from '../src/groups/entities/group-role.entity';
+import { RolePermission } from '../src/rbac/entities/role-permission.entity';
+import { Permission } from '../src/rbac/entities/permission.entity';
 import { Project } from '../src/projects/entities/project.entity';
 import { InternshipSession } from '../src/sessions/entities/internship-session.entity';
 import { Sprint } from '../src/sprints/entities/sprint.entity';
@@ -17,6 +21,7 @@ import { GradingRunnerService } from '../src/code-review/grading-runner.service'
 import { AiService } from '../src/ai/ai.service';
 import { CodeReviewService } from '../src/code-review/code-review.service';
 import { SubmissionsService } from '../src/submissions/submissions.service';
+import { ParticipationLedger } from '../src/participation/participation-ledger.service';
 import { notifySubmissionReviewer } from '../src/submissions/submission-notifications';
 
 // Actual SQL/services/transactions; only external GitHub, runner and AI calls are fixtures.
@@ -47,8 +52,8 @@ beforeAll(async () => {
   await db.query("INSERT INTO template_runs(templateId,projectId,sessionId,templateVersion,snapshotJson) VALUES(@0,@1,@2,1,'{}')", [template, project.id, session.id]);
   await db.query("INSERT INTO session_repositories(sessionId,ownerUserId,githubOwnerId,ownerLogin,repoName,repoId,status,leaseId) VALUES(@0,@1,12345,'fixture','fixture',@2,'ready',@3)", [session.id, owner.id, fixtureRepositoryId, randomUUID()]);
   const tasks = { getOneDetailed: async (id: string) => db.getRepository(Task).findOneByOrFail({ id }) } as unknown as TasksService;
-  const permissions = { hasRole: async () => false } as unknown as PermissionsService;
-  submissions = new SubmissionsService(db, tasks, permissions, github as unknown as GithubEvidenceService);
+  const permissions = new PermissionsService(db.getRepository(UserRole), db.getRepository(GroupMember), db.getRepository(GroupRole), db.getRepository(Role), db.getRepository(RolePermission), db.getRepository(Permission));
+  submissions = new SubmissionsService(db, tasks, permissions, github as unknown as GithubEvidenceService, new ParticipationLedger(db));
   review = new CodeReviewService(db, tasks, permissions, github as unknown as GithubEvidenceService, runner as unknown as GradingRunnerService, ai as unknown as AiService);
 }, 120000);
 beforeEach(async () => {
@@ -73,6 +78,9 @@ describe('submission and review notification delivery', () => {
     expect((await db.getRepository(Task).findOneByOrFail({ id: task.id })).status).toBe('review');
     expect((await db.query('SELECT status FROM task_submissions WHERE id=@0', [submission.id]))[0].status).toBe('submitted');
     expect((await db.query('SELECT status FROM submission_code_reviews WHERE submissionId=@0', [submission.id]))[0].status).toBe('awaiting_instructor');
+    expect(ai.generateStructuredWithRun).toHaveBeenCalledWith(expect.objectContaining({ actorId: owner.id, userId: student.id }));
+    const [row] = await db.query('SELECT evidenceJson FROM submission_code_reviews WHERE submissionId=@0', [submission.id]);
+    expect(JSON.parse(row.evidenceJson)).toMatchObject({ requestedByUserId: student.id, reviewerActorId: owner.id });
   });
   it('notifies student and reviewer when trusted tests FAIL', async () => {
     runner.grade.mockResolvedValue({ status: 'completed', passed: 1, failed: 1 });
@@ -107,5 +115,14 @@ describe('submission and review notification delivery', () => {
     await db.getRepository(Project).update(project.id, { mentorId: owner.id }); await db.getRepository(User).update(owner.id, { status: 'locked' });
     await db.transaction(em => notifySubmissionReviewer(em, task.id, { type: 'task.submitted', title: 'Locked guard' }));
     expect(await notices('task.submitted')).toHaveLength(0);
+  });
+  it.each(['locked', 'foreign-session'])('does not call runner or AI when the reviewer becomes %s', async state => {
+    const submission = await submit();
+    if (state === 'locked') await db.getRepository(User).update(owner.id, { status: 'locked' });
+    else await db.getRepository(Project).update(project.id, { mentorId: foreign.id });
+    await review.run(submission.id, principal());
+    expect(runner.grade).not.toHaveBeenCalled(); expect(ai.generateStructuredWithRun).not.toHaveBeenCalled();
+    expect((await db.query('SELECT status,errorCode FROM submission_code_reviews WHERE submissionId=@0', [submission.id]))[0]).toMatchObject({ status: 'failed', errorCode: 'AI_REVIEWER_UNAVAILABLE' });
+    expect(await notices('task.ai_review')).toHaveLength(0);
   });
 });

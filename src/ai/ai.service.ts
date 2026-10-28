@@ -5,14 +5,15 @@ import { DataSource, Repository } from 'typeorm';
 import { AiRun } from './entities/ai-run.entity';
 import {
   AiProvider,
-  AiStructuredRequest,
-  AiStructuredResult,
   AI_PROVIDER_TOKEN,
 } from './ai-provider.interface';
 import { AiProviderUnavailableError, aiErrorCode } from './ai-errors';
 import { withBoundedRetries } from './ai-retry';
 import { AiRuntimeService } from './ai-runtime.service';
 import { GeminiProvider } from './providers/gemini.provider';
+import type { AiInvocation, AiOutcome } from './ai-invocation';
+import { businessAgent } from '../agents/definitions/business-agents';
+import { BusinessAgentEngine } from '../agents/runtime/business-agent-engine';
 
 /**
  * AI CORE facade (Phase 4, spec 21/33/39) — the ONLY entry point domain
@@ -38,6 +39,7 @@ export class AiService {
     // Provider may legitimately be NULL (AI unconfigured) — optional token.
     @Inject(AI_PROVIDER_TOKEN) private readonly provider: AiProvider | null,
     private readonly runtime: AiRuntimeService,
+    private readonly business: BusinessAgentEngine,
   ) {}
 
   get isConfigured(): boolean {
@@ -57,14 +59,13 @@ export class AiService {
    * the run row, calls the provider (bounded retries), then finalizes the
    * run row. Throws the ORIGINAL error after recording the failure.
    */
-  async generateStructuredWithRun<T>(params: {
-    feature: string;
-    userId: string | null;
-    resourceType: string;
-    resourceId: string;
-    promptVersion: string;
-    request: AiStructuredRequest<T>;
-  }): Promise<{ data: T; run: AiRun; result: AiStructuredResult<T> }> {
+  async generateStructuredWithRun<T>(params: AiInvocation<T>): Promise<AiOutcome<T>> {
+    if (!this.provider) throw new AiProviderUnavailableError();
+    const definition = businessAgent(params.feature);
+    return definition ? this.business.run(definition, params, invocation => this.generateRaw(invocation)) : this.generateRaw(params);
+  }
+
+  private async generateRaw<T>(params: AiInvocation<T>): Promise<AiOutcome<T>> {
     if (!this.provider) {
       throw new AiProviderUnavailableError();
     }
@@ -92,10 +93,12 @@ export class AiService {
     try {
       const result = await withBoundedRetries(
         () => provider.generateStructured(params.request),
-        { maxRetries: configured?.policy.maxRetries ?? this.config.get<number>('ai.maxRetries', 2) },
+        { maxRetries: params.maxRetries === undefined ? (configured?.policy.maxRetries ?? this.config.get<number>('ai.maxRetries', 2))
+          : Math.min(configured?.policy.maxRetries ?? this.config.get<number>('ai.maxRetries', 2), params.maxRetries) },
       );
       await this.runs.update(run.id, {
         status: 'succeeded',
+        model: result.model,
         completedAt: new Date(),
         latencyMs: result.latencyMs,
         inputTokens: result.inputTokens,

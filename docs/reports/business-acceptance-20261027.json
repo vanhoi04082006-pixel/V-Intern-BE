@@ -1,0 +1,165 @@
+{
+  "date": "2026-10-27",
+  "scope": "Sanitized business acceptance summary. Raw QA/service metadata remains private in the project.",
+  "source": {
+    "backend": "254cabd8e5097d86bc6971f03419944b40b2f592",
+    "frontendBase": "305737850151c20607b26a755003059d5b002587",
+    "frontendBrowserUsesUncommittedWorkingTree": true,
+    "backendSourceChanged": false
+  },
+  "sql": {
+    "uniqueLatestCases": 117,
+    "passedLatestCases": 117,
+    "initialBatchFailureRetained": true,
+    "allInitialBatchesPassed": false,
+    "timeoutMs": 5000,
+    "groups": [
+      {
+        "group": "interviews",
+        "suites": 4,
+        "passed": 48,
+        "failed": 0,
+        "skipped": 0,
+        "success": true
+      },
+      {
+        "group": "participation",
+        "suites": 6,
+        "passed": 51,
+        "failed": 1,
+        "skipped": 0,
+        "success": false
+      },
+      {
+        "group": "invitations",
+        "suites": 2,
+        "passed": 17,
+        "failed": 0,
+        "skipped": 0,
+        "success": true
+      },
+      {
+        "group": "advisor",
+        "suites": 1,
+        "passed": 3,
+        "failed": 0,
+        "skipped": 0,
+        "success": true
+      }
+    ],
+    "explanation": "Participation group first ran 51/52. The three replacement-advisor cases then passed unchanged in a new isolated database. This is a per-case composite, not one all-green batch.",
+    "provider": "Explicit SQL/HTTP fixtures; no live-provider claim."
+  },
+  "baselineQuality": {
+    "backend": {
+      "suites": 114,
+      "tests": 859,
+      "source": "254cabd8e5097d86bc6971f03419944b40b2f592"
+    },
+    "frontend": {
+      "files": 109,
+      "tests": 660,
+      "source": "603ee3f4025714a395078dbfde8c309602257535"
+    },
+    "priorExtendedSql": {
+      "suites": 3,
+      "passed": 31,
+      "failed": 0,
+      "timeoutMs": 5000,
+      "fixtureSource": "254cabd8e5097d86bc6971f03419944b40b2f592",
+      "scope": "Prior isolated local regression, verified from its retained receipt; not a new run in this summary."
+    }
+  },
+  "browser": {
+    "roles": [
+      "instructor",
+      "intern",
+      "admin"
+    ],
+    "checks": [
+      "Report save/reload/readback",
+      "Invalid policy thresholds blocked; valid policy persists",
+      "Own KPI source and virtual ledger",
+      "Public certificate valid/invalid feedback",
+      "Foreign KPI data not returned",
+      "Mentor request and reply survive reload",
+      "Invalid grading draft rejected without save",
+      "Report audit visible"
+    ],
+    "scope": "Selected real UI interactions on synthetic QA records, not every business branch."
+  },
+  "serviceChecks": {
+    "apiAndDatabase": true,
+    "migrationsCurrent": true,
+    "storageUnderProject": true,
+    "githubIdentityReadback": true,
+    "gmailQaMailboxReadback": true,
+    "langsmithReadback": true,
+    "runnerRejectsUnsignedRequest": true,
+    "newMailSent": false,
+    "newInvitationSent": false,
+    "newGradingExecution": false
+  },
+  "mentor": {
+    "provider": "gemini",
+    "agent": "learning-mentor",
+    "status": "succeeded",
+    "modelCalls": 3,
+    "toolReceipts": 1,
+    "checkpoints": 6,
+    "replyPersisted": true,
+    "cloudTraceReadback": true,
+    "rawQaQuestionAbsentFromCheckedRootTrace": true,
+    "scope": "Fresh request sent through UI. No run IDs, actor IDs, chat text, tokens or trace URLs published."
+  },
+  "ci": [
+    {
+      "repo": "V-Intern-BE",
+      "sha": "254cabd8e5097d86bc6971f03419944b40b2f592",
+      "workflow": "backend-ci",
+      "runId": 40271056243,
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "repo": "V-Intern-BE",
+      "sha": "254cabd8e5097d86bc6971f03419944b40b2f592",
+      "workflow": "isolated-grading-runner",
+      "runId": 40271056260,
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "repo": "V-Intern-FE",
+      "sha": "305737850151c20607b26a755003059d5b002587",
+      "workflow": "CI",
+      "runId": 40275146767,
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "repo": "V-Intern-FE",
+      "sha": "305737850151c20607b26a755003059d5b002587",
+      "workflow": "Project-first full-stack gate",
+      "runId": 40275146765,
+      "status": "completed",
+      "conclusion": "success"
+    }
+  ],
+  "limits": [
+    "Not all G1-G7 scenarios were clicked through on the current UI.",
+    "No new continuous CV-to-certificate live journey in this run; prior real-service journey remains separately sourced.",
+    "No new GitHub invitation or email was sent in this run.",
+    "Runner 401 proves authentication/reachability, not a new grading execution.",
+    "Local aggregate timeout cause remains unproven; isolated rerun and unchanged CI pass are separate evidence.",
+    "Redesign and its uncommitted source are paused, not accepted or pushed as part of this business receipt.",
+    "PR stack remains open; no merge is claimed."
+  ],
+  "publicationExcludes": [
+    "Credentials and contact details",
+    "QA account and resource identifiers",
+    "Database names, file paths and host configuration",
+    "Trace IDs and raw telemetry",
+    "Raw emails, chat content and screenshots"
+  ]
+}

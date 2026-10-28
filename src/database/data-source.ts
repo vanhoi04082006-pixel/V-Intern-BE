@@ -1,6 +1,21 @@
+import { CreateApplications1763241600000 } from './migrations/1763241600000-CreateApplications';
+import { CreateInterviewAdmissions1763328000000 } from './migrations/1763328000000-CreateInterviewAdmissions';
+import { TrackGithubInvitations1763414400000 } from './migrations/1763414400000-TrackGithubInvitations';
+import { SeparateGithubInvitationRequests1763457600000 } from './migrations/1763457600000-SeparateGithubInvitationRequests';
+import { CreateParticipation1763500800000 } from './migrations/1763500800000-CreateParticipation';
+import { CreateReplacementWorkflow1763587200000 } from './migrations/1763587200000-CreateReplacementWorkflow';
+import { TrackRepositoryGrants1763673600000 } from './migrations/1763673600000-TrackRepositoryGrants';
+import { CreateCommunications1763155200000 } from './migrations/1763155200000-CreateCommunications';
+import { CreateCareerRoles1762636800000 } from './migrations/1762636800000-CreateCareerRoles';
+import { CreateKnowledgeLibrary1762809600000 } from './migrations/1762809600000-CreateKnowledgeLibrary';
+import { AddKnowledgePermissions1762896000000 } from './migrations/1762896000000-AddKnowledgePermissions';
+import { CreateAgentRuntime1762982400000 } from './migrations/1762982400000-CreateAgentRuntime';
+import { CreateTemplateMaterials1763068800000 } from './migrations/1763068800000-CreateTemplateMaterials';
+import { AdoptTemplateCareerRoles1762723200000 } from './migrations/1762723200000-AdoptTemplateCareerRoles';
 import { AddInterviewFollowUps1761945600000 } from './migrations/1761945600000-AddInterviewFollowUps';
 import { SnapshotCertificateCompletion1762377600000 } from './migrations/1762377600000-SnapshotCertificateCompletion';
 import { AddGithubTokenRotation1762464000000 } from './migrations/1762464000000-AddGithubTokenRotation';
+import { AddGithubRepositoryAccount1762550400000 } from './migrations/1762550400000-AddGithubRepositoryAccount';
 import { BackfillQuestionMetadata1762032000000 } from './migrations/1762032000000-BackfillQuestionMetadata';
 import { AddGithubWebhooks1762118400000 } from './migrations/1762118400000-AddGithubWebhooks';
 import { CreateGithubDelivery1761859200000 } from './migrations/1761859200000-CreateGithubDelivery';
@@ -87,5 +102,20 @@ export default new DataSource({
     CreateLearningAlertDispatches1762291200000,
     SnapshotCertificateCompletion1762377600000,
     AddGithubTokenRotation1762464000000,
+    AddGithubRepositoryAccount1762550400000,
+    CreateCareerRoles1762636800000,
+    AdoptTemplateCareerRoles1762723200000,
+    CreateKnowledgeLibrary1762809600000,
+    AddKnowledgePermissions1762896000000,
+    CreateAgentRuntime1762982400000,
+    CreateTemplateMaterials1763068800000,
+    CreateCommunications1763155200000,
+    CreateApplications1763241600000,
+    CreateInterviewAdmissions1763328000000,
+    TrackGithubInvitations1763414400000,
+    SeparateGithubInvitationRequests1763457600000,
+    CreateParticipation1763500800000,
+    CreateReplacementWorkflow1763587200000,
+    TrackRepositoryGrants1763673600000,
   ],
 });

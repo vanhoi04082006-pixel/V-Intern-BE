@@ -22,6 +22,12 @@ export interface AttemptGateConfig {
   retakeCooldownHours: number;
 }
 
+/** No configuration may exceed the approved three total attempts. */
+export function recruitmentAttemptLimit(raw: number): number {
+  if (!Number.isFinite(raw) || Math.floor(raw) < 1) return 3;
+  return Math.min(3, Math.floor(raw));
+}
+
 export type AttemptGateResult =
   | { allowed: true; attemptsRemaining: number; nextEligibleAt: null }
   | { allowed: false; reason: 'ATTEMPT_LIMIT' | 'COOLDOWN'; attemptsRemaining: number; nextEligibleAt: Date | null };

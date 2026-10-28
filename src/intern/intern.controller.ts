@@ -1,10 +1,11 @@
-import { Controller, Get, Query } from '@nestjs/common';
+import { Controller, Get, Param, ParseUUIDPipe, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { RequirePermissions } from '../common/decorators/permissions.decorator';
 import { InternService } from './intern.service';
 import { InternReadService } from './intern-read.service';
 import { PaginationQueryDto } from '../common/pagination/pagination-query.dto';
+import { toPaginated } from '../common/pagination/paginated';
 
 @ApiTags('intern')
 @ApiBearerAuth()
@@ -21,6 +22,21 @@ export class InternController {
   @RequirePermissions('intern.workspace.view')
   @ApiOperation({ summary: 'My current sprint board with ONLY my tasks and true per-column counts; principal/assignment scoped, paginated per column; 404 when no active assignment/sprint.' })
   sprintBoard(@CurrentUser('userId') userId: string, @Query() query: PaginationQueryDto) { return this.internReadService.sprintBoard(userId, query); }
+
+  @Get('me/sprints')
+  @RequirePermissions('intern.workspace.view')
+  @ApiOperation({ summary: 'Planned, active and historical sprints in my active assignment; authenticated principal only.' })
+  async sprints(@CurrentUser('userId') userId: string, @Query() query: PaginationQueryDto) {
+    const { items, total } = await this.internReadService.sprints(userId, query);
+    return toPaginated(items, query.page, query.pageSize, total);
+  }
+
+  @Get('me/sprints/:id/board')
+  @RequirePermissions('intern.workspace.view')
+  @ApiOperation({ summary: 'Selected assignment sprint board with only my tasks, including planned sprints; never activates a sprint.' })
+  selectedSprintBoard(@CurrentUser('userId') userId: string, @Param('id', ParseUUIDPipe) id: string, @Query() query: PaginationQueryDto) {
+    return this.internReadService.selectedSprintBoard(userId, id, query);
+  }
 
   @Get('me/workspace')
   @RequirePermissions('intern.workspace.view')

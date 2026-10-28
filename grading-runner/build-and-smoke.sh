@@ -11,4 +11,5 @@ RUNTIME_IMAGE=$(docker image inspect vintern-runtime-smoke --format '{{.Id}}')
 TESTER_IMAGE=$(docker image inspect vintern-tester-smoke --format '{{.Id}}')
 export RUNTIME_IMAGE TESTER_IMAGE
 node test/docker-smoke.mjs
+if [ -n "${MINI_FIXTURES_FILE:-}" ]; then node test/docker-mini-smoke.mjs; fi
 node -e 'console.log(JSON.stringify({runtimeImage:process.env.RUNTIME_IMAGE,testerImage:process.env.TESTER_IMAGE}))'

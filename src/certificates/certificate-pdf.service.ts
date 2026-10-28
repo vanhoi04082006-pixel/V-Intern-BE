@@ -125,14 +125,19 @@ export class CertificatePdfService {
     doc.text(`Certificate No: ${data.certificateNumber}`, left, y);
     y += 18;
     doc.font('Helvetica').fontSize(10).fillColor('#4a4a4a');
-    doc.text(`Verification code: ${data.verificationCode}`, left, y, { lineBreak: false });
-    y += 16;
-    doc.text(`Verify at: ${data.verifyBaseUrl}/${data.verificationCode}`, { lineBreak: false });
-    y += 22;
+    const footerOptions = { width: page.width - 2 * left };
+    const verification = `Verification code: ${data.verificationCode}`;
+    doc.text(verification, left, y, footerOptions);
+    y += doc.heightOfString(verification, footerOptions) + 5;
+    const verifyUrl = `Verify at: ${data.verifyBaseUrl}/${data.verificationCode}`;
+    doc.text(verifyUrl, left, y, footerOptions);
+    y += doc.heightOfString(verifyUrl, footerOptions) + 10;
     doc.font('Helvetica').fontSize(8.5).fillColor('#7a7a7a');
     doc.text(
       'This certificate is VIRTUAL and bears no payroll/payment value. Verify its authenticity at the URL above.',
-      { lineBreak: false },
+      left,
+      y,
+      footerOptions,
     );
 
     doc.end();

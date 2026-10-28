@@ -5,8 +5,6 @@ import { AiService } from '../ai/ai.service';
 import { AiInvalidResponseError } from '../ai/ai-errors';
 import { aiErrorCode } from '../ai/ai-errors';
 import {
-  validateRecruitmentEvaluation,
-  validateDetailedRecruitmentEvaluation,
   RecruitmentEvaluationData,
 } from '../ai/evaluation-schema';
 import { ActivityEvent } from '../audit/entities/activity-event.entity';
@@ -25,8 +23,9 @@ import {
   buildRecruitmentSystemPrompt,
 } from './recruitment-prompt';
 import { RecruitmentService, toResultResponse } from './recruitment.service';
-import { recruitmentRoleLabel } from './recruitment-roles';
-import { calculateOverallScore, decideRecruitment } from './scoring';
+import { CareerRolesService } from '../career-roles/career-roles.service';
+import { calculateOverallScore, classifyRecruitmentScore, decideRecruitment } from './scoring';
+import { validateRoleAwareRecruitmentEvaluation } from './recommendation-policy';
 
 /**
  * Evaluation orchestration (Phase 4, spec 34-40/70).
@@ -55,6 +54,7 @@ export class RecruitmentEvaluationService {
     private readonly aiService: AiService,
     private readonly recruitmentService: RecruitmentService,
     @InjectDataSource() private readonly dataSource: DataSource,
+    private readonly careerRoles: CareerRolesService,
   ) {}
 
   async evaluateSession(
@@ -151,18 +151,21 @@ export class RecruitmentEvaluationService {
     let model: string;
     try {
       if (session.questionCount === 10 && questions.some(q => !turnByQuestion.get(q.id.toLowerCase())?.prompt)) throw new AiInvalidResponseError('Missing delivered interview evidence.');
+      const catalog = (await this.careerRoles.listRecruiting()).items;
+      const roleLabel = await this.careerRoles.label(session.roleCode);
       const aiResult = await this.aiService.generateStructuredWithRun<RecruitmentEvaluationData>({
         feature: RECRUITMENT_EVALUATION_TASK,
+        intentId: session.id,
         userId: session.userId,
         resourceType: 'interview_session',
         resourceId: session.id,
         promptVersion: RECRUITMENT_EVALUATION_PROMPT_VERSION,
         request: {
           task: RECRUITMENT_EVALUATION_TASK,
-          systemPrompt: buildRecruitmentSystemPrompt(session.roleCode),
-          input,
+          systemPrompt: buildRecruitmentSystemPrompt(session.roleCode, catalog, roleLabel),
+          input: { ...input, careerCatalog: catalog.map(({ code, label, version, requiredSkills }) => ({ code, label, version, requiredSkills })) },
           schemaName: 'RecruitmentEvaluation',
-          validate: session.questionCount === 10 ? validateDetailedRecruitmentEvaluation : validateRecruitmentEvaluation,
+          validate: (raw) => validateRoleAwareRecruitmentEvaluation(raw, { roleCode: session.roleCode, detailed: session.questionCount === 10, answers: payloadAnswers, availableRoles: catalog }),
           modelOptions: { temperature: 0.2, maxOutputTokens: 4096 },
         },
       });
@@ -222,6 +225,7 @@ export class RecruitmentEvaluationService {
     // spec 4/35/36: the Backend (and only the Backend) computes these.
     const overallScore = calculateOverallScore(evaluation.technicalScore, evaluation.softSkillScore);
     const decision = decideRecruitment(overallScore);
+    const outcome = classifyRecruitmentScore(overallScore);
     const evaluatedAt = new Date();
 
     return this.dataSource.transaction(async (em) => {
@@ -297,7 +301,7 @@ export class RecruitmentEvaluationService {
       }
 
       // Notification (preference-aware — spec 77).
-      await this.notify(em, profile.userId, decision, session.roleCode);
+      await this.notify(em, profile.userId, outcome, session.roleCode, evaluation.recommendedRole);
 
       // Audit (spec 75) — resource IDs + metadata, never answer content.
       await em.insert(AuditLog, {
@@ -318,7 +322,7 @@ export class RecruitmentEvaluationService {
       });
       await em.insert(AuditLog, {
         actorId: ctx.actorId ?? profile.userId,
-        action: decision === 'passed' ? 'recruitment.passed' : 'recruitment.failed',
+        action: `recruitment.${outcome}`,
         targetType: 'recruitment_profile',
         targetId: profile.id,
         detail: JSON.stringify({ sessionId: locked.id, overallScore }),
@@ -330,13 +334,15 @@ export class RecruitmentEvaluationService {
       await em.insert(ActivityEvent, {
         actorId: profile.userId,
         module: 'recruitment',
-        action: decision === 'passed' ? 'recruitment.passed' : 'recruitment.failed',
+        action: `recruitment.${outcome}`,
         targetType: 'recruitment_result',
         targetId: result.id,
         summary:
           decision === 'passed'
-            ? `Phỏng vấn tuyển dụng hoàn tất — bạn đã trúng tuyển vị trí ${recruitmentRoleLabel(session.roleCode)}`
-            : 'Phỏng vấn tuyển dụng hoàn tất — kết quả chưa đạt',
+            ? `Phỏng vấn tuyển dụng hoàn tất — bạn đã trúng tuyển vị trí ${await this.careerRoles.label(session.roleCode)}`
+            : outcome === 'role_recommended' && evaluation.recommendedRole
+              ? `Phỏng vấn hoàn tất — AI đề xuất khám phá ${await this.careerRoles.label(evaluation.recommendedRole!)}`
+            : outcome === 'role_recommended' ? 'Phỏng vấn hoàn tất — cần định hướng thêm, chưa có nghề thay thế đang tuyển' : 'Phỏng vấn tuyển dụng hoàn tất — kết quả chưa đạt',
       });
 
       this.logger.log(
@@ -349,25 +355,28 @@ export class RecruitmentEvaluationService {
   private async notify(
     em: EntityManager,
     userId: string,
-    decision: 'passed' | 'failed',
+    outcome: 'passed' | 'failed' | 'role_recommended',
     roleCode: string,
+    recommendedRole: string | null,
   ): Promise<void> {
     const pref = await em.getRepository(NotificationPreference).findOne({
       where: { userId, category: 'recruitment' },
     });
     if (pref && !pref.enabled) return;
-    const label = recruitmentRoleLabel(roleCode);
+    const label = await this.careerRoles.label(roleCode);
     await em.insert(Notification, {
       userId,
       type: 'recruitment',
       title:
-        decision === 'passed'
+        outcome === 'passed'
           ? `Chúc mừng — bạn đã trúng tuyển vị trí ${label}`
-          : 'Kết quả phỏng vấn tuyển dụng: Chưa đạt',
+          : outcome === 'role_recommended' ? recommendedRole ? 'AI đề xuất một vai trò phù hợp hơn' : 'Kết quả phỏng vấn: Cần định hướng thêm' : 'Kết quả phỏng vấn tuyển dụng: Chưa đạt',
       body:
-        decision === 'passed'
+        outcome === 'passed'
           ? `Bạn đã vượt qua vòng phỏng vấn AI cho vị trí ${label}. Hệ thống sẽ thông báo khi bạn được phân công vào đồ án.`
-          : 'Rất tiếc, kết quả phỏng vấn lần này chưa đạt. Bạn có thể thử lại theo chính sách tuyển dụng của hệ thống.',
+          : outcome === 'role_recommended' && recommendedRole
+            ? `Từ câu trả lời phỏng vấn, AI đề xuất bạn khám phá ${await this.careerRoles.label(recommendedRole!)}. Xem lý do và số lượt còn lại trước khi chọn vai trò cho lần tiếp theo.`
+            : outcome === 'role_recommended' ? 'Kết quả nằm trong khoảng 50–70 điểm nhưng hiện chưa có nghề thay thế đang nhận hồ sơ. Xem nhận xét và liên hệ giảng viên để được định hướng; kết quả và số lượt vẫn được giữ.' : 'Kết quả phỏng vấn lần này dưới 50 điểm. Xem phần cần cải thiện và số lượt còn lại để chuẩn bị cho lần tiếp theo.',
       linkUrl: '/intern/onboarding/result',
     });
   }

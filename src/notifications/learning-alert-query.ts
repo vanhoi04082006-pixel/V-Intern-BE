@@ -16,7 +16,7 @@ export const LEARNING_ALERTS_CTE = `WITH events AS (
   UNION ALL
   SELECT CONCAT('session.issue:github:',s.id,':',CASE WHEN r.status='failed' THEN CONVERT(nvarchar(36),r.leaseId) ELSE CONVERT(nvarchar(36),r.webhookLeaseId) END),s.leadInstructorId,'session','session.issue',
     N'Tích hợp GitHub cần kiểm tra',CONCAT(s.name,N': repository hoặc webhook chưa hoàn tất. Hãy kiểm tra kết nối và cấu hình rồi thử lại.'),CONCAT('/sessions/',s.id)
-  FROM internship_sessions s JOIN session_repositories r ON r.sessionId=s.id AND r.ownerUserId=s.leadInstructorId
+  FROM internship_sessions s JOIN session_repositories r ON r.sessionId=s.id
   WHERE s.status IN ('active','ending') AND (r.status='failed' OR r.webhookStatus='failed') AND s.leadInstructorId IS NOT NULL
 ), staff AS (
   SELECT u.id,CASE WHEN EXISTS(SELECT 1 FROM user_roles ur JOIN roles r ON r.id=ur.roleId WHERE ur.userId=u.id AND r.code='admin')

@@ -2,6 +2,7 @@ import { DataSource } from "typeorm";
 import { AiService } from "../ai/ai.service";
 import { RecruitmentEvaluationService } from "./recruitment-evaluation.service";
 import { RecruitmentService } from "./recruitment.service";
+import { CareerRolesService } from '../career-roles/career-roles.service';
 
 describe("chat evaluation evidence", () => {
   function harness(delivered = true) {
@@ -70,6 +71,7 @@ describe("chat evaluation evidence", () => {
       ai as unknown as AiService,
       {} as RecruitmentService,
       db as unknown as DataSource,
+      { listRecruiting: async () => ({ items: [{ code: 'data_analyst', label: 'Data Analyst', requiredSkills: ['SQL'], version: 7 }] }), label: async () => 'Frontend Developer' } as unknown as CareerRolesService,
     );
     Object.defineProperty(service, "persistEvaluation", {
       value: jest.fn(async () => {
@@ -85,11 +87,12 @@ describe("chat evaluation evidence", () => {
     );
     const call = h.ai.generateStructuredWithRun.mock.calls[0] as unknown as [
       {
-        request: { input: { questions: Array<Record<string, unknown>> } };
+        request: { input: { questions: Array<Record<string, unknown>>; careerCatalog: Array<Record<string, unknown>> } };
         promptVersion: string;
       },
     ];
-    expect(call[0].promptVersion).toBe("recruitment-evaluation-v3");
+    expect(call[0].promptVersion).toBe("recruitment-evaluation-v5");
+    expect(call[0].request.input.careerCatalog).toEqual([{ code: 'data_analyst', label: 'Data Analyst', requiredSkills: ['SQL'], version: 7 }]);
     expect(call[0].request.input.questions).toHaveLength(10);
     expect(call[0].request.input.questions[0]).toMatchObject({
       prompt: "Delivered 1",

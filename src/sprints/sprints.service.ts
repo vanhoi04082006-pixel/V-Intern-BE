@@ -227,6 +227,17 @@ export class SprintsService {
     return { items: items.map((s) => toSprintResponse(s)), total };
   }
 
+  /** Internal student read: caller must resolve the principal's active assignment. */
+  async listForAssignment(projectId: string, sessionId: string, q: { page: number; pageSize: number }) {
+    const [items, total] = await this.sprints.createQueryBuilder('s')
+      .where('s.projectId=:projectId', { projectId })
+      .andWhere('(s.sessionId=:sessionId OR s.sessionId IS NULL)', { sessionId })
+      .orderBy("CASE s.status WHEN 'active' THEN 0 WHEN 'planned' THEN 1 WHEN 'completed' THEN 2 ELSE 3 END", 'ASC')
+      .addOrderBy('s.startDate', 'ASC').addOrderBy('s.id', 'ASC')
+      .skip((q.page - 1) * q.pageSize).take(q.pageSize).getManyAndCount();
+    return { items: items.map(s => toSprintResponse(s)), total };
+  }
+
   async getOneDetailed(id: string, o?: Ownership): Promise<SprintResponse> {
     const sprint = await this.sprints.findOne({ where: { id } });
     if (!sprint) throw notFound();

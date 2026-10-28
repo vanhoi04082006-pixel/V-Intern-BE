@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { pathToFileURL } from "node:url";
 import { randomUUID } from "node:crypto";
 import { runApiFlow } from './api-flow.mjs';
+import { runMiniCheck } from './mini-check.mjs';
 
 // No student files, imports, test scripts, tokens or signing keys enter this container.
 export async function runChecks(
@@ -33,7 +34,9 @@ export async function runChecks(
   try {
     for (const check of checks) {
       try {
-        if (check.kind === "http") {
+        if (check.kind === 'module') {
+          await runMiniCheck(check, target);
+        } else if (check.kind === "http") {
           const response = await fetch(target(check.path), {
             method: check.method ?? "GET",
             redirect: "error",

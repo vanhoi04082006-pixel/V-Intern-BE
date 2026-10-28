@@ -18,11 +18,25 @@ import { SessionMember } from "../src/sessions/entities/session-member.entity";
 import { SharingService } from "../src/sharing/sharing.service";
 import { GithubAuthService } from "../src/github/github-auth.service";
 import { GithubClient } from "../src/github/github-client";
+import { GithubApiError } from '../src/github/github-client';
+import { GithubRepositoryAccountService } from '../src/github/github-repository-account.service';
+import { GithubRepositoriesService } from '../src/github/github-repositories.service';
+import { GithubInvitationsService } from '../src/github/github-invitations.service';
+import { CommunicationsService } from '../src/communications/communications.service';
+import { GithubWebhookService } from '../src/github/github-webhook.service';
+import { sealToken } from '../src/github/github-security';
 
 // Real SQL tests. Only the external OAuth exchange/identity HTTP transport is mocked.
 describe("consent and OAuth persistence on the current SQL schema", () => {
   let db: DataSource, permissions: PermissionsService, sharing: SharingService;
-  let owner: User, reader: User, student: User, sessionId: string;
+  let owner: User, reader: User, student: User, admin: User, sessionId: string;
+  const centralKey = randomBytes(32).toString('base64');
+  const centralConfig = new ConfigService({ GITHUB_CLIENT_ID: 'fixture-client', GITHUB_CLIENT_SECRET: 'fixture-secret', GITHUB_CALLBACK_URL: 'http://localhost:8080/api/v1/github/callback', FRONTEND_ORIGIN: 'http://localhost:3001', GITHUB_TOKEN_ENCRYPTION_KEY: centralKey });
+  const centralIdentity = { id: Math.floor(Math.random() * 1000000000) + 2000000000, login: 'platform-owner' };
+  const centralClient = { call: jest.fn(async () => centralIdentity) };
+  let centralAuth: GithubAuthService, centralAccount: GithubRepositoryAccountService;
+  let priorRepositoryAccount: { userId: string; githubUserId: string | number; configuredBy: string; updatedAt: Date } | undefined;
+  let capturedRepositoryAccount = false;
   let lifecycleGrantId: string;
   const originalFetch = global.fetch;
   beforeAll(async () => {
@@ -39,6 +53,8 @@ describe("consent and OAuth persistence on the current SQL schema", () => {
     await db.initialize();
     await db.runMigrations({ transaction: "all" });
     expect(await db.showMigrations()).toBe(false);
+    [priorRepositoryAccount] = await db.query('SELECT * FROM github_repository_account WHERE id=1');
+    capturedRepositoryAccount = true;
     await ensureRbac(db);
     permissions = new PermissionsService(
       db.getRepository(UserRole),
@@ -69,6 +85,9 @@ describe("consent and OAuth persistence on the current SQL schema", () => {
     owner = await user("instructor");
     reader = await user("instructor");
     student = await user("intern");
+    admin = await user('admin');
+    centralAuth = new GithubAuthService(db, centralConfig, centralClient as unknown as GithubClient, permissions);
+    centralAccount = new GithubRepositoryAccountService(db, centralAuth, centralClient as unknown as GithubClient, permissions);
     const session = await db
       .getRepository(InternshipSession)
       .save({
@@ -88,7 +107,17 @@ describe("consent and OAuth persistence on the current SQL schema", () => {
     global.fetch = originalFetch;
   });
   afterAll(async () => {
-    if (db?.isInitialized) await db.destroy();
+    if (db?.isInitialized) {
+      try {
+        if (capturedRepositoryAccount) {
+          await db.transaction(async em => {
+            await em.query('DELETE FROM github_repository_account WHERE id=1');
+            if (priorRepositoryAccount) await em.query('INSERT INTO github_repository_account(id,userId,githubUserId,configuredBy,updatedAt) VALUES(1,@0,@1,@2,CONVERT(datetime2,@3,127))', [priorRepositoryAccount.userId, priorRepositoryAccount.githubUserId, priorRepositoryAccount.configuredBy, priorRepositoryAccount.updatedAt.toISOString()]);
+          });
+          expect(await db.query('SELECT * FROM github_repository_account WHERE id=1')).toEqual(priorRepositoryAccount ? [priorRepositoryAccount] : []);
+        }
+      } finally { await db.destroy(); }
+    }
   });
 
   it("requests, deduplicates, approves and reads only the consented session", async () => {
@@ -231,5 +260,79 @@ describe("consent and OAuth persistence on the current SQL schema", () => {
       oauth.finish("fixture-code", locked.state, locked.state),
     ).rejects.toMatchObject({ status: 401 });
     await db.getRepository(User).update(reader.id, { status: "active" });
+  });
+
+  it('lets Admin authorize and select the central repository account without exposing its token', async () => {
+    const begin = await centralAuth.begin(admin.id);
+    expect(new URL(begin.authorizeUrl).searchParams.get('scope')).toBe('read:user public_repo');
+    global.fetch = jest.fn(async () => new Response(JSON.stringify({ access_token: 'central-fixture-token', scope: 'read:user public_repo' }), { status: 200 })) as typeof fetch;
+    expect(await centralAuth.finish('code', begin.state, begin.state)).toBe('http://localhost:3001/admin/settings?github=connected');
+    expect(await centralAccount.select(admin.id)).toMatchObject({ ready: true, login: 'platform-owner' });
+    expect(await centralAccount.status()).toMatchObject({ ready: true });
+    const [account] = await db.query('SELECT * FROM github_repository_account WHERE id=1');
+    expect(account.userId.toLowerCase()).toBe(admin.id.toLowerCase());
+    expect(JSON.stringify(account)).not.toContain('central-fixture-token');
+  });
+
+  it('requests identity-only teacher OAuth and rejects teacher selection of the shared account', async () => {
+    const begin = await centralAuth.begin(owner.id);
+    expect(new URL(begin.authorizeUrl).searchParams.get('scope')).toBe('read:user');
+    await expect(centralAccount.select(owner.id)).rejects.toMatchObject({ status: 403 });
+  });
+
+  it('creates a centrally owned named repository and invites both teacher and student using real membership SQL', async () => {
+    const studentId = Math.floor(Math.random() * 1000000000) + 3000000000;
+    await db.query("INSERT INTO github_connections(userId,githubUserId,login,tokenCiphertext,scopes) VALUES(@0,@1,'linked-student',@2,'read:user')", [student.id, studentId, sealToken('student-token', centralKey, student.id.toLowerCase())]);
+    await db.getRepository(InternshipSession).update(sessionId, { status: 'active', name: 'Lớp Đồ Án 01', startDate: new Date('2026-10-19T00:00:00Z') });
+    let remote: { id: number; name: string; owner: typeof centralIdentity; private: boolean; description: string; html_url: string; default_branch: string } | undefined;
+    const calls: string[] = [];
+    const client = { call: jest.fn(async (path: string, token: string, method = 'GET', body?: { name: string; description: string }) => {
+      expect(token).toBe('central-fixture-token');
+      calls.push(`${method} ${path}`);
+      if (path === '/user') return centralIdentity;
+      if (/^\/user\/\d+$/.test(path)) { const id = Number(path.split('/').pop()); return { id, login: `linked-${id}` }; }
+      if (path === '/user/repos' && method === 'POST') {
+        remote = { id: studentId + 1, name: body!.name, owner: centralIdentity, private: false, description: body!.description, html_url: `https://github.com/platform-owner/${body!.name}`, default_branch: 'main' };
+        return remote;
+      }
+      if (path.includes('/collaborators/') && method === 'PUT') return undefined;
+      if (path.includes('/invitations?')) return [];
+      if (path.includes('/collaborators/')) throw new GithubApiError(404);
+      if (path.startsWith('/repos/')) { if (!remote) throw new GithubApiError(404); return remote; }
+      throw new Error('Unexpected fixture GitHub API request');
+    }) };
+    const repos = new GithubRepositoriesService(db, centralAuth, client as unknown as GithubClient, permissions, { register: jest.fn() } as unknown as GithubWebhookService, centralAccount, new GithubInvitationsService(db, client as unknown as GithubClient, { ready: () => false } as unknown as CommunicationsService));
+    await repos.provision(sessionId, owner.id);
+    const repo = await repos.read(sessionId);
+    expect(repo?.ownerUserId.toLowerCase()).toBe(admin.id.toLowerCase());
+    expect(repo?.repoName).toBe(`vintern-project-lop-do-an-01-20261019-${sessionId.slice(0, 8).toLowerCase()}`);
+    expect(calls.filter(call => call.startsWith('PUT ') && call.includes('/collaborators/'))).toHaveLength(2);
+    const members = await db.query('SELECT userId,status FROM session_repo_members WHERE sessionId=@0', [sessionId]);
+    expect(members).toHaveLength(2);
+    expect(members.every((member: { status: string }) => member.status === 'accepted')).toBe(true);
+    await repos.provision(sessionId, owner.id);
+    expect(calls.filter(call => call === 'POST /user/repos')).toHaveLength(1);
+  });
+
+  it('prevents disconnecting the selected central account', async () => {
+    await expect(centralAuth.disconnect(admin.id)).rejects.toMatchObject({ status: 409 });
+    expect((await centralAuth.connection(admin.id))?.githubUserId.toString()).toBe(centralIdentity.id.toString());
+  });
+
+  it('does not silently relink the selected central account to a different GitHub identity', async () => {
+    const auth = new GithubAuthService(db, centralConfig, { call: jest.fn(async () => ({ id: centralIdentity.id + 5, login: 'different-account' })) } as unknown as GithubClient, permissions);
+    const begin = await auth.begin(admin.id);
+    global.fetch = jest.fn(async () => new Response(JSON.stringify({ access_token: 'wrong-fixture-token', scope: 'read:user public_repo' }), { status: 200 })) as typeof fetch;
+    await expect(auth.finish('code', begin.state, begin.state)).rejects.toMatchObject({ status: 409 });
+    expect((await centralAuth.connection(admin.id))?.githubUserId.toString()).toBe(centralIdentity.id.toString());
+  });
+  it('refuses an unexpired repository-owner token after the application account is locked', async () => {
+    await db.getRepository(User).update(admin.id, { status: 'locked' });
+    try {
+      await expect(centralAuth.token(admin.id)).rejects.toMatchObject({ status: 503, response: { code: 'GITHUB_ACCOUNT_INACTIVE' } });
+      await expect(centralAccount.credentials()).rejects.toMatchObject({ status: 503 });
+    } finally {
+      await db.getRepository(User).update(admin.id, { status: 'active' });
+    }
   });
 });
