@@ -9,7 +9,6 @@ import { PermissionsService } from './permissions.service';
  *   are visible to all instructors; managing one requires claiming it).
  * - Sprints/tasks: parent project visible AND (no session OR session owned).
  * - Assignments: own (internId == me) OR session owned.
- * - Classes: leadInstructorId == me (mirrors class-lessons access()).
  *
  * Fragments are QueryBuilder-ready with a collision-proof parameter name.
  * Identifiers stay unquoted (SQL Server + camelCase columns, same style as
@@ -70,14 +69,6 @@ export function assignmentScope(alias: string, o: Ownership): { clause: string; 
     clause:
       `(${alias}.internId = :${OWNER_PARAM} OR EXISTS ` +
       `(SELECT 1 FROM internship_sessions s3 WHERE s3.id = ${alias}.sessionId AND ${ownedSessionFragment('s3')}))`,
-    params: { [OWNER_PARAM]: o.userId },
-  };
-}
-
-export function classScope(alias: string, o: Ownership): { clause: string; params: Record<string, string> } | null {
-  if (o.isAdmin) return null;
-  return {
-    clause: `${alias}.leadInstructorId = :${OWNER_PARAM}`,
     params: { [OWNER_PARAM]: o.userId },
   };
 }

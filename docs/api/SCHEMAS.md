@@ -5,7 +5,6 @@ Sinh từ cùng OpenAPI lúc **2026-10-25T11:28:15.060Z**, Backend M02 61a7318. 
 ## Mục lục schema
 
 - [AccessRequestDto](#accessrequestdto)
-- [AddClassMembersDto](#addclassmembersdto)
 - [AddGroupMembersDto](#addgroupmembersdto)
 - [AddSessionInstructorsDto](#addsessioninstructorsdto)
 - [AddSessionMembersDto](#addsessionmembersdto)
@@ -14,7 +13,6 @@ Sinh từ cùng OpenAPI lúc **2026-10-25T11:28:15.060Z**, Backend M02 61a7318. 
 - [ChangeEvaluationCycleStatusDto](#changeevaluationcyclestatusdto)
 - [ChangePasswordDto](#changepassworddto)
 - [ChangeRequestDto](#changerequestdto)
-- [ClassAnnouncementDto](#classannouncementdto)
 - [ConfirmSprintPlanDto](#confirmsprintplandto)
 - [ContractDraftDto](#contractdraftdto)
 - [CreateAiMentorConversationDto](#createaimentorconversationdto)
@@ -22,8 +20,6 @@ Sinh từ cùng OpenAPI lúc **2026-10-25T11:28:15.060Z**, Backend M02 61a7318. 
 - [CreateCareerRoleDto](#createcareerroledto)
 - [CreateCatalogItemDto](#createcatalogitemdto)
 - [CreateCatalogTypeDto](#createcatalogtypedto)
-- [CreateClassDto](#createclassdto)
-- [CreateClassLessonDto](#createclasslessondto)
 - [CreateEvaluationCriterionDto](#createevaluationcriteriondto)
 - [CreateEvaluationCycleDto](#createevaluationcycledto)
 - [CreateEvaluationDto](#createevaluationdto)
@@ -44,7 +40,6 @@ Sinh từ cùng OpenAPI lúc **2026-10-25T11:28:15.060Z**, Backend M02 61a7318. 
 - [CreateTemplateDto](#createtemplatedto)
 - [CreateUserDto](#createuserdto)
 - [CredentialRecoveryDto](#credentialrecoverydto)
-- [DecideAccessDto](#decideaccessdto)
 - [DraftSprintPlanDto](#draftsprintplandto)
 - [EvaluationScoreInputDto](#evaluationscoreinputdto)
 - [GeneratePlanDto](#generateplandto)
@@ -64,7 +59,6 @@ Sinh từ cùng OpenAPI lúc **2026-10-25T11:28:15.060Z**, Backend M02 61a7318. 
 - [ReplacementApprovalDto](#replacementapprovaldto)
 - [ReplacementPreviewDto](#replacementpreviewdto)
 - [RepositoryAccessRetryDto](#repositoryaccessretrydto)
-- [RequestAccessDto](#requestaccessdto)
 - [RescheduleDto](#rescheduledto)
 - [ResendCredentialsDto](#resendcredentialsdto)
 - [ResendMail](#resendmail)
@@ -75,7 +69,6 @@ Sinh từ cùng OpenAPI lúc **2026-10-25T11:28:15.060Z**, Backend M02 61a7318. 
 - [RevokeCertificateDto](#revokecertificatedto)
 - [RoundStatusDto](#roundstatusdto)
 - [SaveAnswerDto](#saveanswerdto)
-- [SaveAttendanceDto](#saveattendancedto)
 - [SelectRoleDto](#selectroledto)
 - [SendAiMentorMessageDto](#sendaimentormessagedto)
 - [SetGroupRolesDto](#setgrouprolesdto)
@@ -88,8 +81,6 @@ Sinh từ cùng OpenAPI lúc **2026-10-25T11:28:15.060Z**, Backend M02 61a7318. 
 - [TransitionSprintDto](#transitionsprintdto)
 - [UpdateCareerRoleDto](#updatecareerroledto)
 - [UpdateCatalogItemDto](#updatecatalogitemdto)
-- [UpdateClassDto](#updateclassdto)
-- [UpdateClassLessonDto](#updateclasslessondto)
 - [UpdateEvaluationCriterionDto](#updateevaluationcriteriondto)
 - [UpdateEvaluationCycleDto](#updateevaluationcycledto)
 - [UpdateEvaluationDto](#updateevaluationdto)
@@ -113,12 +104,6 @@ Sinh từ cùng OpenAPI lúc **2026-10-25T11:28:15.060Z**, Backend M02 61a7318. 
 
 | Field | Kiểu | Bắt buộc | Giới hạn / ý nghĩa |
 |---|---|---|---|
-
-## AddClassMembersDto
-
-| Field | Kiểu | Bắt buộc | Giới hạn / ý nghĩa |
-|---|---|---|---|
-| userIds | array<string (uuid)>  | Có | minItems: 1; maxItems: 200 |
 
 ## AddGroupMembersDto
 
@@ -164,11 +149,6 @@ Sinh từ cùng OpenAPI lúc **2026-10-25T11:28:15.060Z**, Backend M02 61a7318. 
 | Field | Kiểu | Bắt buộc | Giới hạn / ý nghĩa |
 |---|---|---|---|
 
-## ClassAnnouncementDto
-
-| Field | Kiểu | Bắt buộc | Giới hạn / ý nghĩa |
-|---|---|---|---|
-
 ## ConfirmSprintPlanDto
 
 | Field | Kiểu | Bắt buộc | Giới hạn / ý nghĩa |
@@ -210,27 +190,6 @@ Sinh từ cùng OpenAPI lúc **2026-10-25T11:28:15.060Z**, Backend M02 61a7318. 
 |---|---|---|---|
 
 ## CreateCatalogTypeDto
-
-| Field | Kiểu | Bắt buộc | Giới hạn / ý nghĩa |
-|---|---|---|---|
-
-## CreateClassDto
-
-| Field | Kiểu | Bắt buộc | Giới hạn / ý nghĩa |
-|---|---|---|---|
-| meetingSchedule | string | Không | maxLength: 128 |
-| meetingLocation | string | Không | maxLength: 128 |
-| progress | number | Không | minimum: 0; maximum: 100 |
-| code | string | Có | minLength: 1; maxLength: 64 |
-| name | string | Có | minLength: 1; maxLength: 256 |
-| description | string | Không | maxLength: 2000 |
-| leadInstructorId | string (uuid) | Không | — |
-| sessionId | string (uuid) | Không | — |
-| status | string | Không | enum: "upcoming", "active", "paused", "completed", "cancelled" |
-| startDate | string (date-time) | Không | — |
-| endDate | string (date-time) | Không | — |
-
-## CreateClassLessonDto
 
 | Field | Kiểu | Bắt buộc | Giới hạn / ý nghĩa |
 |---|---|---|---|
@@ -419,11 +378,6 @@ Sinh từ cùng OpenAPI lúc **2026-10-25T11:28:15.060Z**, Backend M02 61a7318. 
 | Field | Kiểu | Bắt buộc | Giới hạn / ý nghĩa |
 |---|---|---|---|
 
-## DecideAccessDto
-
-| Field | Kiểu | Bắt buộc | Giới hạn / ý nghĩa |
-|---|---|---|---|
-
 ## DraftSprintPlanDto
 
 | Field | Kiểu | Bắt buộc | Giới hạn / ý nghĩa |
@@ -553,11 +507,6 @@ Sinh từ cùng OpenAPI lúc **2026-10-25T11:28:15.060Z**, Backend M02 61a7318. 
 | Field | Kiểu | Bắt buộc | Giới hạn / ý nghĩa |
 |---|---|---|---|
 
-## RequestAccessDto
-
-| Field | Kiểu | Bắt buộc | Giới hạn / ý nghĩa |
-|---|---|---|---|
-
 ## RescheduleDto
 
 | Field | Kiểu | Bắt buộc | Giới hạn / ý nghĩa |
@@ -614,11 +563,6 @@ Sinh từ cùng OpenAPI lúc **2026-10-25T11:28:15.060Z**, Backend M02 61a7318. 
 | Field | Kiểu | Bắt buộc | Giới hạn / ý nghĩa |
 |---|---|---|---|
 | answerText | string | Có | minLength: 1; maxLength: 5000 |
-
-## SaveAttendanceDto
-
-| Field | Kiểu | Bắt buộc | Giới hạn / ý nghĩa |
-|---|---|---|---|
 
 ## SelectRoleDto
 
@@ -686,26 +630,6 @@ Sinh từ cùng OpenAPI lúc **2026-10-25T11:28:15.060Z**, Backend M02 61a7318. 
 |---|---|---|---|
 
 ## UpdateCatalogItemDto
-
-| Field | Kiểu | Bắt buộc | Giới hạn / ý nghĩa |
-|---|---|---|---|
-
-## UpdateClassDto
-
-| Field | Kiểu | Bắt buộc | Giới hạn / ý nghĩa |
-|---|---|---|---|
-| meetingSchedule | string | Không | maxLength: 128 |
-| meetingLocation | string | Không | maxLength: 128 |
-| progress | number | Không | minimum: 0; maximum: 100 |
-| name | string | Không | minLength: 1; maxLength: 256 |
-| description | string | Không | maxLength: 2000 |
-| leadInstructorId | string (uuid) | Không | — |
-| sessionId | string (uuid) | Không | — |
-| status | string | Không | enum: "upcoming", "active", "paused", "completed", "cancelled" |
-| startDate | string (date-time) | Không | — |
-| endDate | string (date-time) | Không | — |
-
-## UpdateClassLessonDto
 
 | Field | Kiểu | Bắt buộc | Giới hạn / ý nghĩa |
 |---|---|---|---|

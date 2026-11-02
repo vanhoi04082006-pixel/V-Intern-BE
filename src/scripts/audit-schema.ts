@@ -35,7 +35,7 @@ const PHASE1_TABLES = [
 
 const PHASE2_TABLES = [
   'internship_sessions', 'session_members', 'session_instructors',
-  'session_milestones', 'classes', 'class_members', 'projects',
+  'session_milestones', 'projects',
   'project_members', 'project_technologies', 'assignments',
 ];
 
@@ -114,7 +114,7 @@ const PHASE4_UNIQUE_INDEXES = [
 /** Named CHECK constraints (spec 14). */
 const PHASE2_CHECKS = [
   'CK_internship_sessions_status', 'CK_internship_sessions_dates',
-  'CK_session_milestones_status', 'CK_classes_status', 'CK_projects_status',
+  'CK_session_milestones_status', 'CK_projects_status',
   'CK_projects_capacity', 'CK_projects_difficulty', 'CK_assignments_status',
 ];
 const PHASE3_CHECKS = [

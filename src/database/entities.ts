@@ -18,8 +18,6 @@ import { AuditLog } from '../audit/entities/audit-log.entity';
 import { ActivityEvent } from '../audit/entities/activity-event.entity';
 import { Notification } from '../notifications/entities/notification.entity';
 import { NotificationPreference } from '../notifications/entities/notification-preference.entity';
-import { AcademicClass } from '../classes/entities/class.entity';
-import { ClassMember } from '../classes/entities/class-member.entity';
 import { InternshipSession } from '../sessions/entities/internship-session.entity';
 import { SessionMember } from '../sessions/entities/session-member.entity';
 import { SessionInstructor } from '../sessions/entities/session-instructor.entity';
@@ -81,8 +79,6 @@ export const ENTITIES = [
   Notification,
   NotificationPreference,
   // Phase 2 — academic core
-  AcademicClass,
-  ClassMember,
   InternshipSession,
   SessionMember,
   SessionInstructor,

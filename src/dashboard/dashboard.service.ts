@@ -37,21 +37,17 @@ export class DashboardService {
     return {scope:'Current sprint tasks; UTC daily status history',points:burndown(sprint[0].startDate,sprint[0].endDate,tasks,events)};
   }
 
-  async academic(kind: 'classes'|'sessions'|'projects', ids: string[]) {
+  async academic(kind: 'sessions'|'projects', ids: string[]) {
     if (!ids.length) return {items:[]};
     const placeholders = ids.map((_,i) => `@${i}`).join(',');
     // Table and relation expressions are fixed internally; only UUID values are supplied by clients.
     const queries = {
-      classes: `SELECT c.id,u.displayName responsibleName,s.name sessionName,
-        (SELECT COUNT(*) FROM class_members m WHERE m.classId=c.id) memberCount,
-        CAST(NULL AS int) taskCount, CAST(NULL AS int) doneCount
-        FROM classes c LEFT JOIN users u ON u.id=c.leadInstructorId LEFT JOIN internship_sessions s ON s.id=c.sessionId WHERE c.id IN (${placeholders})`,
-      sessions: `SELECT s.id,u.displayName responsibleName,CAST(NULL AS nvarchar(256)) sessionName,
+      sessions: `SELECT s.id,u.displayName responsibleName,
         (SELECT COUNT(*) FROM session_members m WHERE m.sessionId=s.id) memberCount,
         (SELECT COUNT(*) FROM tasks t JOIN sprints sp ON sp.id=t.sprintId WHERE sp.sessionId=s.id AND t.deletedAt IS NULL) taskCount,
         (SELECT COUNT(*) FROM tasks t JOIN sprints sp ON sp.id=t.sprintId WHERE sp.sessionId=s.id AND t.deletedAt IS NULL AND t.status='done') doneCount
         FROM internship_sessions s LEFT JOIN users u ON u.id=s.leadInstructorId WHERE s.id IN (${placeholders})`,
-      projects: `SELECT p.id,u.displayName responsibleName,CAST(NULL AS nvarchar(256)) sessionName,
+      projects: `SELECT p.id,u.displayName responsibleName,
         (SELECT COUNT(*) FROM project_members m WHERE m.projectId=p.id) memberCount,
         (SELECT COUNT(*) FROM tasks t WHERE t.projectId=p.id AND t.deletedAt IS NULL) taskCount,
         (SELECT COUNT(*) FROM tasks t WHERE t.projectId=p.id AND t.deletedAt IS NULL AND t.status='done') doneCount
@@ -68,9 +64,8 @@ export class DashboardService {
     return { types, generatedAt: new Date() };
   }
 
-  async academicOverview(kind: 'classes'|'sessions'|'projects') {
+  async academicOverview(kind: 'sessions'|'projects') {
     const schema = {
-      classes: { table:'classes', members:'class_members', column:'classId' },
       sessions: { table:'internship_sessions', members:'session_members', column:'sessionId' },
       projects: { table:'projects', members:'project_members', column:'projectId' },
     }[kind];

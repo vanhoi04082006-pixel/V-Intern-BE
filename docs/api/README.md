@@ -69,6 +69,6 @@ Một action nhiều bước có thể tạo draft hoặc job đang chạy. Resp
 | Chấm | code-review, submission review, evaluation |
 | Theo dõi | performance, reports, notifications |
 | Kết quả | KPI, virtual salary, certificates |
-| Cộng tác/tích hợp | GitHub OAuth/repositories/webhook và session-sharing |
+| Cộng tác/tích hợp | GitHub OAuth/repositories/webhook |
 
 Nguồn authority là controller/DTO/service của code được chạy. Nếu OpenAPI chưa mô tả đủ một response, đọc service/tests và sửa tài liệu cùng contract; không suy diễn thêm trường tùy tiện.

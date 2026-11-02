@@ -24,11 +24,11 @@ export class DashboardController {
   userRoles(@Query() query:SummaryIdsQueryDto) { return this.service.userRoles(query.ids); }
 
   @Get('academic')
-  @RequirePermissions('classes.view', 'sessions.view', 'projects.view')
+  @RequirePermissions('sessions.view', 'projects.view')
   academic(@Query() query: AcademicSummaryQueryDto) { return this.service.academic(query.kind, query.ids); }
 
   @Get('academic-overview')
-  @RequirePermissions('classes.view', 'sessions.view', 'projects.view')
+  @RequirePermissions('sessions.view', 'projects.view')
   academicOverview(@Query() query: AcademicOverviewQueryDto) { return this.service.academicOverview(query.kind); }
 
   @Get('sprints/:id/burndown')

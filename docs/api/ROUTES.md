@@ -1,6 +1,6 @@
 # Danh mục endpoint theo module
 
-Sinh từ OpenAPI của API local đang chạy lúc **2026-10-25T11:28:15.060Z**, code Backend G7 61a7318. Có **319 operations** trong **50 nhóm**. Đây là số method/path, không phải số luồng đã nghiệm thu. Nguồn schema được giữ trong evidence project-local.
+Đối chiếu source Backend ngày 29/10/2026 sau khi gỡ quản lý lớp và chia sẻ phiên. Còn **302 operations** trong **48 nhóm**. Đây là số method/path, không phải số luồng đã nghiệm thu.
 
 Đọc [hướng dẫn API](README.md) trước; schema DTO không thay validation/policy/ownership trong service. [Kho tri thức](../KNOWLEDGE-LIBRARY.md) giải thích API K02 và phân biệt draft/publish/retrieval. Một endpoint có Bearer không tự cấp quyền đọc mọi bản ghi.
 
@@ -26,7 +26,6 @@ Sinh từ OpenAPI của API local đang chạy lúc **2026-10-25T11:28:15.060Z**
 - [career-roles](#career-roles) — 8 operations
 - [catalogs](#catalogs) — 5 operations
 - [certificates](#certificates) — 6 operations
-- [classes](#classes) — 13 operations
 - [code review](#code-review) — 2 operations
 - [dashboard](#dashboard) — 8 operations
 - [evaluation-ai-assistance](#evaluation-ai-assistance) — 3 operations
@@ -48,7 +47,6 @@ Sinh từ OpenAPI của API local đang chạy lúc **2026-10-25T11:28:15.060Z**
 - [recruitment](#recruitment) — 16 operations
 - [reference-screens](#reference-screens) — 2 operations
 - [reports](#reports) — 5 operations
-- [session sharing](#session-sharing) — 4 operations
 - [sessions](#sessions) — 19 operations
 - [settings](#settings) — 2 operations
 - [sprints](#sprints) — 7 operations
@@ -259,24 +257,6 @@ Sinh từ OpenAPI của API local đang chạy lúc **2026-10-25T11:28:15.060Z**
 | GET | `/api/v1/certificates/{id}` | One certificate (certificates.view) | — |
 | POST | `/api/v1/certificates/{id}/revoke` | REVOKE (admin, spec 50): requires a reason, preserves the record with revoke metadata, notifies the intern, writes audit + activity; second revoke → 409 CERTIFICATE_ALREADY_REVOKED | [RevokeCertificateDto](SCHEMAS.md#revokecertificatedto) |
 | GET | `/api/v1/certificates/{id}/pdf` | REAL server-side PDF (spec 51-53): deterministic pdfkit document (Vietnamese-safe DejaVu), certificate number + verification code + verify URL; ISSUED certificates only — revoked → 409 (verify endpoint communicates revocation) | — |
-
-## classes
-
-| Method | Route | Thao tác | Body |
-|---|---|---|---|
-| GET | `/api/v1/classes/{id}/lessons` | ClassesController_listLessons_v1 | — |
-| POST | `/api/v1/classes/{id}/lessons` | ClassesController_createLesson_v1 | [CreateClassLessonDto](SCHEMAS.md#createclasslessondto) |
-| PATCH | `/api/v1/classes/{id}/lessons/{lessonId}` | ClassesController_updateLesson_v1 | [UpdateClassLessonDto](SCHEMAS.md#updateclasslessondto) |
-| GET | `/api/v1/classes/{id}/lessons/{lessonId}/attendance` | ClassesController_lessonAttendance_v1 | — |
-| PUT | `/api/v1/classes/{id}/lessons/{lessonId}/attendance` | ClassesController_saveLessonAttendance_v1 | [SaveAttendanceDto](SCHEMAS.md#saveattendancedto) |
-| POST | `/api/v1/classes/{id}/announcements` | ClassesController_announce_v1 | [ClassAnnouncementDto](SCHEMAS.md#classannouncementdto) |
-| GET | `/api/v1/classes` | Paginated classes (classes.view; filters: q, status, sessionId; lead-instructor scope) | — |
-| POST | `/api/v1/classes` | Create class (classes.manage; audited) | [CreateClassDto](SCHEMAS.md#createclassdto) |
-| GET | `/api/v1/classes/{id}` | Class detail (classes.view; lead-instructor scope) | — |
-| PATCH | `/api/v1/classes/{id}` | Update class (classes.manage; audited) | [UpdateClassDto](SCHEMAS.md#updateclassdto) |
-| GET | `/api/v1/classes/{id}/members` | Class members (classes.view; lead-instructor scope) | — |
-| POST | `/api/v1/classes/{id}/members` | Add members (idempotent; audited) | [AddClassMembersDto](SCHEMAS.md#addclassmembersdto) |
-| DELETE | `/api/v1/classes/{id}/members/{userId}` | Remove member (audited) | — |
 
 ## code review
 
@@ -531,15 +511,6 @@ Sinh từ OpenAPI của API local đang chạy lúc **2026-10-25T11:28:15.060Z**
 | GET | `/api/v1/reports/{id}` | ReportsController_get_v1 | — |
 | GET | `/api/v1/reports/{id}/pdf` | ReportsController_download_v1 | — |
 | GET | `/api/v1/reports/{id}/xlsx` | ReportsController_downloadExcel_v1 | — |
-
-## session sharing
-
-| Method | Route | Thao tác | Body |
-|---|---|---|---|
-| GET | `/api/v1/session-sharing` | SharingController_list_v1 | — |
-| POST | `/api/v1/session-sharing` | SharingController_request_v1 | [RequestAccessDto](SCHEMAS.md#requestaccessdto) |
-| POST | `/api/v1/session-sharing/{id}/decision` | SharingController_decide_v1 | [DecideAccessDto](SCHEMAS.md#decideaccessdto) |
-| GET | `/api/v1/session-sharing/{id}/snapshot` | SharingController_snapshot_v1 | — |
 
 ## sessions
 

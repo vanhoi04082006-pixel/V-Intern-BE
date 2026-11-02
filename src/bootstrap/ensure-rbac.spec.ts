@@ -166,7 +166,7 @@ describe('ensureRbac (Phase 3 catalog)', () => {
   });
 
   it('Phase 3 upgrade: a Phase 2 database gains exactly the 6 new sprint/task permissions and 12 new grants, rewriting nothing', async () => {
-    // DB state as of Phase 2: all roles exist, only the 9 Phase 2 permissions exist.
+    // DB state as of Phase 2: all roles exist with the 7 remaining academic permissions.
     const phase2Codes = [
       'users.read',
       'users.create',
@@ -182,8 +182,6 @@ describe('ensureRbac (Phase 3 catalog)', () => {
       'settings.update',
       'audit.read',
       'activity.read',
-      'classes.view',
-      'classes.manage',
       'sessions.view',
       'sessions.manage',
       'projects.view',
@@ -266,8 +264,6 @@ describe('ensureRbac (Phase 3 catalog)', () => {
   it('catalog contains exactly the Phase 2 + Phase 3 spec codes with no duplicates', () => {
     const codes = PERMISSION_CATALOG.map((p) => p.code);
     const expected = new Set([
-      'classes.view',
-      'classes.manage',
       'sessions.view',
       'sessions.manage',
       'projects.view',

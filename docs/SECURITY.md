@@ -11,7 +11,6 @@ Nó phải có danh tính hợp lệ, permission phù hợp, nằm trong scope b
 | API → AI | Context tối thiểu, untrusted content tách khỏi instruction, structured schema |
 | API → GitHub | OAuth state/PKCE, ID bền vững, token mã hóa, URL/host policy |
 | API → runner | Token riêng, suite/spec/SHA binding, chữ ký HMAC |
-| Sharing | Consent theo phiên, expiry/revoke và kiểm tra mỗi lần đọc |
 
 ## Mật khẩu, token và logs
 

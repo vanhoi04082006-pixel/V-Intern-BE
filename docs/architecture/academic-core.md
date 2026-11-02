@@ -36,4 +36,4 @@ List/detail áp scope managed project/session. Co-instructor được giao có s
 
 Timeline lọc theo các resource của chính phiên, không gom toàn bộ sự kiện của một actor. Các endpoint work/timeline còn kiểm tra quyền task tương ứng; quyền xem phiên không tự cấp quyền xem bài nộp riêng tư.
 
-Nguồn: [sessions](../../src/sessions), [assignments](../../src/assignments), [projects](../../src/projects), [intern workspace](../../src/intern), [sharing](session-sharing.md).
+Nguồn: [sessions](../../src/sessions), [assignments](../../src/assignments), [projects](../../src/projects), [intern workspace](../../src/intern).

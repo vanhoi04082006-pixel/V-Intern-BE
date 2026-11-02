@@ -7,7 +7,7 @@ import { RolePermission } from '../rbac/entities/role-permission.entity';
  * Permission catalogue (domain.code). Extend per milestone —
  * never remove codes here (migrations handle permission retirement).
  *
- * PHASE 2 addition (spec 34): classes/sessions/projects/assignments
+ * PHASE 2 addition (spec 34): sessions/projects/assignments
  * view+manage and intern.workspace.view.
  */
 export const PERMISSION_CATALOG: Array<{ code: string; name: string; description: string }> = [
@@ -33,8 +33,6 @@ export const PERMISSION_CATALOG: Array<{ code: string; name: string; description
   { code: 'audit.read', name: 'Xem nhật ký kiểm toán', description: 'Trail bảo mật/compliance' },
   { code: 'activity.read', name: 'Xem hoạt động', description: 'Feed hoạt động hệ thống' },
   // ── Phase 2 — academic core ──────────────────────────────────────────────
-  { code: 'classes.view', name: 'Xem lớp học', description: 'Danh sách và chi tiết lớp' },
-  { code: 'classes.manage', name: 'Quản trị lớp học', description: 'Tạo/sửa lớp, thêm/xoá thành viên lớp' },
   { code: 'sessions.view', name: 'Xem phiên thực tập', description: 'Danh sách và chi tiết phiên thực tập' },
   { code: 'sessions.manage', name: 'Quản trị phiên thực tập', description: 'Tạo/sửa phiên, chuyển trạng thái, thành viên, giảng viên, cột mốc' },
   { code: 'projects.view', name: 'Xem đồ án', description: 'Danh sách và chi tiết đồ án' },
@@ -98,12 +96,10 @@ export const ROLE_CATALOG: Array<{
   {
     code: 'instructor',
     name: 'Giảng viên',
-    description: 'Quản lý lớp, phiên thực tập, đồ án, phân công',
+    description: 'Quản lý phiên thực tập, đồ án, phân công',
     isSystem: true,
     grantCodes: [
-      'classes.view',
       'applications.manage',
-      'classes.manage',
       'sessions.view',
       'sessions.manage',
       'projects.view',

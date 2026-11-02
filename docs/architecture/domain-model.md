@@ -44,7 +44,7 @@ flowchart TD
 
 Permission cho biết người dùng được phép dùng loại chức năng nào. Ownership/scope cho biết được dùng chức năng đó trên bản ghi nào. Một giảng viên có `tasks.view` vẫn không được đọc mọi task trong trường. Service phải gắn truy vấn với project/session mà người đó được giao.
 
-Sinh viên dùng các API own theo user trong JWT. Client không thể đổi `internId` để truy cập bài người khác. Sharing là một luồng snapshot chỉ đọc, không biến người được chia sẻ thành co-instructor.
+Sinh viên dùng các API own theo user trong JWT. Client không thể đổi `internId` để truy cập bài người khác.
 
 ## Transaction, version và idempotency
 
