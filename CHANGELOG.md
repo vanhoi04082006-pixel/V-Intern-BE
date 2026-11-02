@@ -1,6 +1,10 @@
 # Changelog
 
-## Unreleased — 15/10/2026
+## Unreleased — 29/10/2026
+
+- Gỡ API quản lý lớp/chia sẻ phiên, quyền và phần tổng hợp dashboard liên quan; migration xóa schema/data cũ của hai capability. GitHub repository access tiếp tục hoạt động.
+
+## 15/10/2026
 
 - Phỏng vấn có tối đa hai câu phụ thích ứng, lưu bền vững, chống gửi trùng và phục hồi lượt sau reload. Evaluator v3 lưu sáu chiều kỹ năng; giữ công thức điểm và kết quả lịch sử.
 - Ngân hàng 185 câu cho năm vai trò, thêm Fullstack và metadata riêng; seed chèn thiếu, backfill giữ rubric đã chỉnh.

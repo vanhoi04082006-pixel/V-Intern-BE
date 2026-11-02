@@ -69,7 +69,6 @@ Chương này giúp trả lời “khi điều kiện khác đi thì hệ thốn
 | Chứng nhận revoked | Verify phản ánh thu hồi; không phát PDF như issued |
 | Report cũ và dữ liệu hiện tại khác | Giữ snapshot; tạo bản mới nếu cần đối chiếu |
 | Mất quyền scope của report | Kiểm tra lại, có thể từ chối đọc/export |
-| Sharing hết hạn/revoked/đổi owner | Chặn đọc snapshot, không cấp write |
 | Notification muted hoặc đã có dispatch | Không gửi trùng; không sửa task/điểm |
 
-Đọc sâu: [KPI](architecture/evaluation-performance-kpi.md), [ledger](architecture/virtual-salary.md), [certificate](architecture/certificates.md), [report](architecture/reports.md), [sharing](architecture/session-sharing.md), [notification](architecture/notifications.md).
+Đọc sâu: [KPI](architecture/evaluation-performance-kpi.md), [ledger](architecture/virtual-salary.md), [certificate](architecture/certificates.md), [report](architecture/reports.md), [notification](architecture/notifications.md).

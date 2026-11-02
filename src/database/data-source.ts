@@ -21,6 +21,7 @@ import { AddGithubWebhooks1762118400000 } from './migrations/1762118400000-AddGi
 import { CreateGithubDelivery1761859200000 } from './migrations/1761859200000-CreateGithubDelivery';
 import { CreateInterviewConversation1761772800000 } from './migrations/1761772800000-CreateInterviewConversation';
 import { CreateSessionSharing1761686400000 } from './migrations/1761686400000-CreateSessionSharing';
+import { RemoveClassesAndSessionSharing1793232000000 } from './migrations/1793232000000-RemoveClassesAndSessionSharing';
 import 'reflect-metadata';
 import 'dotenv/config';
 import { CreateClassLessons1761081600000 } from './migrations/1761081600000-CreateClassLessons';
@@ -117,5 +118,6 @@ export default new DataSource({
     CreateParticipation1763500800000,
     CreateReplacementWorkflow1763587200000,
     TrackRepositoryGrants1763673600000,
+    RemoveClassesAndSessionSharing1793232000000,
   ],
 });

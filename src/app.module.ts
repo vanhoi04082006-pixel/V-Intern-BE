@@ -5,7 +5,6 @@ import { CareerRolesModule } from './career-roles/career-roles.module';
 import { KnowledgeModule } from './knowledge/knowledge.module';
 import { AgentsModule } from './agents/agents.module';
 import { AdminSystemModule } from './admin/admin-system.module';
-import { SharingModule } from './sharing/sharing.module';
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { SubmissionsModule } from './submissions/submissions.module';
 import { TemplatesModule } from './templates/templates.module';
@@ -23,7 +22,6 @@ import { AuditModule } from './audit/audit.module';
 import { AssignmentsModule } from './assignments/assignments.module';
 import { AuthModule } from './auth/auth.module';
 import { CatalogsModule } from './catalogs/catalogs.module';
-import { ClassesModule } from './classes/classes.module';
 import { GroupsModule } from './groups/groups.module';
 import { HealthModule } from './health/health.module';
 import { InternModule } from './intern/intern.module';
@@ -100,7 +98,6 @@ import { ReportsModule } from './reports/reports.module';
     NotificationsModule,
     HealthModule,
     // Phase 2 — academic core
-    ClassesModule,
     SessionsModule,
     ProjectsModule,
     AssignmentsModule,
@@ -117,7 +114,6 @@ import { ReportsModule } from './reports/reports.module';
     EvaluationModule,
     PerformanceModule,
     ReportsModule,
-    SharingModule,
     GithubModule,
     KpiModule,
     VirtualSalaryModule,

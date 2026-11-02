@@ -180,7 +180,6 @@ Tài khoản, OAuth secret, token, webhook secret và cấu hình runner đượ
 | KPI / lương ảo | Kết quả và biến động có thể đối chiếu | Công thức, snapshot và ledger theo nghiệp vụ |
 | Certificate | Bản phát hành và trạng thái kiểm tra | Điều kiện, thu hồi/hiệu lực và tra cứu |
 | Reports | Bản chụp và nội dung xuất | Scope, thời điểm tạo, dữ liệu nhất quán |
-| Sharing | Ai chia sẻ cho ai, phạm vi và đồng ý | Consent và quyền của cả hai phía |
 
 Đọc sâu trong [mục lục domain](README.md): có chương riêng cho từng module trên, AI Mentor, recommendations, notifications và quản trị.
 

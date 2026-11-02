@@ -1,6 +1,5 @@
 import {
   assignmentScope,
-  classScope,
   projectScope,
   scopedProjectSessionClause,
   sessionScope,
@@ -12,7 +11,6 @@ describe('ownership scopes', () => {
     expect(sessionScope('s', admin)).toBeNull();
     expect(projectScope('p', admin)).toBeNull();
     expect(assignmentScope('a', admin)).toBeNull();
-    expect(classScope('c', admin)).toBeNull();
   });
 
   it('scopes sessions to lead or member instructor', () => {
@@ -40,8 +38,4 @@ describe('ownership scopes', () => {
     expect(scope?.clause).toContain('sessionId');
   });
 
-  it('scopes classes to the lead instructor', () => {
-    const scope = classScope('c', { userId: 'me', isAdmin: false });
-    expect(scope?.clause).toContain('leadInstructorId');
-  });
 });

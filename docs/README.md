@@ -41,7 +41,7 @@ flowchart LR
 | Chuẩn bị thực tập | [Dự án mẫu](architecture/project-blueprints.md) · [Phiên và đội hình](architecture/academic-core.md) · [Kế hoạch AI](architecture/learning-plans.md) |
 | Làm việc | [Sprint, task và bài nộp](architecture/sprint-task-core.md) · [AI Mentor](architecture/ai-mentor.md) |
 | Mã nguồn | [GitHub và review](architecture/github-code-review.md) · [Runner tin cậy](architecture/grading-runner.md) |
-| Theo dõi | [Hiệu suất sinh viên](architecture/student-performance.md) · [Thông báo](architecture/notifications.md) · [Chia sẻ theo đồng ý](architecture/session-sharing.md) |
+| Theo dõi | [Hiệu suất sinh viên](architecture/student-performance.md) · [Thông báo](architecture/notifications.md) |
 | Kết quả | [Đánh giá và KPI](architecture/evaluation-performance-kpi.md) · [Lương ảo](architecture/virtual-salary.md) · [Chứng nhận](architecture/certificates.md) · [Báo cáo](architecture/reports.md) |
 | AI tư vấn | [Gợi ý chấm đánh giá](architecture/ai-evaluation-assistance.md) · [Khuyến nghị phát triển](architecture/ai-recommendations.md) |
 

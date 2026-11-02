@@ -28,11 +28,10 @@ Controller xác định endpoint, DTO và permission. Service xử lý nghiệp 
 | `common` | Guard, decorator, error contract và helper dùng chung |
 | `recruitment` | Bắt đầu bài, câu hỏi, đáp án, số lượt, kết quả tuyển dụng |
 | `templates` | Thư viện blueprint và tạo run từ mẫu |
-| `sessions`, `projects`, `assignments`, `classes` | Phiên, ownership, roster và phân công |
+| `sessions`, `projects`, `assignments` | Phiên, ownership, roster và phân công |
 | `sprints`, `tasks`, `submissions` | Trạng thái công việc, bài nộp, rubric và phê duyệt |
 | `ai`, `ai-generation` | Provider, structured output, Mentor, gợi ý, draft/confirm |
 | `github`, `code-review` | OAuth, repo, webhook, source snapshot, review job/evidence |
-| `sharing` | Xin và cấp quyền xem snapshot theo thời hạn |
 | `evaluation`, `performance`, `kpi`, `salary` | Đánh giá chính thức, chỉ số, KPI và ledger |
 | `certificates`, `reports` | Chứng nhận và các bản báo cáo đã lưu |
 | `notifications`, `audit`, `admin`, `dashboard` | Sự kiện, cảnh báo, giám sát và read model |

@@ -42,7 +42,7 @@ Provider test chỉ nằm trong test override, trả payload qua cùng validator
 ## Hồi quy quan trọng
 
 - Phỏng vấn: các mốc 49,9/50/70/70,1, ba lượt, role khác có reason/reference thật, không phân công khi chưa passed, retry không tiêu thụ lượt mới.
-- Quyền: own/managed/foreign, user bị khóa, sharing hết hạn/thu hồi.
+- Quyền: own/managed/foreign và user bị khóa.
 - Kế hoạch: graph sai, ngày sai, roster sai, confirm/replay và không tạo task một phần.
 - GitHub: PKCE/state, immutable ID/SHA, refresh cạnh tranh, callback/disconnect/reconnect race, webhook HMAC.
 - Chấm code: đúng task/spec/suite, response HMAC, chưa đủ evidence, manual reason và AI không tự Done.

@@ -8,10 +8,10 @@ export class SummaryIdsQueryDto {
   ids!: string[];
 }
 export class AcademicSummaryQueryDto extends SummaryIdsQueryDto {
-  @IsIn(['classes','sessions','projects'])
-  kind!: 'classes' | 'sessions' | 'projects';
+  @IsIn(['sessions','projects'])
+  kind!: 'sessions' | 'projects';
 }
 export class AcademicOverviewQueryDto {
-  @IsIn(['classes','sessions','projects'])
-  kind!: 'classes' | 'sessions' | 'projects';
+  @IsIn(['sessions','projects'])
+  kind!: 'sessions' | 'projects';
 }
