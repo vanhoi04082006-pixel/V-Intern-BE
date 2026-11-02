@@ -194,7 +194,7 @@ describe("GitHub OAuth and repository access on the current SQL schema", () => {
   it('creates a centrally owned named repository and invites both teacher and student using real membership SQL', async () => {
     const studentId = Math.floor(Math.random() * 1000000000) + 3000000000;
     await db.query("INSERT INTO github_connections(userId,githubUserId,login,tokenCiphertext,scopes) VALUES(@0,@1,'linked-student',@2,'read:user')", [student.id, studentId, sealToken('student-token', centralKey, student.id.toLowerCase())]);
-    await db.getRepository(InternshipSession).update(sessionId, { status: 'active', name: 'Đồ án 01', startDate: new Date('2026-10-19T00:00:00Z') });
+    await db.getRepository(InternshipSession).update(sessionId, { status: 'active', name: 'Lớp Đồ Án 01', startDate: new Date('2026-10-19T00:00:00Z') });
     let remote: { id: number; name: string; owner: typeof centralIdentity; private: boolean; description: string; html_url: string; default_branch: string } | undefined;
     const calls: string[] = [];
     const client = { call: jest.fn(async (path: string, token: string, method = 'GET', body?: { name: string; description: string }) => {
