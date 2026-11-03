@@ -1,19 +1,22 @@
 # Hiểu V-Intern trước khi đọc code
 
-> Bộ bàn giao theo lộ trình đọc: [HANDOVER](HANDOVER.md). Trang này là chương tra cứu chuyên sâu; kết quả chạy thực tế xem [VERIFICATION](VERIFICATION.md).
+Tài liệu này trả lời ba câu: **sản phẩm làm gì**, **ai quyết định điều gì** và **các khái niệm nào dễ nhầm**. Khi đã nắm phần này, đọc [kiến trúc](ARCHITECTURE.md) rồi [bản đồ code](CODE-MAP.md) sẽ nhanh hơn nhiều.
 
+> Bộ bàn giao theo lộ trình đọc: [HANDOVER](HANDOVER.md). Bằng chứng chạy thật: [VERIFICATION](VERIFICATION.md).
 
-## Một câu chuyện xuyên suốt
+## 1. Một câu chuyện xuyên suốt
 
-Lan là sinh viên muốn thực tập lập trình. Cô Mai là giảng viên phụ trách một nhóm. Admin chuẩn bị tài khoản, thư viện dự án và kết nối GitHub. Ta dùng ba nhân vật này để giải thích các bước; đây là ví dụ, không phải dữ liệu đã tạo trong hệ thống.
+Lan là sinh viên muốn thực tập lập trình. Cô Mai là giảng viên phụ trách một nhóm. Admin chuẩn bị tài khoản, thư viện dự án và kết nối GitHub. Ba nhân vật này chỉ là ví dụ, không phải dữ liệu đã tạo trong hệ thống.
 
-Lan đăng ký và phỏng vấn cho Backend Developer. Nếu điểm tổng hợp là 75, Lan đậu và chờ cô Mai phân công. Nếu điểm là 62, AI đọc câu trả lời, đề xuất một vai trò khác và giải thích vì sao. Lan được quyền chọn lại, trong giới hạn ba lượt tổng cộng. Nếu điểm dưới 50, Lan xem phần cần cải thiện và chuẩn bị phỏng vấn lại.
+1. Lan đăng ký, chọn Backend Developer và làm bài phỏng vấn.
+2. Điểm 75 → Lan đậu và chờ phân công. Điểm 62 → AI đề xuất hướng khác kèm lý do; Lan tự chọn lại trong giới hạn ba lượt. Điểm dưới 50 → xem phần cần cải thiện rồi phỏng vấn lại khi còn lượt.
+3. Cô Mai chọn mẫu “Sổ tay học tập”, tạo phiên, phân công Lan vào một vị trí còn trống.
+4. AI đề xuất kế hoạch Sprint/task. Cô Mai đọc, sửa và xác nhận. Lúc đó Lan mới thấy công việc thật.
+5. Lan làm task, nộp PR vào repository của phiên. Hệ thống ghim đúng commit, thu thập bằng chứng, chạy review.
+6. Cô Mai đọc source, test, nhận xét AI rồi quyết định trả sửa hoặc duyệt.
+7. Khi kết thúc kỳ, dữ liệu đã xác nhận trở thành căn cứ đánh giá, KPI, lương ảo và chứng nhận.
 
-Cô Mai chọn mẫu “Sổ tay học tập”, tạo phiên cho nhóm và phân công Lan vào một vị trí còn trống. Khi bắt đầu, AI đề xuất kế hoạch. Cô Mai kiểm tra và xác nhận. Lúc đó Lan mới thấy các nhiệm vụ thật trên Sprint Board.
-
-Lan làm một nhiệm vụ, nộp liên kết PR vào repository của phiên. Hệ thống ghi lại commit cụ thể, thu thập source và chạy quy trình review. Cô Mai đọc kết quả AI, test và bài làm rồi quyết định yêu cầu sửa hay duyệt. Khi kết thúc kỳ, các dữ liệu đã được xác nhận trở thành căn cứ đánh giá, KPI và chứng nhận.
-
-## Phân biệt các khái niệm dễ nhầm
+## 2. Phân biệt các khái niệm dễ nhầm
 
 | Khái niệm | Nghĩa trong hệ thống | Ví dụ |
 |---|---|---|
@@ -24,14 +27,14 @@ Lan làm một nhiệm vụ, nộp liên kết PR vào repository của phiên. 
 | Phiên thực tập | Thời gian, người phụ trách và đội hình | Học kỳ tháng 10–12 |
 | Assignment | Phân công một sinh viên vào vị trí trong phiên | Lan làm Backend |
 | Sprint | Một giai đoạn làm việc có thời hạn | Nền tảng và luồng chính |
-| Task | Một đầu việc có người nhận và tiêu chí hoàn thành | Lưu và khôi phục ghi chú |
+| Task | Đầu việc có người nhận và tiêu chí hoàn thành | Lưu và khôi phục ghi chú |
 | Submission | Một lần nộp bài có bằng chứng bất biến | PR và head SHA lúc nộp |
 | Evaluation | Đánh giá học tập chính thức của giảng viên | Đánh giá cuối kỳ |
 | KPI | Tổng hợp có công thức từ kết quả đã lưu | Hoàn thành, chất lượng, đúng hạn |
 
-“Backend Developer” không cấp quyền quản trị backend. Tương tự, nhận lời mời repository GitHub không cho phép một sinh viên tự duyệt task trên V-Intern.
+“Backend Developer” **không** cấp quyền quản trị backend. Nhận lời mời repository GitHub **không** cho phép sinh viên tự duyệt task trên V-Intern.
 
-## Bốn mốc khác nhau
+## 3. Bốn mốc khác nhau
 
 ```mermaid
 flowchart TD
@@ -41,25 +44,57 @@ flowchart TD
   D --> E[Hoàn thành thực tập và chốt kết quả]
 ```
 
-Đậu phỏng vấn không tự tạo dự án. Một phiên đã có kế hoạch nháp cũng chưa có nghĩa sinh viên đã nhận task. Đây là hai nguyên nhân thường gặp khi người dùng thấy giảng viên có nội dung nhưng sinh viên vẫn đang chờ.
+- Đậu phỏng vấn **không** tự tạo dự án.
+- Có assignment **chưa** có nghĩa đã có task.
+- Kế hoạch nháp **chưa** phải công việc chính thức.
+- Sprint `planned` **chưa** phải Sprint đang chạy.
+- Task Done **không** đồng nghĩa cả phiên hoàn thành.
 
-## AI làm gì và con người quyết định gì?
+Đây là các nguyên nhân thường gặp khi giảng viên thấy nội dung nhưng sinh viên vẫn đang chờ.
+
+## 4. Ba vai trò, ba phạm vi
+
+| Vai trò | Làm được gì | Không được suy ra |
+|---|---|---|
+| Sinh viên | Tuyển dụng, workspace của chính mình, nộp bài, xem kết quả | Không đọc dữ liệu người khác bằng cách đổi ID |
+| Giảng viên | Mẫu dự án, phiên, phân công, kế hoạch, chấm bài, báo cáo trong scope | Có permission không có nghĩa quản lý mọi phiên |
+| Admin | Người dùng, quyền, nghề nghiệp, câu hỏi, kho tri thức, cấu hình, KPI, chứng nhận | Không thay giảng viên chấm từng bài |
+| Hệ thống | Guard, policy, transaction, worker, runner, audit | Không tự quyết định thay con người |
+
+Chi tiết phân quyền: [SECURITY](SECURITY.md). Luồng theo vai: [USER-JOURNEYS](USER-JOURNEYS.md).
+
+## 5. AI làm gì và con người quyết định gì?
 
 | Công việc | AI | Backend / giảng viên |
 |---|---|---|
 | Phỏng vấn | Hỏi theo nội dung đã chọn, phân tích câu trả lời | BE áp công thức và giới hạn lượt |
-| Đề xuất vai trò | Chọn hướng có căn cứ từ câu trả lời | Sinh viên tự chọn lần tiếp theo |
+| Đề xuất vai trò | Chọn hướng có căn cứ từ câu trả lời | Sinh viên tự quyết định lần tiếp theo |
 | Kế hoạch | Tạo bản nháp Sprint/task | Giảng viên sửa và xác nhận |
-| Mentor | Giải thích, gợi ý cách làm và kiểm tra | Không sửa điểm hay task thay người học |
+| Mentor | Giải thích, gợi ý cách làm | Không sửa điểm hay task thay người học |
 | Review code | Nhận xét từ source/evidence đã thu thập | Runner kiểm thử; giảng viên quyết định cuối |
 | KPI/chứng nhận | Không tự chốt | Công thức và điều kiện xác định tại BE |
 
-## Đọc các con số đúng cách
+Nguyên tắc bất biến: **AI đề xuất, hệ thống kiểm tra, con người chốt.** AI không cấp quyền, không tự chuyển task sang Done và không thay thế kết quả test.
 
-- **0%** nghĩa là đã đo và kết quả bằng không.
-- **Chưa đo được** nghĩa là thiếu dữ liệu hoặc mẫu số chưa có.
-- Biểu đồ phân bố task thể hiện trạng thái hiện tại, không chứng minh xu hướng cải thiện.
-- Điểm AI review không phải điểm đánh giá cuối kỳ. Cần nhìn đúng cột nguồn và thời điểm.
-- Báo cáo đã lưu là bản chụp tại thời điểm tạo; sửa task sau đó không làm báo cáo cũ tự đổi.
+## 6. Đọc các con số đúng cách
 
-Đọc tiếp [cách dùng từng vai trò](USER-JOURNEYS.md) hoặc [chạy local](LOCAL-DEVELOPMENT.md).
+| Cách ghi | Nghĩa |
+|---|---|
+| `0` | Đã đo và kết quả bằng không |
+| `null` / “chưa đo được” | Thiếu dữ liệu hoặc chưa có mẫu số |
+| `insufficient_data` | Có dữ liệu nhưng chưa đủ để kết luận |
+| Snapshot | Nội dung tại thời điểm ghi; sửa dữ liệu hiện tại không đổi bản cũ |
+| Điểm AI review | Đề xuất kỹ thuật, không phải điểm đánh giá cuối kỳ |
+
+Biểu đồ phân bố task thể hiện trạng thái hiện tại, không chứng minh xu hướng cải thiện. Báo cáo đã lưu là ảnh chụp, không tự cập nhật.
+
+## 7. Đọc tiếp
+
+| Bạn muốn | Đi tới |
+|---|---|
+| Chạy thử | [LOCAL-DEVELOPMENT](LOCAL-DEVELOPMENT.md) |
+| Hiểu kiến trúc | [ARCHITECTURE](ARCHITECTURE.md) |
+| Tìm file | [CODE-MAP](CODE-MAP.md) |
+| Gọi API | [api/README](api/README.md) |
+| Tra nhánh nghiệp vụ | [WORKFLOW-MATRIX](WORKFLOW-MATRIX.md) |
+| Kiểm thử | [TESTING](TESTING.md) |

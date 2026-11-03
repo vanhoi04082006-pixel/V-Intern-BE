@@ -9,7 +9,7 @@ Chương này giúp trả lời “khi điều kiện khác đi thì hệ thốn
 | Đăng ký hợp lệ, email mới | Tạo user intern/profile trong transaction | Đăng nhập rồi tuyển dụng |
 | Email trùng, terms/input sai, đăng ký đóng | Trả conflict/validation/closed, không thành công giả | Đọc thông báo hoặc dùng tài khoản đã có |
 | Access token hết hạn | Theo refresh flow/rotation, vẫn kiểm tra trạng thái user | Đăng nhập lại nếu không thể phục hồi |
-| Permission có nhưng bản ghi ngoài scope | Từ chối theo ownership | Chọn đúng phiên hoặc xin quyền chia sẻ |
+| Permission có nhưng bản ghi ngoài scope | Từ chối theo ownership | Chọn đúng phiên/dự án của mình; liên hệ người phụ trách nếu cần quyền khác |
 | Còn lượt, hết cooldown | Start session và tiêu thụ một lượt | Trả lời theo thứ tự |
 | Hết 3 lượt | Chặn start mới | Liên hệ giảng viên/Admin; đổi role không tạo lượt |
 | Session hết hạn | BE chặn ghi/nộp theo thời điểm server | Đọc trạng thái và khả năng bắt đầu lại |

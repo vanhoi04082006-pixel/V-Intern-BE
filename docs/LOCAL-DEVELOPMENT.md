@@ -1,119 +1,205 @@
 # Chạy và kiểm tra hệ thống local
 
-## 1. Kiểm tra những thứ đã có
+Hướng dẫn này đưa một checkout Backend từ “chưa có gì” đến API trả dữ liệu thật. Trên máy bàn giao đã có sẵn runtime, đọc mục [Chạy trên workspace hiện tại](#6-chạy-trên-workspace-hiện-tại) trước.
 
-Workspace trên máy này gồm `V-INTERN-BE`, `V-INTERN FE`, `manual-runtime` và `.runtime`. SQL Server, Windows và Node được cài sẵn là công cụ dùng chung; không di chuyển chúng như một phần dọn dẹp dự án.
+## 1. Yêu cầu
 
-Trước khi cài dependency, build hoặc chạy test trong mỗi cửa sổ PowerShell:
+| Thành phần | Phiên bản / ghi chú |
+|---|---|
+| Node.js | **22** (CI dùng Node 22; không có `engines` trong `package.json`) |
+| npm | Đi kèm Node; dùng đúng `package-lock.json` |
+| SQL Server | **2019**, kết nối TCP được từ máy chạy API |
+| Database | Một DB riêng cho môi trường bạn sở hữu, có login đủ quyền |
+| Frontend | `V-Intern FE` chạy tại `http://localhost:3001` (không bắt buộc để test API) |
+
+Backend **không** tự tạo SQL Server, không tự cấp quyền login và không có mock data mặc định. Nếu DB chưa sẵn sàng, health sẽ báo lỗi thay vì trả dữ liệu giả.
+
+## 2. Giữ tài nguyên trong workspace
+
+Dependency, cache, log, MDF/LDF test và bằng chứng phải nằm dưới `E:\Projects\V-INTERN`. Trong **mỗi cửa sổ PowerShell** trước khi chạy npm/build/test:
 
 ```powershell
 & .\scripts\Use-ProjectStorage.ps1
 ```
 
-Script đưa cache và file tạm của npm/Node/công cụ kiểm thử vào dự án. Cài dependency bằng `npm ci` trong từng repository khi cần; không dùng bản cài global thay cho dependency trong lockfile.
+Script đặt `TEMP`, `TMP`, cache npm/Node và `DB_FILES_ROOT` vào `.runtime` của dự án. Không cài dependency global thay cho lockfile; không đưa cache/download sang ổ C.
 
-## 2. Chuẩn bị cấu hình
-
-Nếu `.env` đã có, giữ lại và đối chiếu tên biến với `.env.example`. Nếu đây là checkout mới, sao chép mẫu rồi nhập giá trị thật tại máy. Không ghi đè cấu hình đang chạy.
+## 3. Cấu hình
 
 ```powershell
-# Chạy tại thư mục gốc repository Backend
-# Chỉ dùng khi CHƯA có .env:
+# Chỉ chạy khi CHƯA có .env
 Copy-Item .env.example .env
 ```
 
-Các giá trị tối thiểu: host/cổng/tên database, tài khoản SQL, `JWT_SECRET` đủ mạnh, cổng API và CORS của FE. [CONFIGURATION](CONFIGURATION.md) giải thích từng nhóm. Thiếu AI/GitHub/runner chỉ làm các tính năng tương ứng chưa khả dụng; không nên điền secret giả để làm health trông tốt.
+Tối thiểu cần điền:
 
-## 3. Kết nối database đúng nơi
+```dotenv
+NODE_ENV=development
+PORT=8080
 
-Máy hiện tại thường dùng SQL TCP 1435; đừng mặc định 1433 nếu `.env` ghi khác. Dùng database chính hiện có và giữ nguyên tài khoản gốc. Không chạy `seed:dev`, reset hoặc tạo lại DB để mở giao diện.
+DB_HOST=localhost
+DB_PORT=1435
+DB_NAME=VIntern_YourDatabase
+DB_USERNAME=your_login
+DB_PASSWORD=your_password
 
-Với database mới hoàn toàn, quản trị viên tạo DB/login trước rồi mới chạy migration. Với database đang sử dụng, kiểm tra migration pending và đọc nội dung migration trước khi áp dụng:
+JWT_SECRET=<chuỗi-ngẫu-nhiên-đủ-mạnh>
+CORS_ORIGINS=http://localhost:3001
+FRONTEND_ORIGIN=http://localhost:3001
+```
+
+- `DB_PORT` là cổng **SQL Server**, không phải cổng API.
+- `CORS_ORIGINS` phải chứa origin chính xác của FE, gồm scheme và port.
+- Không dùng giá trị mẫu/`changeme` cho `JWT_SECRET` hoặc mật khẩu.
+- Thiếu cấu hình AI/GitHub/runner chỉ làm tính năng tương ứng chưa khả dụng; **không điền secret giả** để health trông tốt.
+
+Chi tiết từng nhóm biến: [CONFIGURATION](CONFIGURATION.md).
+
+## 4. Cài dependency và chuẩn bị database
+
+```powershell
+& .\scripts\Use-ProjectStorage.ps1
+npm ci
+```
+
+Với database **mới hoàn toàn**:
+
+1. Tạo DB/login theo [SQL Server 2019 setup](database/SQLSERVER2019_SETUP.md).
+2. Kiểm tra migration đang chờ:
 
 ```powershell
 & .\scripts\Use-ProjectStorage.ps1
 npm run migration:show
 ```
 
-`migration:run` là thao tác đổi schema; chỉ chạy trên database được chọn đúng. Hướng dẫn tạo mới và kiểm tra đường dẫn MDF/LDF ở [SQL Server](database/SQLSERVER2019_SETUP.md).
+3. Chỉ khi đã xác nhận đúng DB đích:
 
-## 4. Khởi động hai process
+```powershell
+npm run migration:run
+npm run audit:schema
+```
 
-**Workspace hiện có:** dùng launcher giữ đúng DB/cổng, thay vì vô tình mở DB mặc định trong `.env`. Khi các process đã dừng và build sẵn:
+> `migration:run`, `migration:revert`, `seed:*` và `db:create:e2e` **thay đổi dữ liệu/schema**. Không chạy trên database bàn giao, database chính hoặc ba tài khoản trắng gốc.
+
+Với database đang sử dụng, đọc nội dung migration trước khi áp dụng. Không sửa migration đã chạy; xem [MIGRATION_POLICY](database/MIGRATION_POLICY.md).
+
+## 5. Chạy API
+
+```powershell
+& .\scripts\Use-ProjectStorage.ps1
+npm run start:dev
+```
+
+| Dịch vụ | Địa chỉ |
+|---|---|
+| API | `http://localhost:8080/api/v1` |
+| Swagger | `http://localhost:8080/api/docs` |
+| OpenAPI JSON | `http://localhost:8080/api/docs-json` |
+| Health | `http://localhost:8080/api/v1/health` |
+
+Bản production:
+
+```powershell
+& .\scripts\Use-ProjectStorage.ps1
+npm run build
+npm start
+```
+
+`npm start` chạy `dist/main.js`; sửa source **không** tự cập nhật. `start:dev` dùng watch mode.
+
+## 6. Chạy trên workspace hiện tại
+
+Workspace gồm `V-INTERN-BE`, `V-Intern FE`, `manual-runtime` và `.runtime`. Dùng launcher để giữ đúng DB/cổng thay vì vô tình mở DB mặc định trong `.env`:
 
 ```powershell
 & .\scripts\Use-ProjectStorage.ps1
 & ..\manual-runtime\start-owned-services.ps1 -Backend -Frontend
 ```
 
-Launcher chính: 8080 → `VIntern_M2_BROWSER`, 8081 → `VIntern_Test_Learning_20261014`, FE chính 3001. FE dev QA 3004 có launcher riêng. Script từ chối cổng đã dùng. Muốn restart bản đang chạy, kiểm tra ownership rồi dùng `restart-owned-apps.ps1` với cờ đúng process; script không migrate/reset DB.
+| Process | Cổng | Database theo launcher |
+|---|---|---|
+| API chính | 8080 | `VIntern_M2_BROWSER` |
+| API QA | 8081 | `VIntern_Test_Learning_20261014` |
+| SQL TCP trên máy hiện tại | 1435 | Kiểm kết nối đúng instance |
+| FE chính | 3001 | Trỏ API 8080 |
+| FE QA | 3004 | Trỏ API 8081 |
 
-**Checkout phát triển thông thường:** các lệnh sau đọc `.env` trực tiếp. Xác nhận DB_NAME/API base URL trước khi chạy; không mặc định đây là cùng DB của launcher trên máy hiện tại.
-
-Cửa sổ API:
-
-```powershell
-# Chạy tại thư mục gốc repository Backend
-& .\scripts\Use-ProjectStorage.ps1
-npm run start:dev
-```
-
-Cửa sổ frontend:
+Launcher từ chối cổng đã dùng. Muốn restart bản đang chạy, kiểm tra ownership rồi:
 
 ```powershell
-# Chạy tại thư mục gốc repository Frontend
-& .\scripts\Use-ProjectStorage.ps1
-npm run dev
+& ..\manual-runtime\restart-owned-apps.ps1 -Backend
 ```
 
-Trước đó kiểm tra cổng đang có process hay chưa. Bản FE chạy bằng `next start` dùng bản build đã tạo; sửa source không tự cập nhật bản này. Sau khi build thành công cần khởi động lại đúng process FE. Bản `next dev` có cập nhật khi sửa source; không chạy hai dev process dùng chung thư mục build.
+Script không migrate/reset DB. **Không** suy ra database đang phục vụ UI chỉ từ `DB_NAME` trong `.env`.
 
-## 5. Xác nhận hệ thống sẵn sàng
+## 7. Xác nhận hệ thống sẵn sàng
 
-1. Mở `/api/v1/health`: `database: ok` phải đến từ truy vấn SQL thật.
-2. Mở `/api/docs`: xem danh sách API và DTO của bản đang chạy.
-3. Mở FE, đăng nhập một tài khoản local hiện có.
-4. Kiểm tra đúng tên người dùng và vai trò trước khi thao tác.
-5. Mở một phiên hoặc nhiệm vụ đã tồn tại; đối chiếu giữa sinh viên và giảng viên.
+Kiểm tra theo thứ tự, từ tầng thấp đến tầng cao:
 
-`ai: configured` chỉ cho biết có cấu hình, chưa chứng minh nhà cung cấp nhận được request. Tương tự, có URL runner hoặc webhook chưa có nghĩa đã chấm được bài thật.
+1. **SQL sống:** health trả `database: ok` từ truy vấn thật.
+2. **Swagger đúng bản:** `/api/docs` có route/DTO hiện tại.
+3. **Đăng nhập:** dùng tài khoản local được bàn giao; kiểm đúng tên và vai trò.
+4. **Dữ liệu thật:** mở một phiên/task đã tồn tại; so sánh góc nhìn sinh viên và giảng viên.
+5. **Mutation có kiểm soát:** chỉ thử trên DB QA riêng, không dùng DB chính.
 
-## Dừng và khởi động lại
+```powershell
+Invoke-RestMethod http://localhost:8080/api/v1/health
+```
 
-Process mở trong terminal có thể dừng bằng Ctrl+C. Process chạy nền phải kiểm tra PID, command line và cổng trước khi dừng. Chỉ dừng process của V-Intern cần thay; không dùng lệnh tắt toàn bộ Node/SQL Server.
+> `ai: configured` chỉ nghĩa là có cấu hình, không chứng minh provider nhận request. Có URL runner/webhook cũng chưa chứng minh đã chấm được bài thật.
 
-## Khi bước nào chưa thành công
+## 8. Runner chấm code
 
-| Triệu chứng | Kiểm tra trước |
-|---|---|
-| API không khởi động | Lỗi cấu hình đầu log, JWT/SQL credential, cổng đã dùng |
-| Health trả 503 | SQL service, TCP port, DB_NAME và quyền login |
-| FE báo không kết nối | API base URL, cổng API, CORS và process thực tế |
-| Đăng nhập liên tục quay lại login | Origin/cookie, API URL và trạng thái tài khoản |
-| Sửa UI nhưng chưa thấy thay đổi | Đang xem `dev` hay bản build `start`? |
-| GitHub/AI báo chưa cấu hình | Mở đúng chương tích hợp, không sửa dữ liệu để bỏ qua |
-
-Đọc [TROUBLESHOOTING](TROUBLESHOOTING.md) để chẩn đoán theo luồng request.
-
-## Runner và môi trường QA trên máy bàn giao
-
-Sau khi API/FE sẵn sàng, chạy worker riêng:
+Runner là process riêng, chạy code không tin cậy trong container cách ly. Trên máy bàn giao:
 
 ```powershell
 & .\scripts\Use-ProjectStorage.ps1
 & ..\manual-runtime\start-grader.ps1
 ```
 
-Script chỉ làm việc với distro `VIntern-Grader` thuộc dự án: khởi động Docker/worker và giữ một process WSL ẩn. Không có process giữ phiên, WSL có thể dừng dù service đã báo active. Không sửa cấu hình WSL toàn máy để chữa triệu chứng này. Dùng trạng thái worker và một request chấm thực tế để kiểm chứng; phản hồi 401 khi thiếu chữ ký chỉ chứng minh endpoint đang bảo vệ request.
+Script chỉ làm việc với distro `VIntern-Grader` thuộc dự án. Không có process giữ phiên, WSL có thể dừng dù service báo active; dùng trạng thái worker và một request chấm thật để kiểm chứng. Không sửa cấu hình WSL toàn máy để chữa triệu chứng này.
 
-QA frontend dùng `manual-runtime/start-qa-frontend.cjs` tại cổng 3004, API 8081. Launcher `validation-runtime.cjs` đặt riêng ba giá trị:
+Runner cần ba giá trị khớp nhau:
 
-| Cấu hình | Giá trị local QA |
+| Biến | Ý nghĩa |
 |---|---|
-| GITHUB_CALLBACK_URL | http://localhost:8081/api/v1/github/callback |
-| FRONTEND_ORIGIN | http://localhost:3004 |
-| CERTIFICATE_VERIFY_BASE_URL | http://localhost:8081/api/v1/certificates/verify |
+| `GRADING_RUNNER_URL` | API gọi runner |
+| `GRADING_RUNNER_TOKEN` | Token xác thực request |
+| `GRADING_RUNNER_SIGNING_KEY` | Khóa xác minh HMAC của kết quả |
+| `GRADING_SUITES_JSON` | Suite gắn đúng template/task/spec |
 
-Sai callback/origin có thể đưa người dùng về môi trường khác sau OAuth; sai verify URL khiến PDF QA tìm chứng nhận ở database chính. Chỉnh launcher của môi trường tương ứng và restart API, không đổi identity hoặc sao chép record chứng nhận giữa database.
+Runner online **chưa đủ**: task phải có suite tương ứng mới có trusted PASS. Xem [grading-runner](architecture/grading-runner.md).
 
-Khi máy thiếu RAM, có thể tạm dừng các process QA/worker đã xác minh sở hữu để chạy E2E. Chỉ dùng database E2E mới, giữ nguyên assertion và timeout. Sau đó khởi động lại môi trường và chạy readiness; không để runtime dừng khi bàn giao.
+## 9. Kiểm tra trước khi commit
+
+```powershell
+& .\scripts\Use-ProjectStorage.ps1
+npm run lint
+npm test
+npm run build
+git diff --check
+```
+
+E2E cần DB riêng; đọc [TESTING](TESTING.md) trước khi chạy để không trỏ nhầm database chính.
+
+## 10. Khi bước nào chưa thành công
+
+| Triệu chứng | Kiểm tra trước |
+|---|---|
+| API không khởi động | Lỗi cấu hình đầu log, `JWT_SECRET`, SQL credential, cổng đã dùng |
+| Health trả 503 | SQL service, TCP port, `DB_NAME`, quyền login |
+| FE báo không kết nối | API base URL, cổng API, CORS, process thực tế |
+| Đăng nhập quay lại login | Origin/cookie, API URL, trạng thái tài khoản |
+| Sửa code nhưng API không đổi | Đang chạy `start:dev` hay `npm start`? |
+| `CREATE DATABASE permission denied` | Login thiếu quyền; không nâng quyền runtime hoặc đổi sang DB chính |
+| GitHub/AI báo chưa cấu hình | Mở đúng chương tích hợp; không sửa dữ liệu để bỏ qua |
+| Runner 401 | Thiếu/sai token hoặc chữ ký; chỉ chứng minh endpoint đang bảo vệ request |
+
+Đọc [TROUBLESHOOTING](TROUBLESHOOTING.md) để chẩn đoán theo luồng request.
+
+## 11. Dừng và khởi động lại
+
+- Process mở trong terminal: `Ctrl+C`.
+- Process nền: kiểm tra PID, command line và cổng trước khi dừng.
+- Chỉ dừng process V-Intern cần thay; **không** tắt toàn bộ Node/SQL Server.
+- Sau khi build lại, restart đúng process API; health phải trả `database: ok` trở lại.

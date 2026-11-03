@@ -1,68 +1,110 @@
-# Kiểm chứng Backend — 24/10/2026
+# Kiểm chứng Backend
 
-> **Nguồn hiện hành về nghiệp vụ:** [kiểm thử 27/10](BUSINESS-ACCEPTANCE-20261027.md). Các bảng Aurora/G0–G7 phía dưới là các mốc lịch sử có source riêng.
+Trang này là **chỉ mục bằng chứng hiện hành**. Số liệu lịch sử nằm trong [`reports/`](reports/) và [`archive/`](archive/); không sửa chúng để khớp hiện tại.
 
-> **Checkpoint 26/10/2026:** [nguồn kiểm chứng và việc còn mở](ACCEPTANCE-CHECKPOINT-20261026.md). BE 859 / FE 660 unit tests; source và CI ghi riêng trong checkpoint. Hành trình QA thật đã hoàn thành 4/4 task, đánh giá 96,1, KPI 98,8, chứng nhận và vòng mời lại GitHub. Có cả bước UI/API; chưa nghiệm thu mọi nhánh hoặc redesign toàn bộ.
+## 1. Mốc hiện hành — 02/11/2026
 
-**G2/P02:** code `36393f3` đạt **90 suite / 734 unit**, build/lint; **4 suite / 39 SQL/HTTP** local trong một lượt DB disposable. CI [40064643895](https://github.com/vanhoi04082006-pixel/V-Intern-BE/actions/runs/40064643895) success với **33 suite / 313 SQL/HTTP** chung, retrieval 8/material migration 4/career migration 5 ở các lượt riêng. Đã thêm sáu mẫu MINI vào mỗi DB local; counts/digest dữ liệu được bảo vệ giữ nguyên. Có 18 draft tri thức đa Agent, không tự publish. [Báo cáo P02](reports/mini-project-content-20261024.md) ghi nguồn và giới hạn; P03/P04 và phần còn lại G2 vẫn mở.
-
-**G2/P01:** code `fdd2305` đạt 725 unit, build/lint; 30 SQL regression và 4 migration test local là hai lượt riêng. CI [40061277022](https://github.com/vanhoi04082006-pixel/V-Intern-BE/actions/runs/40061277022) đạt: 304 SQL/HTTP chung, 8 retrieval riêng, 4 material migration riêng và gate nghề nghiệp/rollback hiện hữu. Hai DB local giữ count/digest và tài khoản gốc; readiness 04:21:25 UTC đạt. [Ma trận và phần G2 còn lại](reports/small-project-foundation-20261024.md).
-
-**G1:** code `e87166e` đạt 709 unit và 32 SQL G1/K04 local. CI [40055214366](https://github.com/vanhoi04082006-pixel/V-Intern-BE/actions/runs/40055214366) đạt: 293 SQL/HTTP chung, 8 retrieval riêng. 11 ca Gemini thật và 65/65 trace delivery đạt; đã đọc lại root trace trên cloud. Hai API local đã kích hoạt migration; dữ liệu và ba tài khoản trắng giữ nguyên. [Ma trận, mốc giờ, nguồn và giới hạn](reports/agent-foundation-20261024.md). Số liệu lịch sử phía dưới giữ nguyên phạm vi/ngày kiểm của từng mốc.
-
-**Mốc mới nhất K01/K02:** 80 suite / 669 unit BE; lint/build đạt; SQL/HTTP kho tri thức 22 test và hồi quy M01 47 test là hai lượt riêng. [Báo cáo tri thức](reports/knowledge-library-20261023.md) gắn source API `7cb3a46`/OpenAPI `b3a1ef7`; CI Backend SQL 2019 và acceptance của bản cuối đều đạt. Hai DB chính đã nhận M02, số liệu/tài khoản giữ nguyên; readiness lúc 16:19 UTC. Kết quả chưa chứng minh UI/retrieval/Agent runtime hay bộ nội dung được duyệt; không lấy mốc M01 phía dưới thay thế.
-
-**Mốc cập nhật M01:** 629 unit BE đạt; các lượt SQL kiểm catalog/template/tuyển dụng (47), KPI/chứng nhận nghề mới (15) và migration (5) được ghi riêng trong [báo cáo nghề nghiệp](reports/career-roles-20261023.md). Cặp FE `890c4b6` / BE `1bd3c70` đã qua CI quality + full-stack SQL 2019. Hai DB chính đã nhận hai migration M01; số bản ghi/lượt phỏng vấn giữ nguyên, 7 tài khoản gốc/demo đăng nhập và đọc catalog đạt lúc 15:08 UTC ngày 23/10. Báo cáo ghi nguồn, giới hạn fixture và phân biệt smoke local với acceptance. Bảng 625 test phía dưới thuộc bàn giao Aurora trước M01, giữ nguyên nguồn lịch sử; không phải tổng hiện hành sau M01.
-
-Đây là mốc kiểm chứng hiện hành cho đợt Aurora Glass, bàn giao và nhập vai. Số liệu được gắn với log thực tế, không trộn unit, SQL E2E và provider thật.
-
-| Hạng mục | Kết quả | Bằng chứng |
+| Hạng mục | Kết quả | Ghi chú |
 |---|---|---|
-| Jest unit | **78 suite / 625 test đạt** | be-unit-final-v4.log |
-| ESLint | 0 lỗi; 15 cảnh báo console ở script hiện hữu | be-lint-final-v4.log |
-| Nest build | Đạt | be-build-final-v4.log |
-| SQL HTTP E2E | **25 suite / 237 test đạt theo ma trận tổng hợp**, 0 bỏ qua | e2e-consolidated-final.json |
-| Guard live | **9/9 đạt** | guards-live.json |
-| PR đổi SHA | Duyệt snapshot cũ bị 409 SUBMISSION_SHA_CHANGED | sha-freshness-live.json |
-| AI/GitHub/Docker thật | Có bằng chứng riêng, không gọi fixture là provider thật | outcomes-live.json, ai-and-sharing-live.json, recommendation-live-final.json |
-| PDF | Chứng nhận 1 trang, báo cáo 3 trang; nội dung và footer nằm trong khung | pdf-verification.json, screens/qa-certificate-fixed.png |
+| Branch / commit | `main` / `ca60e16` | Working tree sạch tại thời điểm ghi |
+| ESLint | Đạt, 0 lỗi | `npm run lint` |
+| Jest unit | **113 suite / 849 test đạt** | `npm test`, chạy tuần tự |
+| Nest production build | Đạt | `npm run build` |
+| SQL/HTTP E2E | **34 suite / 316 test** | CI `backend-ci`, SQL Server 2019 disposable |
+| Schema audit | Đạt | Bảng, sequence, unique index, CHECK, kiểu dữ liệu |
+| Migration | Lên + revert + reapply đạt | Từ database rỗng trong CI |
+| API surface | **302 operation / 48 nhóm** | Sau khi gỡ classes/sharing |
+| Health/Swagger | Đạt | `/api/v1/health`, `/api/docs`, `/api/docs-json` |
 
-## Cách tổng hợp SQL E2E
+Lệnh tái lập local:
 
-Lần chạy mỗi suite một database mới đạt 233 test, còn 4 test lỗi tại hai suite do timeout 5 giây và fixture/provider queue kéo theo. Máy có 8GB RAM và đồng thời chạy hai API, FE dev/build cùng Docker. Không tăng timeout, không bỏ assertion và không dùng database chính để thay thế.
+```powershell
+& .\scripts\Use-ProjectStorage.ps1
+npm run lint
+npm test
+npm run build
+git diff --check
+```
 
-Sau khi tạm dừng QA runtime và Docker, **hai suite này chạy lại trên hai database mới riêng đạt 40/40**: ai-mentor 25 và kpi-salary-certificates 15. Ma trận cuối chọn 23 suite đã đạt từ fresh-suite-matrix.json cùng hai kết quả mới từ targeted-fresh-suites.json, tổng **237**. Đây không phải một lượt chạy full-suite xanh duy nhất. Log lỗi lần đầu được giữ, không ghi đè bằng kết quả rerun. Mỗi database E2E đã kiểm đường dẫn MDF/LDF nằm dưới workspace/.runtime/sql.
+E2E cần DB riêng; xem [TESTING](TESTING.md). Số E2E ở trên là kết quả CI trên database disposable, không phải một lượt chạy local trên DB chính.
 
-Các suite E2E thay transport/provider bằng fixture để kiểm guard, transaction và contract. Live GitHub/Gemini/Docker được thực hiện riêng qua luồng QA, không suy từ suite xanh.
+## 2. Thay đổi contract gần nhất
 
-## Các hồi quy bổ sung trong đợt nhập vai
+Đợt gỡ quản lý lớp và chia sẻ phiên:
 
-- Retry review khi runner failed/not_configured; kết quả test âm đã chạy hoàn tất không bị tự coi là lỗi hạ tầng.
-- Evaluation assistance và recommendations có tối đa một schema repair có audit; version prompt v2, không nới validator hoặc nhân retry timeout.
-- AI không tự áp điểm, finalize evaluation hay chuyển task Done; refresh recommendations giữ nguyên official facts.
-- Chứng nhận PDF có dòng footer độc lập, giới hạn bề rộng và wrap; vẫn deterministic bytes, metadata và font tiếng Việt.
+- `/api/v1/classes` → **404**.
+- `/api/v1/session-sharing` → **404**.
+- Không còn bảng/entity/quyền tương ứng trong schema hiện hành.
+- FE `/instructor/classes` chỉ còn redirect tương thích sang `/instructor/projects`.
 
-Các ngưỡng phỏng vấn đã kiểm ở unit và recruitment SQL E2E: dưới 50 chưa đạt, 50–70 gợi ý role khác dựa trên câu trả lời, trên 70 đạt; tối đa **3 lượt tổng cộng**, đổi role không cấp thêm lượt.
+Đây là thay đổi **có chủ đích**, không phải route bị hỏng. Khi đối chiếu tài liệu cũ, bỏ qua các mô tả về classes/sharing.
 
-## Hiểu đúng phạm vi nghiệm thu
+## 3. Phạm vi đã kiểm
 
-Luồng thực hành dùng tài khoản QA riêng trên API 8081, database VIntern_Test_Learning_20261014 và FE 3004. FE chính 3001/API 8080 dùng VIntern_M2_BROWSER. Không reset/seed dữ liệu chính hoặc ba tài khoản gốc. Bài nộp là sản phẩm tổng hợp phục vụ kiểm thử, không phải bài đánh giá của một sinh viên thật.
+| Lớp | Đã kiểm | Chưa kiểm |
+|---|---|---|
+| Unit | Công thức, policy, guard, parser, service, nhánh lỗi | SQL/provider thật |
+| SQL/HTTP E2E | DTO → guard → service → transaction → SQL | Gemini/GitHub thật khi transport bị override |
+| Migration | Rỗng → chạy → audit → revert → reapply | Mọi dữ liệu production |
+| Runner | Policy, HMAC, request/suite/SHA binding | Mọi framework/pipeline của sinh viên |
+| Live (lịch sử) | OAuth, PR/SHA, Gemini, Docker cho fixture QA | Mọi nhánh, mọi repo, production |
 
-Đã thực hiện GitHub OAuth, tạo repository dưới tài khoản chung của Admin, sinh viên khác danh tính commit/PR, Docker chạy test có chữ ký, Gemini phân tích, giảng viên trả sửa/duyệt. Kết quả cuối: 4/4 nhiệm vụ, đánh giá **85,5**, KPI **95,7**, số dư **9.570.000 đồng ảo**, chứng nhận xác minh hợp lệ, PDF/Excel tải và đọc được. Sau kết thúc phiên, sinh viên vẫn xem kết quả và khuyến nghị AI.
+## 4. Bằng chứng lịch sử
 
-Xem [báo cáo nhập vai](ROLEPLAY-ACCEPTANCE.md) để đọc từng bước, lỗi tìm được, cách sửa và giới hạn. [Bàn giao](HANDOVER.md) hướng dẫn sử dụng và đọc code. [Git workflow](GIT-WORKFLOW.md) ghi các nhánh đã đối chiếu và SHA phục hồi.
+| Mốc | Nội dung | Nguồn |
+|---|---|---|
+| 26/10/2026 | Checkpoint QA: 4/4 task, đánh giá 96,1, KPI 98,8 | [ACCEPTANCE-CHECKPOINT-20261026](ACCEPTANCE-CHECKPOINT-20261026.md) |
+| 27/10/2026 | 117 ca SQL/HTTP, ba vai, nhánh ngoại lệ | [BUSINESS-ACCEPTANCE-20261027](BUSINESS-ACCEPTANCE-20261027.md) |
+| 28/10/2026 | Sáu kịch bản UI ba vai, lỗi tuyển dụng, gate local | [BUSINESS-ACCEPTANCE-20261028](BUSINESS-ACCEPTANCE-20261028.md) |
+| G2/P02 | 90 suite / 734 unit; 4 suite / 39 SQL/HTTP local; CI 33 suite / 313 | [reports/mini-project-content-20261024](reports/mini-project-content-20261024.md) |
+| G2/P01 | 725 unit; 30 SQL regression + 4 migration local; CI 304 SQL/HTTP | [reports/small-project-foundation-20261024](reports/small-project-foundation-20261024.md) |
+| G1 | 709 unit, 32 SQL G1/K04; 11 ca Gemini thật, 65/65 trace | [reports/agent-foundation-20261024](reports/agent-foundation-20261024.md) |
+| K01/K02 | 80 suite / 669 unit; 22 test tri thức + 47 hồi quy M01 | [reports/knowledge-library-20261023](reports/knowledge-library-20261023.md) |
+| Aurora | 625 unit; 237 SQL E2E theo ma trận; 190 lượt browser | [archive/verification-before-aurora-20261023](archive/verification-before-aurora-20261023.md) |
 
-## Nguồn và mốc thời gian
+Quy tắc đọc:
 
-Tất cả tên tệp bằng chứng trong trang này tính từ **workspace/manual-runtime/aurora-handoff-20261022/**. Thư mục giữ ngày bắt đầu 22/10; kiểm tra cuối thực hiện ngày **23/10/2026, UTC+7**. Trường checkedAt trong JSON dùng UTC. final-manifest.json ghi thời điểm, source hash cả tệp chưa commit, branch/HEAD và trạng thái runtime; log ngày trước không được diễn giải thành lần chạy mới.
+- **Không cộng** test của nhiều mốc.
+- Không coi ảnh/log cũ là bằng chứng của commit hiện tại.
+- Không coi suite deterministic là provider thật.
+- Một lần chạy lỗi rồi sửa phải giữ cả log lỗi và log đạt.
 
-Tại mốc chạy các kiểm tra bên trên, thay đổi còn nằm trong working tree. Source và tài liệu được commit/công bố trên nhánh feature ngày 23/10; xem GIT-WORKFLOW. Chưa merge vào main. Đã dọn 5 tên nhánh local có commit nằm trong HEAD bằng branch -d; giữ nhánh đang làm, main, archive và nhánh có patch tương đương để bảo toàn lịch sử. Bốn PR đã merge là trong repository bài thực hành QA.
+## 5. CI hiện hành
 
-## Giới hạn còn được ghi nhận
+### `backend-ci.yml`
 
-- Webhook repository QA chưa có endpoint public được cấu hình: chưa kiểm delivery live. Live PR/SHA dùng GitHub API; E2E kiểm hợp đồng webhook riêng.
-- Bộ test xuất JSON kiểm preview và version, chưa đối chiếu byte của file tải xuống từ browser.
-- Ma trận responsive không thay audit WCAG hoặc Core Web Vitals đầy đủ; kết quả AI của một bài không chứng minh độ chính xác chấm mọi bài.
-- Production không nằm trong yêu cầu hiện tại.
+```text
+npm ci → lint → unit → build
+→ SQL Server 2019 disposable
+→ migration từ DB rỗng → schema audit
+→ bootstrap admin + idempotency
+→ boot API → health → Swagger/OpenAPI
+→ seed thư viện idempotent
+→ E2E (platform, academic, sprint/task, recruitment, evaluation,
+        KPI/salary/certificates, concurrency, AI deterministic)
+→ migration revert/reapply → audit
+```
 
-[Bằng chứng trước đợt này, giữ nguyên mốc lịch sử](archive/verification-before-aurora-20261023.md).
+CI **không gọi mạng AI bên ngoài**; dùng `TestAIProvider`. Credential được tạo ngẫu nhiên, mask và xóa cùng container.
+
+### `grading-runner.yml`
+
+Build/smoke runner trong môi trường cách ly. Kết quả runner CI không thay thế kiểm tra Docker/provider trên máy local.
+
+## 6. Phần chưa được chứng minh
+
+- Chưa có production deployment; không tuyên bố sẵn sàng production.
+- Webhook GitHub chưa nghiệm thu **delivery live** cho repo QA; hợp đồng được kiểm bằng E2E.
+- Live OAuth/PR/Gemini/Docker mới kiểm cho fixture cụ thể, không phủ mọi repo/framework.
+- Rate limiter theo process chưa được kiểm ở mô hình nhiều instance.
+- Timeout SQL từng gặp trong kiểm chứng local; restart phục hồi nhưng chưa xác định nguyên nhân gốc.
+- Audit dependency là ảnh chụp lockfile tại thời điểm chạy, không phải bảo đảm vĩnh viễn.
+
+## 7. Cách ghi một mốc mới
+
+1. Tạo mục “Mốc … — ngày”.
+2. Ghi branch, commit, dirty state.
+3. Ghi lệnh + exit code + số suite/test.
+4. Ghi môi trường: API port, database, provider thật/fixture.
+5. Ghi rõ đã kiểm gì và **chưa** kiểm gì.
+6. Lưu log/JSON dưới `docs/reports/` nếu là bằng chứng được commit; lọc PII/secret trước khi commit.

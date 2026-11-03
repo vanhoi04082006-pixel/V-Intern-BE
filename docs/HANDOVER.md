@@ -1,231 +1,232 @@
-# Bàn giao Backend V-Intern
+# Bàn giao Backend
 
-> **Checkpoint 26/10/2026:** [nguồn kiểm chứng và việc còn mở](ACCEPTANCE-CHECKPOINT-20261026.md). BE 859 / FE 649 unit tests; CI xanh đúng SHA. Hành trình QA thật đã hoàn thành 4/4 task, đánh giá 96,1, KPI 98,8, chứng nhận và vòng mời lại GitHub. Có cả bước UI/API; chưa nghiệm thu mọi nhánh hoặc redesign toàn bộ.
+Tài liệu này là điểm bắt đầu cho người tiếp nhận. Nó không thay thế các chương kỹ thuật; nó cho biết **đọc gì, kiểm gì và phần nào chưa được chứng minh**.
 
-> Mục tiêu của tài liệu này là giúp người mới hiểu vì sao hệ thống hoạt động như vậy, chạy đúng môi trường, tìm đúng code và thay đổi mà không làm mất dữ liệu. Các chương chuyên sâu được liên kết ngay tại chủ đề tương ứng.
+> **Mốc bàn giao:** 02/11/2026 · nhánh `main` · commit `ca60e16`
+> **Trạng thái:** 113 suite / 849 unit test · 34 suite / 316 SQL/HTTP E2E · lint và build đạt
+> **Thay đổi gần nhất:** gỡ classes/session-sharing; API còn 302 operation trong 48 nhóm.
 
-## 1. Đọc theo nhu cầu của bạn
+## 1. Đọc theo nhu cầu
 
-| Người đọc | Lộ trình |
+| Bạn cần | Đọc |
 |---|---|
-| Chủ sản phẩm / người nghiệm thu | [Hiểu sản phẩm](START-HERE.md) → [Hành trình sử dụng](USER-JOURNEYS.md) → [Nhánh nghiệp vụ](WORKFLOW-MATRIX.md) |
-| Người vận hành local | [Chạy local](LOCAL-DEVELOPMENT.md) → [Cấu hình](CONFIGURATION.md) → [Tìm lỗi](TROUBLESHOOTING.md) |
-| Lập trình viên mới | Tài liệu này → [Bản đồ code](CODE-MAP.md) → [API](api/README.md) → chương domain cần sửa |
-| Người kiểm thử | [Testing](TESTING.md) → [Verification](VERIFICATION.md) → [Quy tắc migration](database/MIGRATION_POLICY.md) |
-| Người tiếp nhận Git | [Git workflow](GIT-WORKFLOW.md), phân biệt nhánh source với nhánh điều kiện nghiệp vụ |
-| Quản trị nghề nghiệp và tiếp nối Agent roadmap | [Đặc tả catalog](../SPEC-career-roles.md) → [bằng chứng theo lát cắt](reports/career-roles-20261023.md) → [checklist còn lại](../tasks/todo.md) |
-| Tiếp nhận runtime Agent G1 | [Cách chạy và phục hồi](AGENT-RUNTIME.md) → [nghiệm thu/giới hạn](reports/agent-foundation-20261024.md) → [các Agent còn lại ở G2](../tasks/todo.md) |
+| Hiểu sản phẩm | [START-HERE](START-HERE.md) → [USER-JOURNEYS](USER-JOURNEYS.md) → [WORKFLOW-MATRIX](WORKFLOW-MATRIX.md) |
+| Chạy local | [LOCAL-DEVELOPMENT](LOCAL-DEVELOPMENT.md) → [CONFIGURATION](CONFIGURATION.md) → [TROUBLESHOOTING](TROUBLESHOOTING.md) |
+| Sửa code | Tài liệu này → [CODE-MAP](CODE-MAP.md) → [ARCHITECTURE](ARCHITECTURE.md) → chương domain |
+| Gọi API | [api/README](api/README.md) → [api/ROUTES](api/ROUTES.md) → [api/SCHEMAS](api/SCHEMAS.md) |
+| Kiểm thử | [TESTING](TESTING.md) → [VERIFICATION](VERIFICATION.md) → [MIGRATION_POLICY](database/MIGRATION_POLICY.md) |
+| Vận hành DB | [SQL Server 2019 setup](database/SQLSERVER2019_SETUP.md) → [MIGRATION_POLICY](database/MIGRATION_POLICY.md) |
+| Đóng góp | [CONTRIBUTING](CONTRIBUTING.md) → [SECURITY](SECURITY.md) |
+| Demo | [DEMO](DEMO.md) |
 
-Để hiểu giao diện, đọc [bàn giao FE](https://github.com/vanhoi04082006-pixel/V-Intern-FE/blob/feat/ui-ux-overhaul/docs/HANDOVER.md). Hai repo phối hợp qua HTTP; chúng không dùng chung một lịch sử Git.
+Giao diện nằm ở repository `V-Intern FE`; hai repo phối hợp qua HTTP và **không dùng chung lịch sử Git**.
 
 ## 2. Backend chịu trách nhiệm gì?
 
-V-Intern mô phỏng một kỳ thực tập có dự án, người hướng dẫn và bằng chứng công việc. Backend giữ quyền quyết định về danh tính, phạm vi truy cập, trạng thái dữ liệu, điểm và các điều kiện chuyển bước. AI hỗ trợ tạo nội dung hoặc đề xuất; quyền chốt nghiệp vụ phải đi qua các quy tắc của hệ thống.
+**Có:**
+
+- Danh tính, đăng nhập, refresh, phân quyền và ownership.
+- Trạng thái nghiệp vụ, công thức điểm/KPI, điều kiện chuyển bước.
+- Transaction, migration, audit và snapshot lịch sử.
+- Tích hợp AI/GitHub/SMTP/runner qua adapter có kiểm soát.
+- Worker nền, health, Swagger và read model.
+
+**Không:**
+
+- Không dựng giao diện hoặc quyết định hiển thị thay FE.
+- Không để AI cấp quyền, chốt điểm hoặc tự chuyển task Done.
+- Không chạy code không tin cậy trong process API.
+- Không tự tạo SQL Server, cấp quyền login hoặc seed DB bàn giao.
 
 ```mermaid
 flowchart LR
-  FE[Next.js frontend] --> API[NestJS API]
-  API --> AUTH[Auth và phân quyền]
-  API --> DOMAIN[Service theo nghiệp vụ]
-  DOMAIN --> SQL[(SQL Server)]
-  DOMAIN --> AI[Nhà cung cấp AI]
+  FE[Next.js FE] -->|/api/v1 + Bearer| API[NestJS API]
+  API --> AUTH[Auth · permission · ownership]
+  API --> DOMAIN[Service theo domain]
+  DOMAIN --> DB[(SQL Server 2019)]
+  DOMAIN --> AI[AI provider]
   DOMAIN --> GH[GitHub]
-  DOMAIN --> RUNNER[Grading runner]
-  RUNNER --> RESULT[Kết quả test và bằng chứng]
-  RESULT --> DOMAIN
+  WORKER[GitHub worker] --> GH
+  WORKER --> DB
+  RUNNER[Grading runner] -->|HMAC result| API
 ```
 
-| Công nghệ | Vai trò |
-|---|---|
-| NestJS 11 / TypeScript | Module, controller, service và dependency injection |
-| TypeORM / SQL Server | Entity, truy vấn, transaction và migration |
-| JWT / refresh cookie | Xác thực phiên và làm mới access token |
-| DTO / ValidationPipe | Kiểm tra đầu vào và từ chối field không hợp lệ |
-| Swagger | Tra cứu route/schema của bản đang chạy |
-| Jest / HTTP E2E | Kiểm quy tắc và luồng request thực tế |
-
-## 3. Bắt đầu an toàn trên máy bàn giao
-
-Mọi dependency, cache, log, bằng chứng và dữ liệu runtime của dự án phải nằm trong workspace. Mỗi PowerShell chạy package manager/build/test cần gọi script lưu trữ trước:
+## 3. Chạy nhanh
 
 ```powershell
 & .\scripts\Use-ProjectStorage.ps1
-# Chạy tại thư mục gốc repository Backend
+npm ci
+Copy-Item .env.example .env   # chỉ khi chưa có
+npm run migration:show        # xem migration đang chờ
+npm run start:dev
+```
+
+Kiểm tra:
+
+1. `http://localhost:8080/api/v1/health` → `database: ok`.
+2. `http://localhost:8080/api/docs` → đúng route/DTO.
+3. Đăng nhập một tài khoản local và mở dữ liệu thật.
+
+Trên máy bàn giao, dùng launcher thay vì tự đoán DB:
+
+```powershell
+& .\scripts\Use-ProjectStorage.ps1
+& ..\manual-runtime\start-owned-services.ps1 -Backend -Frontend
 ```
 
 | Process | Cổng | Database theo launcher |
 |---|---|---|
-| API chính: `manual-runtime/start-backend.cjs` | 8080 | `VIntern_M2_BROWSER` |
-| API QA: `manual-runtime/validation-runtime.cjs` | 8081 | `VIntern_Test_Learning_20261014` |
-| SQL TCP trên máy hiện tại | 1435 | Cần kiểm kết nối đúng instance |
+| API chính | 8080 | `VIntern_M2_BROWSER` |
+| API QA | 8081 | `VIntern_Test_Learning_20261014` |
+| SQL TCP | 1435 | Kiểm kết nối đúng instance |
 
-**Điểm cần nhớ:** `.env` và launcher có thể chọn database khác nhau. Trên máy này không suy ra database đang phục vụ UI chỉ từ `DB_NAME` trong `.env`. Không khởi chạy BE bằng lệnh mặc định rồi cho rằng nó tương đương launcher chính.
+> `.env` và launcher có thể chọn database khác nhau. Không suy DB đang phục vụ UI chỉ từ `DB_NAME`.
 
-```powershell
-# Dùng khi cần restart API đã thuộc workspace
-& ..\manual-runtime\restart-owned-apps.ps1 -Backend
+## 4. Kiến trúc trong một trang
+
+```text
+Request → Guard (auth/permission/throttle)
+        → Controller + DTO (ValidationPipe)
+        → Service/policy (ownership, trạng thái, công thức)
+        → Repository/entity (transaction, version)
+        → SQL Server
 ```
 
-Để mở máy mới, làm theo [LOCAL-DEVELOPMENT](LOCAL-DEVELOPMENT.md): cấu hình SQL/login, copy mẫu môi trường khi chưa có file, cài dependency từ lockfile, đọc migration pending rồi mới áp dụng lên database được chỉ định. Không chạy `seed:dev` trên database bàn giao để “làm sạch”. Ba tài khoản gốc và dữ liệu đang có phải được giữ.
-
-### Kiểm tra đúng tầng
-
-Runner local cần được khởi động riêng bằng `manual-runtime/start-grader.ps1` của workspace. Script giữ phiên WSL riêng để worker không tự tắt khi không còn client; xem [hướng dẫn local](LOCAL-DEVELOPMENT.md). Môi trường QA phải có callback, frontend origin và URL xác minh chứng nhận riêng, không dùng cổng API chính cho các liên kết QA.
-
-1. Process API đang listen không đồng nghĩa SQL truy vấn được.
-2. `/api/v1/health` giúp kiểm trạng thái dịch vụ; cần đọc nội dung phản hồi, không chỉ status 200.
-3. `/api/docs` cho biết route/DTO của đúng bản đang chạy.
-4. Một request có xác thực, trong đúng scope và có dữ liệu thật mới chứng minh luồng đọc tương ứng hoạt động.
-5. Cấu hình AI/GitHub/runner hiện diện không chứng minh một lượt gọi thực tế đã thành công.
-
-Vị trí MDF/LDF phải kiểm từ SQL trước khi khẳng định dữ liệu nằm trong project. WSL/Docker lưu dưới project không tự chứng minh file database cũng ở đó.
-
-## 4. Từ HTTP request đến quy tắc nghiệp vụ
-
-```mermaid
-sequenceDiagram
-  participant C as Client
-  participant G as Auth / scope guard
-  participant D as Controller và DTO
-  participant S as Service
-  participant DB as SQL Server
-  C->>G: Request có danh tính
-  G->>D: Cho phép tiếp tục trong scope
-  D->>S: Input đã kiểm tra
-  S->>DB: Đọc trạng thái và kiểm điều kiện
-  DB-->>S: Dữ liệu hiện tại
-  S->>DB: Ghi dữ liệu khi hợp lệ
-  S-->>C: Kết quả hoặc lỗi có mã
-```
-
-`main.ts` cấu hình prefix `api`, URI versioning mặc định `1`, CORS có allowlist, JSON body limit và ValidationPipe. Vì vậy URL nghiệp vụ thường bắt đầu `/api/v1`. DTO whitelist và forbid unknown giúp loại request sai contract sớm.
-
-Controller là cửa vào HTTP, không nên chứa cả luồng nghiệp vụ. Service kiểm điều kiện dựa trên trạng thái hiện tại và danh tính. Repository/entity biểu diễn dữ liệu lưu. Với thay đổi nhiều bản ghi, đọc service hiện có để giữ transaction và điều kiện cạnh tranh.
-
-Khi thêm một endpoint, kiểm đủ: DTO → authentication → permission → quyền trên **bản ghi cụ thể** → trạng thái → transaction → response → test. Chỉ có role `instructor` chưa chứng minh người đó được sửa mọi phiên.
-
-## 5. Tuyển dụng: điểm và lượt phỏng vấn
-
-| Điểm của lượt mới | Kết quả | Việc người dùng làm tiếp |
+| Lớp | Trách nhiệm | Không nên chứa |
 |---|---|---|
-| Nhỏ hơn 50 | Không đạt | Có thể thử lại nếu còn lượt |
-| Từ 50 đến 70, gồm hai đầu mút | Đề xuất chuyên môn khác | Đọc gợi ý dựa trên câu trả lời rồi chọn hướng phù hợp |
-| Lớn hơn 70 | Đạt | Chờ phân công vào phiên/dự án |
+| Guard | Authentication, permission thô, rate limit | Điều kiện theo bản ghi |
+| Controller | Route, DTO, mapping response | Transaction, policy phức tạp |
+| Service/policy | Ownership, trạng thái, công thức, transaction | HTTP status chi tiết |
+| Repository/entity | Truy vấn, quan hệ | Quyết định quyền |
+| Migration | Schema/constraint/index | Logic runtime |
 
-Giới hạn là **3 lượt tổng cộng**, không phải 1 lượt đầu cộng 3 lần làm lại. Kết quả lịch sử không được đổi âm thầm theo chính sách mới. Gợi ý role phải có căn cứ trong câu trả lời; không bịa năng lực hoặc chỉ đổi tên role để trông như đã phân tích.
+Bất biến:
 
-Hội thoại có trạng thái server, thời gian và các nhánh lỗi AI. Nếu AI chưa trả kết quả, giữ bài làm và thông báo đúng để retry theo quy tắc. Không coi lỗi nhà cung cấp là sinh viên được 0 điểm.
+1. AI không cấp quyền, không chốt điểm, không tự Done.
+2. Client không quyết định scope; service kiểm tra lại.
+3. Không chạy code không tin cậy trong process API.
+4. Không sửa migration đã chạy; không sửa snapshot lịch sử.
+5. Không fallback dữ liệu giả khi provider lỗi.
+6. Không log/trả secret hoặc PII.
+7. Không dùng DB chính để test phá hủy.
 
-Nguồn đọc sâu: [recruitment-chat](architecture/recruitment-chat.md), [ADR chính sách điểm](decisions/0003-recruitment-score-bands.md), các file `attempt-policy`, `scoring`, `recommendation-policy` và test trong `src/recruitment`.
+Chi tiết: [ARCHITECTURE](ARCHITECTURE.md).
 
-## 6. Dự án, phiên, phân công và kế hoạch
+## 5. Bản đồ domain
 
-Các từ này có quan hệ nhưng không thay thế nhau:
+| Nhóm | Chương |
+|---|---|
+| Nền tảng | [domain-model](architecture/domain-model.md) · [registration](architecture/registration.md) · [admin](architecture/admin.md) |
+| Tuyển dụng | [recruitment-chat](architecture/recruitment-chat.md) |
+| Dự án & phiên | [project-blueprints](architecture/project-blueprints.md) · [academic-core](architecture/academic-core.md) · [learning-plans](architecture/learning-plans.md) |
+| Công việc | [sprint-task-core](architecture/sprint-task-core.md) · [github-code-review](architecture/github-code-review.md) · [grading-runner](architecture/grading-runner.md) |
+| AI | [ai-mentor](architecture/ai-mentor.md) · [ai-evaluation-assistance](architecture/ai-evaluation-assistance.md) · [ai-recommendations](architecture/ai-recommendations.md) |
+| Kết quả | [evaluation-performance-kpi](architecture/evaluation-performance-kpi.md) · [student-performance](architecture/student-performance.md) · [virtual-salary](architecture/virtual-salary.md) · [certificates](architecture/certificates.md) · [reports](architecture/reports.md) |
+| Vận hành | [notifications](architecture/notifications.md) |
+
+## 6. Tuyển dụng: quy tắc không được phá
+
+| Điểm của lượt mới | Kết quả | Việc tiếp theo |
+|---|---|---|
+| Nhỏ hơn 50 | Không đạt | Xem phản hồi; thử lại nếu còn lượt |
+| Từ 50 đến 70 (gồm hai đầu) | Đề xuất chuyên môn khác | Đọc lý do/reference rồi tự chọn |
+| Lớn hơn 70 | Đạt | Chờ phân công |
+
+- Tối đa **3 lượt tổng cộng**, không phải 1 + 3.
+- Đổi role không cấp thêm lượt.
+- Kết quả lịch sử giữ decision/model/version đã dùng.
+- Lỗi provider không trừ lượt và không tự ghi `failed`.
+
+Chi tiết: [recruitment-chat](architecture/recruitment-chat.md), [ADR score bands](decisions/0003-recruitment-score-bands.md).
+
+## 7. Dự án, phân công và kế hoạch
 
 | Khái niệm | Hiểu đơn giản | Điều dễ nhầm |
 |---|---|---|
-| Project blueprint/template | Bản mô tả mẫu để tái sử dụng | Sửa mẫu không có nghĩa được sửa mọi bản đang chạy |
-| Phiên thực tập | Một đợt tổ chức có thời gian và người phụ trách | Tạo phiên chưa tự giao task cho sinh viên |
-| Assignment | Phân công người vào vị trí/dự án | Đậu tuyển dụng không tự tạo assignment |
-| Learning plan | Kế hoạch giai đoạn và nhiệm vụ | Bản nháp AI cần được xem và xác nhận |
-| Sprint | Một giai đoạn triển khai | Có Sprint trong quản lý chưa chắc đang active cho sinh viên |
-| Task | Việc cụ thể được giao, có trạng thái và điều kiện | Không được chuyển mọi trạng thái tùy ý |
+| Template/blueprint | Bản mô tả mẫu, có version | Sửa mẫu không sửa run cũ |
+| Phiên thực tập | Đợt tổ chức có thời gian/người phụ trách | Tạo phiên chưa giao task |
+| Assignment | Phân công vào vị trí | Đậu tuyển dụng không tự tạo assignment |
+| Learning plan | Kế hoạch Sprint/task | Bản nháp AI cần giảng viên xác nhận |
+| Sprint | Giai đoạn triển khai | `planned` chưa phải đang chạy |
+| Task | Việc có người nhận, trạng thái, phụ thuộc | Không chuyển trạng thái tùy ý |
 
-```mermaid
-flowchart TD
-  T[Mẫu dự án có phiên bản] --> P[Dự án trong phiên]
-  S[Phiên thực tập] --> P
-  S --> A[Phân công sinh viên]
-  P --> D[Kế hoạch nháp]
-  D --> R[Giảng viên kiểm tra và xác nhận]
-  R --> SP[Sprint / nhiệm vụ thật]
-  A --> SP
-```
+Nếu sinh viên báo chưa có Sprint, đi theo chuỗi: đúng phiên → assignment active → đúng dự án → kế hoạch đã publish → Sprint active. Không sửa UI để hiện dữ liệu ngoài scope.
 
-Nếu giảng viên thấy nội dung nhưng sinh viên báo chưa có Sprint, đi theo chuỗi: đúng phiên → đúng assignment → đúng dự án → kế hoạch đã xác nhận → Sprint đúng trạng thái. Đừng sửa UI để hiện dữ liệu ngoài scope nhằm che thiếu bước.
-
-Đọc sâu: [blueprints](architecture/project-blueprints.md), [academic core](architecture/academic-core.md), [learning plans](architecture/learning-plans.md), [sprint/task](architecture/sprint-task-core.md).
-
-## 7. GitHub, bài nộp và chấm code
-
-Admin cung cấp tài khoản GitHub dùng tạo repository chung. Việc này khác với danh tính GitHub của người nộp bài. Repository cấp cho phiên không làm mất yêu cầu đối chiếu người nộp, URL, quyền truy cập và commit.
+## 8. GitHub, bài nộp và runner
 
 ```mermaid
 flowchart LR
   A[Admin cấu hình tài khoản repo] --> B[Repository của phiên]
-  B --> C[Sinh viên làm việc và tạo PR]
-  C --> D[Nộp liên kết]
-  D --> E[Kiểm danh tính, repo và commit SHA]
-  E --> F[Thu thập bằng chứng]
-  F --> G[AI review / runner theo khả năng]
-  G --> H[Giảng viên đọc và quyết định]
+  B --> C[Sinh viên tạo PR]
+  C --> D[Nộp URL + SHA]
+  D --> E[Kiểm danh tính/repo/SHA]
+  E --> F[Thu thập evidence]
+  F --> G[AI review + runner]
+  G --> H[Giảng viên quyết định]
 ```
 
-Một URL GitHub tồn tại chưa đủ để chấp nhận. Luồng cần đối chiếu repository, chủ thể và commit theo service. SHA xác định nội dung đã xét; PR tiếp tục có commit mới không nên làm bằng chứng cũ tự đổi nghĩa.
+- URL GitHub tồn tại **chưa đủ** để chấp nhận.
+- PR đổi commit sau khi nộp → `409 SUBMISSION_SHA_CHANGED`; phải nộp lại.
+- Runner chạy cách ly, ký HMAC; API chỉ nhận evidence đúng request/task/suite/SHA.
+- AI review source **không** chứng minh code đã chạy test.
+- Thiếu suite đúng task → không có trusted PASS; có thể manual review theo policy.
 
-Runner chạy code không tin cậy phải tách khỏi process API và tài nguyên máy chủ. AI review đọc bằng chứng không có nghĩa code đã chạy test. Kết quả cần phân biệt source evidence, test evidence, trạng thái lỗi runner và nhận xét AI. Không ghi “đã pass” khi runner không khả dụng.
+Chi tiết: [github-code-review](architecture/github-code-review.md), [grading-runner](architecture/grading-runner.md).
 
-Tài khoản, OAuth secret, token, webhook secret và cấu hình runner được bàn giao riêng tại máy. Không dùng password GitHub trong code hoặc README; không mở rộng quyền chỉ để vượt lỗi cấu hình.
+## 9. Kết quả cuối
 
-Đọc sâu: [GitHub/code review](architecture/github-code-review.md), [runner](architecture/grading-runner.md), [runner README](../grading-runner/README.md), [ADR repo Admin](decisions/0002-admin-repository-account.md), [bằng chứng GitHub lịch sử](LIVE-GITHUB.md).
-
-## 8. Đánh giá, hiệu suất, KPI và đầu ra
-
-Đánh giá là quá trình theo tiêu chí. Hiệu suất là góc nhìn từ dữ liệu công việc. KPI/lương ảo là kết quả tính theo quy tắc. Chứng nhận là bản được phát hành khi đủ điều kiện. Không lấy một con số AI rồi thay cho tất cả các loại kết quả này.
-
-| Module | Người dùng cần thấy | Khi sửa code phải giữ |
+| Module | Người dùng cần thấy | Khi sửa phải giữ |
 |---|---|---|
-| Evaluation | Kỳ, tiêu chí, trạng thái nháp/nộp/chốt | Quyền chốt, validation, trạng thái lịch sử |
-| Performance | Số liệu và phạm vi đo | Mẫu số, null/0, nguồn và thời điểm |
-| KPI / lương ảo | Kết quả và biến động có thể đối chiếu | Công thức, snapshot và ledger theo nghiệp vụ |
-| Certificate | Bản phát hành và trạng thái kiểm tra | Điều kiện, thu hồi/hiệu lực và tra cứu |
-| Reports | Bản chụp và nội dung xuất | Scope, thời điểm tạo, dữ liệu nhất quán |
+| Evaluation | Kỳ, tiêu chí, draft/submitted/finalized | Quyền chốt, validation, lịch sử |
+| Performance | Số liệu và phạm vi đo | Mẫu số, null/0, nguồn, thời điểm |
+| KPI/lương ảo | Kết quả và biến động đối chiếu được | Công thức, snapshot, ledger idempotent |
+| Certificate | Bản phát hành và trạng thái kiểm tra | Điều kiện, thu hồi, snapshot |
+| Report | Bản chụp và file xuất | Scope, thời điểm, tính nhất quán |
 
-Đọc sâu trong [mục lục domain](README.md): có chương riêng cho từng module trên, AI Mentor, recommendations, notifications và quản trị.
+`0`, `null` và `insufficient_data` là ba trạng thái khác nhau. Báo cáo cũ không tự tính lại.
 
-## 9. Database và migration
-
-Entity mô tả mô hình ở source. Migration mô tả cách đưa schema từ trạng thái cũ sang mới. Hai việc không tự thay thế nhau. Trước khi chạy migration cần biết database đích, migration pending và tác động lên dữ liệu đang có.
-
-```powershell
-& .\scripts\Use-ProjectStorage.ps1
-# Lệnh kiểm tra, phải xác nhận env/DB đích trước
-npm run migration:show
-```
-
-Không đưa `migration:run`, `migration:revert`, seed hoặc reset vào hướng dẫn “thử cho nhanh” cho người đọc mới. Những lệnh đó thay dữ liệu/schema và cần được dùng trong kế hoạch cụ thể. Xem [MIGRATION_POLICY](database/MIGRATION_POLICY.md) và [SQL setup](database/SQLSERVER2019_SETUP.md).
-
-## 10. Kiểm thử, bằng chứng và chất lượng
+## 10. Kiểm thử trước khi nhận bàn giao
 
 ```powershell
 & .\scripts\Use-ProjectStorage.ps1
 npm run lint
 npm test
 npm run build
+git diff --check
 ```
 
-Unit test kiểm quy tắc ở mức service/policy. HTTP E2E kiểm request, auth, validation và lưu trữ trên database test đã định rõ. Trước E2E phải đọc cấu hình suite; không trỏ suite có reset/seed vào database chính.
+Kỳ vọng hiện tại: lint 0 lỗi, **113 suite / 849 unit test**, build thành công. E2E chạy trên DB riêng theo [TESTING](TESTING.md).
 
-Mỗi bản bàn giao ghi: thời điểm, branch/commit, trạng thái dirty nếu có, lệnh đã chạy, exit code, test count, môi trường và hạn chế. [VERIFICATION](VERIFICATION.md) là chỉ mục nguồn; không sửa ngày của log cũ để tạo cảm giác đó là bằng chứng mới.
+## 11. Việc cần kiểm lại khi tiếp nhận
 
-## 11. Chẩn đoán có trình tự
+- [ ] Health trả `database: ok`; Swagger đúng bản.
+- [ ] Đăng nhập/refresh/logout; refresh rotation và replay detection.
+- [ ] Ba vai trò vào đúng scope; user bị khóa bị chặn.
+- [ ] Tuyển dụng: ngưỡng điểm, ba lượt, role khác có reason/reference.
+- [ ] Tạo phiên → phân công → publish plan → active Sprint → task hiện cho sinh viên.
+- [ ] Nộp PR + SHA; runner/HMAC; PR đổi SHA bị từ chối.
+- [ ] Evaluation → KPI → lương ảo → chứng nhận; report snapshot.
+- [ ] GitHub connect/invitation/repo; webhook HMAC (E2E).
+- [ ] AI lỗi/timeout không tạo kết quả giả.
+- [ ] Migration show/run/audit trên DB mới; revert/reapply trong CI.
+- [ ] Không có secret/PII trong log/ảnh.
 
-| Hiện tượng | Đọc bằng chứng nào? | Không nên làm |
+## 12. Giới hạn đã biết
+
+| Giới hạn | Ảnh hưởng | Cách xử lý |
 |---|---|---|
-| Query 15 giây rồi timeout | API log, SQL session/wait, pool, kết nối trực tiếp | Kết luận DNS hoặc tăng timeout khi chưa có bằng chứng |
-| 401 liên tiếp | Access token, refresh cookie, origin và rotation | Retry vô hạn |
-| 403 trên một bản ghi | Scope, owner, permission, consent | Chỉ nới role hoặc bỏ guard |
-| 409 khi chuyển task | Version và điều kiện trạng thái/phụ thuộc | Cập nhật DB thủ công để ép qua |
-| AI lỗi | Provider, timeout, response parser, trạng thái job | Gán điểm hoặc nội dung giả |
-| Repo/PR không đọc được | Danh tính liên kết, repo scope, URL/SHA | Dùng token quyền rộng tùy tiện |
-| FE khác BE | API base URL, database theo launcher, version build | Reset cả hệ thống |
+| Webhook chưa live | Chưa chứng minh delivery thật | Dùng GitHub API cho PR/SHA; E2E kiểm hợp đồng |
+| Rate limit theo process | Multi-instance có thể vượt giới hạn | Cần store chia sẻ/gateway nếu scale |
+| Timeout SQL từng gặp | Chưa rõ nguyên nhân gốc | Ghi nhận, theo dõi; không tăng timeout mù |
+| Live provider chỉ theo fixture | Không phủ mọi repo/framework | Kiểm lại trước demo |
+| Chưa production | Không tuyên bố sẵn sàng production | Giữ phạm vi local/CI |
+| Audit dependency theo thời điểm | Có thể có advisory mới | Chạy lại `npm audit` trước release |
 
-Đã có lần timeout SQL được ghi nhận trong kiểm chứng local trước đó; restart API phục hồi nhưng **chưa xác định nguyên nhân gốc**. Đây là giới hạn cần giữ trong bàn giao, không mô tả thành lỗi đã sửa dứt điểm.
+## 13. Bàn giao kèm gì?
 
-## 12. Tiếp nhận và phát triển tiếp
-
-Trước khi sửa, đọc chương domain và test gần service. Khi đổi policy, thêm test đúng biên (ví dụ 49.99/50/70/70.01 theo kiểu điểm hỗ trợ), giữ kết quả lịch sử và cập nhật ADR nếu quyết định thay đổi. Khi đổi DTO/API, đối chiếu parser FE trong cùng đợt.
-
-Không xóa nhánh archive chỉ vì đã cũ. Xem bảng quan hệ commit trong [GIT-WORKFLOW](GIT-WORKFLOW.md), phân biệt nhánh đã tích hợp với nhánh còn commit riêng. Công việc chưa commit phải được xem trước khi merge hoặc chuyển nhánh.
-
-Tài liệu sâu có thể tra cứu độc lập: [code map](CODE-MAP.md), [config](CONFIGURATION.md), [API schema](api/SCHEMAS.md), [API routes](api/ROUTES.md), [security](SECURITY.md), [dependencies](DEPENDENCIES.md). Đây là các chương của cùng bộ bàn giao, không phải những checklist thay thế cho việc hiểu luồng.
+- Commit/branch và tình trạng working tree.
+- Danh sách module/route/migration đã đổi.
+- Lệnh đã chạy + kết quả + số test.
+- Database/môi trường đã dùng và phần chưa kiểm.
+- Liên kết PR FE/BE, issue, báo cáo.
+- Secret, `.env`, token và `manual-runtime/private` bàn giao qua **kênh riêng**, không qua repo/chat công khai.

@@ -11,7 +11,7 @@ Người tiếp nhận đọc [AGENT-RUNTIME](../AGENT-RUNTIME.md). Điều ki�
 | Hạng mục | Điều kiện | Kết quả |
 |---|---|---|
 | K04 retrieval | Scope trước ranking/current published; không lộ grading/private | 13 policy và 8 SQL test; kiểm quyền hiện tại, project/interview, nghề mới không sửa enum |
-| A01 SDK | Nest CommonJS/Node 22 chạy graph/tool/schema thật | 2 spike test; exact versions/advisory trong [ADR](../decisions/0001-agent-runtime-sdk.md); build/production audit gate đạt |
+| A01 SDK | Nest CommonJS/Node 22 chạy graph/tool/schema thật | 2 spike test; exact versions/advisory trong [ADR](../decisions/0005-agent-runtime-sdk.md); build/production audit gate đạt |
 | A02 contracts/tools | Không cho model cấp quyền hoặc chọn tool ngoài allowlist | Strict HTTP input, chính chủ, catalog scope, tool cấm, actor giả và nguồn bịa đều được kiểm |
 | A03 persistence | SQL checkpoint/lease/fencing/idempotency, restart thật | 6 state + 3 checkpoint; Node bị SIGKILL rồi process mới resume, không lặp tool/receipt đã lưu |
 | A04 limits/errors | Deadline, step/token/tool budget, cancel và retry hữu hạn | 13 runtime test: concurrent worker, hủy khi provider đang chạy, stalled provider, rate limit và lỗi nguồn |
