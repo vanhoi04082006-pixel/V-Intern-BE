@@ -64,6 +64,42 @@ describe('GeminiProvider (spec 61 — mocked transport)', () => {
     const fetchImpl: AiFetchLike = async () => ({ status: 200, ok: true, text: async () => JSON.stringify({ candidates: [{ finishReason: 'MAX_TOKENS', content: { parts: [{ text: JSON.stringify(VALID_PAYLOAD) }] } }] }) });
     await expect(makeProvider({ fetchImpl }).generateStructured(request)).rejects.toBeInstanceOf(AiInvalidResponseError);
   });
+  it('reserves the requested Gemini 3 output cap for structured work by forwarding opt-in low thinking', async () => {
+    const fetchImpl = jest.fn(async (_url: string, init: { body: string }) => {
+      const body = JSON.parse(init.body);
+      // Transport fixture reproduces a response that exhausts its cap while
+      // reasoning unless the extraction explicitly asks for low thinking.
+      const completes = body.generationConfig.thinkingConfig?.thinkingLevel === 'low';
+      return {
+        status: 200,
+        ok: true,
+        text: async () => JSON.stringify({ candidates: [{
+          finishReason: completes ? 'STOP' : 'MAX_TOKENS',
+          content: { parts: completes ? [{ text: JSON.stringify(VALID_PAYLOAD) }] : [] },
+        }] }),
+      };
+    });
+    const provider = new GeminiProvider({ apiKey: 'test-key', model: 'gemini-3-flash-preview', timeoutMs: 1000, fetchImpl });
+    const extractionRequest = { ...request, outputSchema: { type: 'object' }, modelOptions: { maxOutputTokens: 6000, thinkingLevel: 'low' as const } };
+
+    await expect(provider.generateStructured(extractionRequest)).resolves.toMatchObject({ data: VALID_PAYLOAD });
+    const call = fetchImpl.mock.calls[0];
+    const config = JSON.parse(call[1].body).generationConfig;
+    expect(config.maxOutputTokens).toBe(6000);
+    expect(config.responseJsonSchema).toEqual({ type: 'object' });
+    expect(config.thinkingConfig).toEqual({ thinkingLevel: 'low' });
+  });
+  it('does not send a Gemini 3 thinking-level option to Gemini 2.5', async () => {
+    const fetchImpl = jest.fn(async (_url: string, _init: { body: string }) => ({ status: 200, ok: true, text: async () => geminiEnvelope(JSON.stringify(VALID_PAYLOAD)) }));
+    const provider = new GeminiProvider({ apiKey: 'test-key', model: 'gemini-2.5-flash', timeoutMs: 1000, fetchImpl });
+    const extractionRequest = { ...request, modelOptions: { maxOutputTokens: 6000, thinkingLevel: 'low' as const } };
+
+    await provider.generateStructured(extractionRequest);
+
+    const config = JSON.parse(fetchImpl.mock.calls[0][1].body).generationConfig;
+    expect(config.thinkingConfig).toBeUndefined();
+    expect(config.maxOutputTokens).toBe(6000);
+  });
   it('returns validated structured data + provenance on success', async () => {
     const fetchImpl = jest.fn(async () => ({
       status: 200,

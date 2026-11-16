@@ -36,6 +36,23 @@ describe('CV Agent citation recovery', () => {
     await expect(agent.analyze('actor', 'application', 1, segments)).resolves.toEqual(valid);
     expect(generate).toHaveBeenCalledTimes(1);
   });
+  it('requests low thinking for the three intake stages without increasing their output cap', async () => {
+    const slotId = '00000000-0000-4000-8000-000000000001';
+    const { agent, generate } = setup([
+      valid,
+      { roleCode: 'frontend', factIndexes: [0], confidence: 0.8, reason: 'React applications is direct evidence.' },
+      { slotId, reason: 'First available open slot.' },
+    ]);
+
+    await agent.analyze('actor', 'application', 1, segments);
+    await agent.match('actor', 'application', 1, valid, [{ code: 'frontend', name: 'Frontend', requiredSkillsJson: '["React"]', description: 'Build web interfaces.' }]);
+    await agent.coordinate('actor', 'application', 1, 'frontend', [{ id: slotId, startsAt: new Date('2026-11-17T02:00:00Z'), endsAt: new Date('2026-11-17T03:00:00Z'), timezone: 'Asia/Bangkok', credentialsLeadMinutes: 15, minimumPreparationMinutes: 30 }]);
+
+    expect(generate.mock.calls.map(([params]) => params.feature)).toEqual(['cv-analysis', 'cv-role-match', 'interview-coordination']);
+    for (const [params] of generate.mock.calls) {
+      expect(params.request.modelOptions).toEqual({ temperature: 0.1, maxOutputTokens: 6000, thinkingLevel: 'low' });
+    }
+  });
   it('does not add another retry for a provider or authorization error', async () => {
     const { agent, generate } = setup([new Error('AGENT_SCOPE_DENIED'), valid]);
     await expect(agent.analyze('actor', 'application', 1, segments)).rejects.toThrow('AGENT_SCOPE_DENIED');

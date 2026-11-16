@@ -200,7 +200,13 @@ export class BusinessAgentEngine {
               schemaName: "BusinessAgentDecision",
               outputSchema: businessDecisionSchema(input.remainingToolCalls),
               validate: raw => validateBusinessDecision(raw, input.remainingToolCalls),
-              modelOptions: { temperature: 0.1, maxOutputTokens: 256 },
+              modelOptions: {
+                temperature: 0.1,
+                maxOutputTokens: 256,
+                ...(params.request.modelOptions?.thinkingLevel
+                  ? { thinkingLevel: params.request.modelOptions.thinkingLevel }
+                  : {}),
+              },
             },
           });
           await recordModel(result);

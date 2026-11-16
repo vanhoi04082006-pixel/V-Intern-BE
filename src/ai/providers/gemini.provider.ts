@@ -107,6 +107,10 @@ export class GeminiProvider implements AiProvider {
               ...(request.outputSchema ? { responseJsonSchema: request.outputSchema } : {}),
               temperature: request.modelOptions?.temperature ?? 0.2,
               maxOutputTokens: request.modelOptions?.maxOutputTokens ?? 4096,
+              // Gemini 3 uses thinkingLevel; older model families reject it.
+              ...(/^gemini-3(?:[.-]|$)/.test(this.model) && request.modelOptions?.thinkingLevel
+                ? { thinkingConfig: { thinkingLevel: request.modelOptions.thinkingLevel } }
+                : {}),
             },
           }),
           signal: controller.signal,

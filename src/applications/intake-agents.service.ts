@@ -57,7 +57,7 @@ export class IntakeAgents {
           schemaName: feature.replace(/-/g, "_"),
           outputSchema,
           validate,
-          modelOptions: { temperature: 0.1, maxOutputTokens: 6000 },
+          modelOptions: { temperature: 0.1, maxOutputTokens: 6000, thinkingLevel: 'low' },
         },
       })
     ).data;
