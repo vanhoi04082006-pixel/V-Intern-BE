@@ -21,6 +21,7 @@ import { NotificationPreference } from '../notifications/entities/notification-p
 import { Assignment } from '../assignments/entities/assignment.entity';
 import { Project } from '../projects/entities/project.entity';
 import { Sprint } from '../sprints/entities/sprint.entity';
+import { isSprintTerminal } from '../sprints/sprint-status.machine';
 import { User } from '../users/entities/user.entity';
 import { ActorContext } from '../users/users.service';
 import { OWNER_PARAM, scopedProjectSessionClause } from '../rbac/ownership';
@@ -370,6 +371,11 @@ export class TasksService {
   ): Promise<TaskResponse> {
     let createdId = '';
     await this.dataSource.transaction(async (em) => {
+      // Lifecycle transitions lock Sprint first. Admission uses that order
+      // before project/task locks and keeps the admission lock until commit.
+      const sprint = input.sprintId
+        ? await em.getRepository(Sprint).findOne({ where: { id: input.sprintId }, lock: { mode: 'pessimistic_write' } })
+        : null;
       const project = await em
         .getRepository(Project)
         .findOne({ where: { id: input.projectId }, lock: { mode: 'pessimistic_write' } });
@@ -399,7 +405,6 @@ export class TasksService {
         });
       }
       if (input.sprintId) {
-        const sprint = await em.getRepository(Sprint).findOne({ where: { id: input.sprintId } });
         if (!sprint) {
           throw new NotFoundException({
             statusCode: 404,
@@ -414,6 +419,9 @@ export class TasksService {
             message: 'Sprint belongs to a different project — cross-project task relations are not allowed.',
             details: { sprintProjectId: sprint.projectId, taskProjectId: input.projectId },
           });
+        }
+        if (isSprintTerminal(sprint.status)) {
+          throw new ConflictException({ statusCode: 409, code: 'SPRINT_NOT_EDITABLE', message: 'New tasks cannot be allocated to a completed or cancelled Sprint.' });
         }
         if (creator && !creator.isAdmin && sprint.sessionId) {
           const owned = await em.query(
@@ -533,6 +541,9 @@ export class TasksService {
   ): Promise<TaskResponse> {
     let resultId = '';
     await this.dataSource.transaction(async (em) => {
+      const destinationSprint = patch.sprintId
+        ? await em.getRepository(Sprint).findOne({ where: { id: patch.sprintId }, lock: { mode: 'pessimistic_write' } })
+        : null;
       const task = await this.lockById(em, id);
       if (!task || task.deletedAt !== null) throw taskNotFound();
       if (ctx.actorId && !(await this.permissions.hasRole(ctx.actorId, 'admin'))) {
@@ -553,8 +564,8 @@ export class TasksService {
         await this.assertNoPendingSubmission(em, task.id);
       }
 
-      if (patch.sprintId !== undefined && patch.sprintId !== task.sprintId) {
-        const sprint = await em.getRepository(Sprint).findOne({ where: { id: patch.sprintId } });
+      if (patch.sprintId !== undefined && patch.sprintId?.toLowerCase() !== task.sprintId?.toLowerCase()) {
+        const sprint = destinationSprint;
         if (!sprint) {
           throw new NotFoundException({
             statusCode: 404,
@@ -569,6 +580,9 @@ export class TasksService {
             message: 'Sprint belongs to a different project — cross-project task moves are not allowed.',
             details: { sprintProjectId: sprint.projectId, taskProjectId: task.projectId },
           });
+        }
+        if (isSprintTerminal(sprint.status)) {
+          throw new ConflictException({ statusCode: 409, code: 'SPRINT_NOT_EDITABLE', message: 'Tasks cannot be moved into a completed or cancelled Sprint.' });
         }
         task.sprintId = patch.sprintId;
         fields.push('sprintId');

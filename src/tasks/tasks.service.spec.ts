@@ -423,6 +423,67 @@ describe('tasks.service — create (spec 10/11/12/14/27)', () => {
   });
 });
 
+describe('tasks.service — Sprint admission and retained work', () => {
+  const input = { title: 'New Sprint work', projectId: 'project-1', sprintId: 'sprint-1', assigneeId: 'intern-1' };
+  const terminal = ['completed', 'cancelled'] as const;
+  const editable = ['planned', 'active'] as const;
+  const expectNoWrites = (h: ReturnType<typeof buildHarness>) => {
+    expect(h.em.save).not.toHaveBeenCalled();
+    expect(h.em.insert).not.toHaveBeenCalled();
+    for (const repo of [h.historyRepo, h.notificationRepo, h.auditRepo, h.activityRepo]) {
+      expect(repo.insert).not.toHaveBeenCalled();
+    }
+    expect(h.em.query.mock.calls.some(([sql]) => String(sql).includes('NEXT VALUE'))).toBe(false);
+  };
+
+  it.each(terminal)('rejects creating new work in a %s Sprint before any write or publication', async (status) => {
+    const h = buildHarness({ sprint: { ...SPRINT_ROW, status } as Sprint });
+    await expect(h.service.create(input, CTX)).rejects.toMatchObject({
+      response: { statusCode: 409, code: 'SPRINT_NOT_EDITABLE' },
+    });
+    expectNoWrites(h);
+  });
+
+  it.each(terminal)('rejects moving work into a %s Sprint without changing the original task', async (status) => {
+    const h = buildHarness({ sprint: { ...SPRINT_ROW, status } as Sprint, task: taskRow({ sprintId: 'original-sprint' }) });
+    await expect(h.service.update('task-1', { sprintId: 'sprint-1' }, CTX)).rejects.toMatchObject({
+      response: { statusCode: 409, code: 'SPRINT_NOT_EDITABLE' },
+    });
+    expect(h.current.sprintId).toBe('original-sprint');
+    expectNoWrites(h);
+  });
+
+  it.each(editable)('continues accepting new tasks into a %s Sprint', async (status) => {
+    const h = buildHarness({ sprint: { ...SPRINT_ROW, status } as Sprint });
+    await expect(h.service.create(input, CTX)).resolves.toMatchObject({ sprintId: 'sprint-1', status: 'todo' });
+    expect(h.historyRepo.insert).toHaveBeenCalledWith(expect.objectContaining({ fromStatus: null, toStatus: 'todo' }));
+  });
+
+  it.each(editable)('continues accepting moved tasks into a %s Sprint', async (status) => {
+    const h = buildHarness({ sprint: { ...SPRINT_ROW, status } as Sprint, task: taskRow({ sprintId: 'original-sprint' }) });
+    await expect(h.service.update('task-1', { sprintId: 'sprint-1' }, CTX)).resolves.toMatchObject({ sprintId: 'sprint-1' });
+  });
+
+  it.each(terminal)('preserves description edits on existing work retained in a %s Sprint', async (status) => {
+    const h = buildHarness({ sprint: { ...SPRINT_ROW, status } as Sprint });
+    await expect(h.service.update('task-1', { sprintId: 'sprint-1', description: 'Clarify retained work.' }, CTX))
+      .resolves.toMatchObject({ sprintId: 'sprint-1', description: 'Clarify retained work.' });
+  });
+
+  it.each(terminal)('recognizes case-insensitive same-Sprint identity when editing retained work in a %s Sprint', async (status) => {
+    const h = buildHarness({ sprint: { ...SPRINT_ROW, id: 'SPRINT-1', status } as Sprint, task: taskRow({ sprintId: 'SPRINT-1' }) });
+    await expect(h.service.update('task-1', { sprintId: 'sprint-1', description: 'Retained SQL Server identity.' }, CTX))
+      .resolves.toMatchObject({ description: 'Retained SQL Server identity.' });
+  });
+
+  it.each(terminal)('preserves review completion of existing work retained in a %s Sprint', async (status) => {
+    const h = buildHarness({ sprint: { ...SPRINT_ROW, status } as Sprint, task: taskRow({ status: 'review', progress: 60 }) });
+    await expect(h.service.update('task-1', { sprintId: 'sprint-1', status: 'done' }, CTX))
+      .resolves.toMatchObject({ sprintId: 'sprint-1', status: 'done', progress: 100 });
+    expect(h.historyRepo.insert).toHaveBeenCalledWith(expect.objectContaining({ fromStatus: 'review', toStatus: 'done' }));
+  });
+});
+
 describe('tasks.service — manage transitions (spec 7/14/25)', () => {
   it('rework review→doing is allowed for manage callers (history + rework notification)', async () => {
     const h = buildHarness({ task: taskRow({ status: 'review', progress: 80 }) });
