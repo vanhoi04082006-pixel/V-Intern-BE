@@ -243,6 +243,19 @@ afterAll(async () => {
   if (db?.isInitialized) await db.destroy();
 });
 describe("verified public CV applications on SQL Server", () => {
+  it.each([
+    ['2030-11-17T09:00:00+07:00', '2030-11-17T10:00:00+07:00'],
+    ['2030-11-17T02:00:00.000Z', '2030-11-17T03:00:00.000Z'],
+  ])('round-trips round and slot instants through datetime2 for %s', async (startsAt, endsAt) => {
+    const round = await rounds.create(owner.id, { name: 'UTC SQL regression', opensAt: startsAt, closesAt: endsAt });
+    expect(round.opensAt.toISOString()).toBe('2030-11-17T02:00:00.000Z');
+    expect(round.closesAt.toISOString()).toBe('2030-11-17T03:00:00.000Z');
+    const result = await rounds.addSlot(owner.id, roundId, { roleCode: 'g3-sixth', startsAt, endsAt, timezone: 'Asia/Ho_Chi_Minh', capacity: 1, minimumPreparationMinutes: 60, credentialsLeadMinutes: 30 });
+    const slot = result.slots.find((entry: { startsAt: Date }) => entry.startsAt.toISOString() === '2030-11-17T02:00:00.000Z');
+    expect(slot).toBeDefined();
+    expect(slot.endsAt.toISOString()).toBe('2030-11-17T03:00:00.000Z');
+  });
+
   it("extracts literal PDF pages and DOCX paragraphs; scanned PDF yields no fabricated OCR", async () => {
     expect(
       (await storage.extract(cv, "application/pdf", "cv.pdf")).segments[0],

@@ -69,11 +69,14 @@ export class RecruitmentRoundsService {
   }
   async create(actor: string, dto: CreateRoundDto) {
     await this.staffAccess(actor);
+    const opensAt = new Date(dto.opensAt), closesAt = new Date(dto.closesAt);
     if (
       !/[Zz]|[+-]\d{2}:\d{2}$/.test(dto.opensAt) ||
       !/[Zz]|[+-]\d{2}:\d{2}$/.test(dto.closesAt) ||
-      new Date(dto.closesAt) <= new Date(dto.opensAt) ||
-      new Date(dto.closesAt) <= new Date()
+      !Number.isFinite(opensAt.getTime()) ||
+      !Number.isFinite(closesAt.getTime()) ||
+      closesAt <= opensAt ||
+      closesAt <= new Date()
     )
       throw new BadRequestException(
         "Thời gian nhận hồ sơ cần hợp lệ, có múi giờ và kết thúc trong tương lai.",
@@ -81,7 +84,7 @@ export class RecruitmentRoundsService {
     const id = randomUUID();
     await this.db.query(
       "INSERT INTO recruitment_rounds(id,ownerId,name,opensAt,closesAt) VALUES(@0,@1,@2,@3,@4)",
-      [id, actor, dto.name.trim(), dto.opensAt, dto.closesAt],
+      [id, actor, dto.name.trim(), opensAt.toISOString(), closesAt.toISOString()],
     );
     return this.detail(actor, id);
   }
@@ -117,7 +120,7 @@ export class RecruitmentRoundsService {
   }
   async addSlot(actor: string, roundId: string, dto: CreateSlotDto) {
     const round = await this.authorize(actor, roundId),
-      { start } = validateSlot(dto);
+      { start, end } = validateSlot(dto);
     if (round.status === "closed" || start <= round.opensAt)
       throw new BadRequestException(
         "Khung giờ cần sau lúc bắt đầu nhận hồ sơ.",
@@ -130,8 +133,8 @@ export class RecruitmentRoundsService {
         id,
         roundId,
         dto.roleCode,
-        dto.startsAt,
-        dto.endsAt,
+        start.toISOString(),
+        end.toISOString(),
         dto.timezone,
         dto.capacity,
         dto.minimumPreparationMinutes,
