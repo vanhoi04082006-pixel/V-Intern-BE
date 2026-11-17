@@ -41,6 +41,17 @@ describe("GitHub submission evidence boundaries", () => {
     );
   }
 
+  it.each([
+    'https://github.com/foreign/course/pull/7',
+    'https://github.com/teacher/foreign/pull/7',
+  ])('explains a foreign submission repository before making external requests: %s', async url => {
+    const call = jest.fn();
+    await expect(serviceWith(call).snapshot('task', 'student', url)).rejects.toMatchObject({
+      response: expect.objectContaining({ code: 'SUBMISSION_REPOSITORY_MISMATCH' }),
+    });
+    expect(call).not.toHaveBeenCalled();
+  });
+
   function remote(
     file: { filename: string; sha: string; status: string; patch?: string },
     blobAvailable = true,
