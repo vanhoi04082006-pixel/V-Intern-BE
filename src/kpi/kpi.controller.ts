@@ -54,7 +54,7 @@ export class KpiPeriodsController {
   @RequirePermissions('kpi.manage')
   @ApiOperation({
     summary:
-      'Explicit KPI period state transition (draft→open, open→finalized, finalized→closed); calculating is engine-managed; finalize from open only (spec 23)',
+      'Explicit KPI period transition; finalized uses canonical readiness/audit/notification checks; calculating is engine-managed (spec 23)',
   })
   async changeStatus(@Param('id', ParseUUIDPipe) id: string, @Body() dto: TransitionKpiPeriodDto, @CurrentUser('userId') userId: string, @Req() req: Request) {
     return this.kpiService.changeStatus(id, dto.status, this.ctx(req, userId));
@@ -73,7 +73,7 @@ export class KpiPeriodsController {
   @Post(':id/finalize')
   @RequirePermissions('kpi.manage')
   @ApiOperation({
-    summary: 'open → finalized: locks the period permanently and notifies interns with calculated results (spec 28)',
+    summary: 'open → finalized after a successful current calculation; stale/failed/missing calculation → 409 KPI_CALCULATION_REQUIRED; locks the period and notifies calculated results (spec 28)',
   })
   async finalize(@Param('id', ParseUUIDPipe) id: string, @CurrentUser('userId') userId: string, @Req() req: Request) {
     return this.kpiService.finalize(id, userId, this.ctx(req, userId));
