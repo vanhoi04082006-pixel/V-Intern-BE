@@ -11,6 +11,7 @@ import { TaskStatusHistory } from '../tasks/entities/task-status-history.entity'
 import { Assignment } from '../assignments/entities/assignment.entity';
 import { AuditLog } from '../audit/entities/audit-log.entity';
 import { ActivityEvent } from '../audit/entities/activity-event.entity';
+import { presentActivity } from '../audit/activity-presentation';
 import { notifyInTransaction } from '../common/utils/notify';
 import { notifySubmissionReviewer } from './submission-notifications';
 import { RequestPrincipal } from '../common/types/request-principal';
@@ -56,7 +57,7 @@ export class SubmissionsService {
   }
   private async record(em: EntityManager, ctx: ActorContext, id: string, action: string, detail: object): Promise<void> {
     await em.save(AuditLog, em.create(AuditLog, { actorId: ctx.actorId, action, targetType: 'task_submission', targetId: id, detail: JSON.stringify(detail), ip: ctx.ip ?? null, userAgent: ctx.userAgent ?? null }));
-    await em.save(ActivityEvent, em.create(ActivityEvent, { actorId: ctx.actorId, module: 'tasks', action, targetType: 'task_submission', targetId: id, summary: action === 'submission.create' ? 'Đã nộp bài để giảng viên review' : 'Giảng viên đã review bài nộp' }));
+    await em.save(ActivityEvent, em.create(ActivityEvent, presentActivity({ actorId: ctx.actorId, module: 'tasks', action, targetType: 'task_submission', targetId: id, summary: action === 'submission.create' ? 'Đã nộp bài để giảng viên review' : 'Giảng viên đã review bài nộp' })));
   }
   async submit(taskId: string, dto: SubmitTaskDto, ctx: ActorContext): Promise<Submission> {
     const actorId = ctx.actorId;

@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ActivityEvent } from './entities/activity-event.entity';
+import { presentActivity } from './activity-presentation';
 
 export interface RecordActivityInput {
   actorId?: string | null;
@@ -45,6 +46,6 @@ export class ActivityService {
       .skip((filters.page - 1) * filters.pageSize)
       .take(filters.pageSize);
     const [items, total] = await qb.getManyAndCount();
-    return { items, total };
+    return { items: items.map(presentActivity), total };
   }
 }
