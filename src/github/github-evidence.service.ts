@@ -97,9 +97,10 @@ export class GithubEvidenceService {
       source.owner.toLowerCase() !== repo.ownerLogin.toLowerCase() ||
       source.repo.toLowerCase() !== repo.repoName.toLowerCase()
     )
-      throw new BadRequestException(
-        "Bài nộp phải thuộc repository của đúng phiên.",
-      );
+      throw new BadRequestException({
+        code: 'SUBMISSION_REPOSITORY_MISMATCH',
+        message: 'Bài nộp phải thuộc repository của đúng phiên.',
+      });
     const identity = await this.auth.connection(internId);
     if (!identity)
       throw new ConflictException({

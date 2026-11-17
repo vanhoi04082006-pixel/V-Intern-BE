@@ -9,9 +9,7 @@ import { DataSource } from 'typeorm';
 import { AppModule } from '../src/app.module';
 import { ensureRbac } from '../src/bootstrap/ensure-rbac';
 import { ENTITIES } from '../src/database/entities';
-import { InitPlatformCore1759872000000 } from '../src/database/migrations/1759872000000-InitPlatformCore';
-import { CreateAcademicCoreTables1759958400000 } from '../src/database/migrations/1759958400000-CreateAcademicCoreTables';
-import { CreateSprintTaskCoreTables1760044800000 } from '../src/database/migrations/1760044800000-CreateSprintTaskCoreTables';
+import applicationDataSource from '../src/database/data-source';
 import { Role } from '../src/rbac/entities/role.entity';
 import { User } from '../src/users/entities/user.entity';
 import { UserRole } from '../src/rbac/entities/user-role.entity';
@@ -24,7 +22,7 @@ import { ensureRecruitedProfile, userIdByEmail } from './recruitment-fixtures';
  * - Refuses to run unless E2E_DB_NAME names a DISPOSABLE database.
  * - Without a reachable SQL Server this suite FAILS with [E2E BLOCKED] —
  *   integration status stays NOT VERIFIED; never a fake PASS.
- * - Applies REAL migrations (Phase 1 + Phase 2 + Phase 3) to the
+ * - Applies all configured product migrations to the
  *   disposable DB — never synchronize.
  *
  * Scenario (spec 37): teacher creates sprint → activates it → one-active
@@ -98,11 +96,7 @@ beforeAll(async () => {
     synchronize: false,
     logging: false,
     entities: ENTITIES,
-    migrations: [
-      InitPlatformCore1759872000000,
-      CreateAcademicCoreTables1759958400000,
-      CreateSprintTaskCoreTables1760044800000,
-    ],
+    migrations: applicationDataSource.options.migrations,
     migrationsRun: false,
   });
   await migDs.initialize();
@@ -509,6 +503,60 @@ describe('Phase 3 sprint/task e2e — plan → activate → task → review → 
       .set('Authorization', `Bearer ${instructor}`);
     expect(completion.status).toBe(200);
     expect(completion.body.total).toBeGreaterThanOrEqual(2);
+  });
+
+  it.each(['completed', 'cancelled'])('rejects new or moved work in a %s Sprint and preserves retained tasks', async (status) => {
+    let target = sprintId;
+    if (status === 'cancelled') {
+      const created = await request(apiBase()).post('/api/v1/sprints').set('Authorization', `Bearer ${instructor}`)
+        .send({ code: `E2E-CANCEL-${RUN}`, name: 'Cancelled admission test', projectId, sessionId, startDate: '2026-04-01T00:00:00Z', endDate: '2026-04-14T00:00:00Z' });
+      expect(created.status).toBe(201);
+      target = created.body.id;
+      await request(apiBase()).post(`/api/v1/sprints/${target}/status`).set('Authorization', `Bearer ${instructor}`).send({ status: 'cancelled' }).expect(201);
+    }
+    const [before] = await dataSource.query('SELECT COUNT(*) n FROM tasks WHERE sprintId=@0 AND deletedAt IS NULL', [target]);
+    const rejected = await request(apiBase()).post('/api/v1/tasks').set('Authorization', `Bearer ${instructor}`)
+      .send({ title: `New work in ${status}`, projectId, sprintId: target });
+    expect(rejected.status).toBe(409);
+    expect(rejected.body.code).toBe('SPRINT_NOT_EDITABLE');
+    const backlog = await request(apiBase()).post('/api/v1/tasks').set('Authorization', `Bearer ${instructor}`).send({ title: `Backlog for ${status}`, projectId });
+    expect(backlog.status).toBe(201);
+    const moved = await request(apiBase()).patch(`/api/v1/tasks/${backlog.body.id}`).set('Authorization', `Bearer ${instructor}`)
+      .send({ sprintId: target, expectedVersion: backlog.body.version });
+    expect(moved.status).toBe(409);
+    expect(moved.body.code).toBe('SPRINT_NOT_EDITABLE');
+    const unchanged = await request(apiBase()).get(`/api/v1/tasks/${backlog.body.id}`).set('Authorization', `Bearer ${instructor}`).expect(200);
+    expect(unchanged.body.sprintId).toBeNull();
+    expect(unchanged.body.version).toBe(backlog.body.version);
+    const [after] = await dataSource.query('SELECT COUNT(*) n FROM tasks WHERE sprintId=@0 AND deletedAt IS NULL', [target]);
+    expect(after.n).toBe(before.n);
+    if (status === 'completed') {
+      const retained = await request(apiBase()).patch(`/api/v1/tasks/${taskId}`).set('Authorization', `Bearer ${instructor}`)
+        .send({ sprintId: sprintId.toUpperCase(), description: 'Retained work can still be clarified after completion.' });
+      expect(retained.status).toBe(200);
+      expect(retained.body.sprintId.toLowerCase()).toBe(sprintId.toLowerCase());
+      expect(retained.body.description).toBe('Retained work can still be clarified after completion.');
+    }
+  });
+
+  it('serializes concurrent task admission against Sprint completion without losing either invariant', async () => {
+    for (let index = 0; index < 3; index += 1) {
+      const project = await request(apiBase()).post('/api/v1/projects').set('Authorization', `Bearer ${instructor}`)
+        .send({ code: `E2E-RACE-${RUN}-${index}`, name: 'Concurrent Sprint admission', description: 'SQL concurrency fixture', status: 'active', capacity: 1 });
+      expect(project.status).toBe(201);
+      const sprint = await request(apiBase()).post('/api/v1/sprints').set('Authorization', `Bearer ${instructor}`)
+        .send({ code: `E2E-RACE-SP-${RUN}-${index}`, name: 'Concurrent close', projectId: project.body.id, startDate: '2026-04-01T00:00:00Z', endDate: '2026-04-14T00:00:00Z' });
+      expect(sprint.status).toBe(201);
+      await request(apiBase()).post(`/api/v1/sprints/${sprint.body.id}/status`).set('Authorization', `Bearer ${instructor}`).send({ status: 'active' }).expect(201);
+      const [create, close] = await Promise.all([
+        request(apiBase()).post('/api/v1/tasks').set('Authorization', `Bearer ${instructor}`).send({ title: 'Concurrent new work', projectId: project.body.id, sprintId: sprint.body.id }),
+        request(apiBase()).post(`/api/v1/sprints/${sprint.body.id}/status`).set('Authorization', `Bearer ${instructor}`).send({ status: 'completed' }),
+      ]);
+      expect([create.status, close.status].sort()).toEqual([201, 409]);
+      expect(create.status === 409 ? create.body.code : close.body.code).toBe(create.status === 409 ? 'SPRINT_NOT_EDITABLE' : 'SPRINT_HAS_OPEN_TASKS');
+      const [row] = await dataSource.query('SELECT s.status,(SELECT COUNT(*) FROM tasks t WHERE t.sprintId=s.id AND t.deletedAt IS NULL) taskCount FROM sprints s WHERE s.id=@0', [sprint.body.id]);
+      expect(row).toMatchObject(close.status === 201 ? { status: 'completed', taskCount: 0 } : { status: 'active', taskCount: 1 });
+    }
   });
 
   it('RBAC negatives: intern cannot create sprints/tasks (spec 33)', async () => {

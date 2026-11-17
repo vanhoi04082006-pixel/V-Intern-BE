@@ -547,6 +547,21 @@ describe('Phase 5 KPI + virtual salary + certificates e2e (spec 82-87)', () => {
     expect(ledger.body.items).toHaveLength(4); // earning + bonus + penalty + reversal
   });
 
+  it.each(['admin', 'own'] as const)('virtual salary %s balance stays global while the KPI period scopes only period income', async scope => {
+    const endpoint = scope === 'admin' ? `/api/v1/virtual-salary/users/${k1Id}/balance` : '/api/v1/intern/me/virtual-salary';
+    const bearer = scope === 'admin' ? admin : k1;
+    const selected = await request(apiBase()).get(`${endpoint}?kpiPeriodId=${periodId}`).set('Authorization', `Bearer ${bearer}`);
+    expect(selected.status).toBe(200);
+    expect(Number(selected.body.balance)).toBe(8_180_000); // global earning + bonus - penalty - reversal
+    expect(Number(selected.body.earnedThisPeriod)).toBe(8_380_000);
+    expect(selected.body.latestEntries).toHaveLength(4);
+    const empty = await request(apiBase()).get(`${endpoint}?kpiPeriodId=11111111-1111-4111-8111-111111111111`).set('Authorization', `Bearer ${bearer}`);
+    expect(empty.status).toBe(200);
+    expect(Number(empty.body.balance)).toBe(8_180_000);
+    expect(Number(empty.body.earnedThisPeriod)).toBe(0);
+    expect(empty.body.latestEntries).toHaveLength(4);
+  });
+
   it('certificates: a later active placement cannot replace the completed placement context', async () => {
     const session = await request(apiBase()).post('/api/v1/sessions').set('Authorization', `Bearer ${admin}`).send({ code: `E2E-CERT-NEXT-S-${RUN}`, name: 'Next uncompleted session', startDate: '2026-01-01T00:00:00.000Z', endDate: '2026-12-31T00:00:00.000Z' });
     expect(session.status).toBe(201);

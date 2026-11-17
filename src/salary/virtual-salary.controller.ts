@@ -60,7 +60,7 @@ export class VirtualSalaryController {
   @RequirePermissions('virtual_salary.view')
   @ApiOperation({
     summary:
-      'Ledger-derived balance for one user (admin): { balance, unit, virtual: true, earnedThisPeriod, latestEntries } — SUM(ledger.amount), never a stored value (spec 40)',
+      'Global ledger-derived balance for one user (admin); optional kpiPeriodId scopes earnedThisPeriod only, while balance and latestEntries remain global (spec 40)',
   })
   async balance(@Param('userId', ParseUUIDPipe) userId: string, @Query('kpiPeriodId') kpiPeriodId?: string) {
     return this.salaryService.balance(userId, kpiPeriodId || undefined);
@@ -77,7 +77,7 @@ export class VirtualSalaryInternController {
   @RequirePermissions('virtual_salary.view.own')
   @ApiOperation({
     summary:
-      'My VIRTUAL salary balance (identity = principal): { balance, unit, virtual: true, latestEntries } — derived from the ledger; this is a virtual unit and NEVER real payroll (spec 33)',
+      'My global VIRTUAL ledger balance (identity = principal); optional kpiPeriodId scopes earnedThisPeriod only; this is a virtual unit and NEVER real payroll (spec 33)',
   })
   async myBalance(@CurrentUser('userId') userId: string, @Query('kpiPeriodId') kpiPeriodId?: string) {
     return this.salaryService.balance(userId, kpiPeriodId || undefined);

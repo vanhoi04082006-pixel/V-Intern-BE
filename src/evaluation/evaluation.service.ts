@@ -28,6 +28,11 @@ export interface ActorContext {
   userAgent?: string | null;
 }
 type EvaluationPrincipal = { userId: string; isAdmin: boolean };
+export type InternEvaluationScore = EvaluationScore & {
+  criterionName: string | null;
+  weight: number | null;
+  maxScore: number | null;
+};
 const cycleScopeSql = (alias: string) => `(EXISTS (SELECT 1 FROM projects p WHERE p.id = ${alias}.projectId AND p.mentorId = :scopeUserId) OR EXISTS (SELECT 1 FROM session_instructors si WHERE si.sessionId = ${alias}.sessionId AND si.instructorId = :scopeUserId))`;
 
 const conflict = (code: string, message: string, details?: Record<string, unknown>) =>
@@ -594,24 +599,39 @@ export class EvaluationService {
   // ───────────────────────── intern self-view ───────────────────────────
 
   /** Interns see their FINALIZED evaluations only (documented). */
-  async internList(userId: string): Promise<Array<Evaluation & { scores: EvaluationScore[] }>> {
+  async internList(userId: string): Promise<Array<Evaluation & { scores: InternEvaluationScore[] }>> {
     const evaluations = await this.evaluationsRepo.find({
       where: { internId: userId, status: 'finalized' },
       order: { finalizedAt: 'DESC' },
     });
     if (evaluations.length === 0) return [];
-    const scores = await this.scoresRepo.find({ where: { evaluationId: In(evaluations.map((e) => e.id)) } });
+    const scores = await this.internScores(await this.scoresRepo.find({ where: { evaluationId: In(evaluations.map((e) => e.id)) } }));
     return evaluations.map((e) => ({ ...e, scores: scores.filter((s) => s.evaluationId === e.id) }));
   }
 
-  async internGet(userId: string, id: string): Promise<Evaluation & { scores: EvaluationScore[] }> {
+  async internGet(userId: string, id: string): Promise<Evaluation & { scores: InternEvaluationScore[] }> {
     const evaluation = await this.evaluationsRepo.findOne({ where: { id } });
     // 404-safe for foreign/unfinished evaluations (never leak existence).
     if (!evaluation || evaluation.internId !== userId || evaluation.status !== 'finalized') {
       throw notFound(EVALUATION_ERROR_CODES.NOT_FOUND, 'Evaluation not found.');
     }
-    const scores = await this.scoresRepo.find({ where: { evaluationId: id } });
+    const scores = await this.internScores(await this.scoresRepo.find({ where: { evaluationId: id } }));
     return { ...evaluation, scores };
+  }
+
+  private async internScores(scores: EvaluationScore[]): Promise<InternEvaluationScore[]> {
+    if (!scores.length) return [];
+    const criteria = await this.criteriaRepo.findBy({ id: In([...new Set(scores.map(score => score.criterionId))]) });
+    const byId = new Map(criteria.map(criterion => [criterion.id.toLowerCase(), criterion]));
+    return scores.map(score => {
+      const criterion = byId.get(score.criterionId.toLowerCase());
+      return {
+        ...score,
+        criterionName: criterion?.name ?? null,
+        weight: criterion ? Number(criterion.weight) : null,
+        maxScore: criterion ? Number(criterion.maxScore) : null,
+      };
+    });
   }
 
   // ─────────────────────────── shared internals ─────────────────────────

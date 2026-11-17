@@ -108,6 +108,15 @@ describe('submission and review notification delivery', () => {
     await submissions.review(submission.id, { rubric, feedback: 'Giảng viên kiểm tra và xác nhận bài.', taskVersion: current.version }, { actorId: owner.id });
     expect(await notices('task.reviewed')).toEqual([{ userId: student.id, linkUrl: `/intern/work/${task.id}` }]);
   });
+  it('records a student withdrawal as a withdrawal rather than instructor review', async () => {
+    const submission = await submit();
+    await submissions.withdraw(submission.id, { actorId: student.id });
+    const [event] = await db.query("SELECT action,actorId,summary FROM activity_events WHERE targetId=@0 AND action='submission.withdraw'", [submission.id]);
+    expect(event).toMatchObject({ action: 'submission.withdraw', summary: 'Sinh viên đã rút bài nộp để cập nhật code' });
+    expect(event.actorId.toLowerCase()).toBe(student.id.toLowerCase());
+    expect((await db.getRepository(Task).findOneByOrFail({ id: task.id })).status).toBe('doing');
+    expect(await db.query("SELECT action FROM audit_logs WHERE targetId=@0 AND action='submission.withdraw'", [submission.id])).toHaveLength(1);
+  });
   it('does not send task evidence to a new mentor outside the session or a locked reviewer', async () => {
     await db.getRepository(Project).update(project.id, { mentorId: foreign.id });
     await db.transaction(em => notifySubmissionReviewer(em, task.id, { type: 'task.submitted', title: 'Scope guard' }));

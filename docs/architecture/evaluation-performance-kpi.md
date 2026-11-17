@@ -20,6 +20,8 @@ Giảng viên chọn kỳ/sinh viên trong scope, nhập đầy đủ tiêu chí
 
 AI hỗ trợ có thể đề xuất, nhưng không finalize hoặc thay điểm chính thức. Không dùng AI review của một task thay cho evaluation cả kỳ.
 
+Hai API `/intern/me/evaluations` và `/intern/me/evaluations/{id}` chỉ trả kết quả đã chốt của người dùng hiện tại. Mỗi score bổ sung `criterionName`, `weight` và `maxScore` để sinh viên hiểu tên tiêu chí, trọng số và thang điểm; các trường là `null` nếu metadata không còn khả dụng. Tra cứu metadata theo tập criterion ID của các score đã được giới hạn phạm vi, bằng một truy vấn chung. Không đưa mô tả nội bộ của tiêu chí hoặc gợi ý AI vào kết quả sinh viên; 404 cho đánh giá của người khác hoặc chưa chốt được giữ nguyên.
+
 ## KPI v1 tính như thế nào?
 
 | Thành phần | Trọng số cấu hình | Nguồn |
@@ -37,6 +39,12 @@ Không phải `80×0,5 + 90×0,3 + 0×0,2`. Nếu tất cả thành phần đề
 ## Calculate khác với finalize
 
 Calculate khóa kỳ để tránh hai lần tính chạy cùng lúc, lưu result và provenance từng người bằng transaction ngắn rồi mở lại kỳ để được tính lại trước chốt. Finalize khóa kết quả cho các nghiệp vụ sau; không tính lại ngầm sau finalized.
+
+Chốt kỳ yêu cầu một lượt tính thành công còn hợp lệ cho khoảng ngày hiện tại. Mỗi lần bắt đầu tính hoặc đổi khoảng ngày tạo marker audit dưới cùng write lock của kỳ; số marker là revision, không phụ thuộc thứ tự UUID hoặc độ phân giải timestamp. Audit `kpi.calculated` chỉ ghi revision thành công sau khi lưu đủ các kết quả. Chốt trước tính, sau đổi ngày hoặc sau lượt tính lỗi trả `409 KPI_CALCULATION_REQUIRED`; một lượt tính thành công có 0 sinh viên đủ điều kiện vẫn được chốt. Kỳ mở từ phiên bản cũ cần tính lại để có revision hợp lệ. Không sửa các kỳ đã chốt hoặc audit cũ, không thay schema.
+
+`POST /kpi-periods/{id}/status` với finalized dùng cùng luồng finalize, gồm readiness, audit, activity và thông báo. Trạng thái calculating chỉ do engine quản lý; API status không được vào hoặc thoát trạng thái này.
+
+Sau khi tính đủ tất cả người còn đủ điều kiện, transaction hoàn tất đối soát tập kết quả nháp và loại các dòng/provenance không còn nằm trong lượt tính hiện tại; audit ghi số dòng bị loại. Không dùng kết quả cũ của người đã rời phạm vi để thông báo hoặc cấp lương sau chốt. Lỗi giữa batch không chạy bước này và không đánh dấu revision thành công. Các kỳ đã chốt vẫn bị khóa như trước.
 
 | Tình huống | Hành vi |
 |---|---|

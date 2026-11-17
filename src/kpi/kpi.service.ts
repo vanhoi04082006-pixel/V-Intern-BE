@@ -100,6 +100,8 @@ export class KpiService {
       if (period.status !== 'draft' && period.status !== 'open') {
         throw conflict(KPI_ERROR_CODES.PERIOD_NOT_EDITABLE, `Period cannot be edited while '${period.status}'.`);
       }
+      const datesChanged = (input.startDate !== undefined && new Date(input.startDate).getTime() !== period.startDate.getTime()) ||
+        (input.endDate !== undefined && new Date(input.endDate).getTime() !== period.endDate.getTime());
       if (input.name !== undefined) period.name = input.name;
       if (input.startDate !== undefined) period.startDate = new Date(input.startDate);
       if (input.endDate !== undefined) period.endDate = new Date(input.endDate);
@@ -107,6 +109,13 @@ export class KpiService {
         throw new BadRequestException({ statusCode: 400, code: 'KPI_PERIOD_INVALID_DATES', message: 'endDate must be after startDate.' });
       }
       await em.save(period);
+      if (datesChanged) {
+        await em.insert(AuditLog, {
+          actorId: ctx.actorId ?? null, action: 'kpi.calculation_invalidated', targetType: 'kpi_period', targetId: id,
+          detail: JSON.stringify({ reason: 'date_range_changed', startDate: period.startDate.toISOString(), endDate: period.endDate.toISOString() }),
+          ip: ctx.ip ?? null, userAgent: ctx.userAgent ?? null,
+        });
+      }
       await em.insert(AuditLog, {
         actorId: ctx.actorId ?? null,
         action: 'kpi.period_updated',
@@ -122,11 +131,14 @@ export class KpiService {
 
   /** Explicit status transition (draft→open, open→finalized, finalized→closed). */
   async changeStatus(id: string, to: string, ctx: ActorContext): Promise<KpiPeriod> {
+    // All public finalization paths share readiness, audit and notification rules.
+    if (to === 'finalized') return this.finalize(id, ctx.actorId ?? null, ctx);
     return this.dataSource.transaction(async (em) => {
       const period = await this.lockPeriod(em, id);
-      if (!canTransitionKpiPeriod(period.status, to as KpiPeriodStatus)) {
+      if (period.status === 'calculating' || to === 'calculating' || !canTransitionKpiPeriod(period.status, to as KpiPeriodStatus)) {
         throw conflict(KPI_ERROR_CODES.INVALID_TRANSITION, `KPI period cannot move from '${period.status}' to '${to}'.`);
       }
+      const from = period.status;
       period.status = to as KpiPeriodStatus;
       await em.save(period);
       await em.insert(AuditLog, {
@@ -134,7 +146,7 @@ export class KpiService {
         action: `kpi.period_${to}`,
         targetType: 'kpi_period',
         targetId: id,
-        detail: JSON.stringify({ from: period.status, to }),
+        detail: JSON.stringify({ from, to }),
         ip: ctx.ip ?? null,
         userAgent: ctx.userAgent ?? null,
       });
@@ -149,7 +161,7 @@ export class KpiService {
    */
   async calculate(id: string, actorId: string | null, ctx: ActorContext): Promise<{ period: KpiPeriod; calculated: number; insufficientData: number }> {
     // Phase A: lock + claim the period (open → calculating).
-    await this.dataSource.transaction(async (em) => {
+    const calculationRevision = await this.dataSource.transaction(async (em) => {
       const period = await this.lockPeriod(em, id);
       if (period.status === 'calculating') {
         throw conflict(KPI_ERROR_CODES.CALCULATION_IN_PROGRESS, 'A calculation batch is already running for this period.');
@@ -165,6 +177,14 @@ export class KpiService {
       }
       period.status = 'calculating';
       await em.save(period);
+      // Count markers under the period write lock, rather than ordering UUIDs
+      // or timestamps. A failed/partial batch leaves the new revision unready.
+      const revision = (await this.calculationRevision(em, id)) + 1;
+      await em.insert(AuditLog, {
+        actorId, action: 'kpi.calculation_started', targetType: 'kpi_period', targetId: id,
+        detail: JSON.stringify({ calculationRevision: revision }), ip: ctx.ip ?? null, userAgent: ctx.userAgent ?? null,
+      });
+      return revision;
     });
 
     try {
@@ -184,6 +204,17 @@ export class KpiService {
       const released = await this.dataSource.transaction(async (em) => {
         const p = await this.lockPeriod(em, id);
         if (!canTransitionKpiPeriod(p.status, 'open')) return false;
+        // A recalculation replaces the draft snapshot, including membership.
+        // Prune only after every eligible result succeeded, and in this same
+        // transaction as readiness so a failure cannot publish a partial batch.
+        const eligibleIds = new Set(eligible.map(userId => userId.toLowerCase()));
+        const prior = await em.getRepository(KpiResult).find({ where: { periodId: id }, select: { id: true, userId: true } });
+        const stale = prior.filter(result => !eligibleIds.has(result.userId.toLowerCase()));
+        for (let offset = 0; offset < stale.length; offset += 500) {
+          const ids = stale.slice(offset, offset + 500).map(result => result.id);
+          await em.getRepository(KpiMetricResult).delete({ kpiResultId: In(ids) });
+          await em.getRepository(KpiResult).delete({ periodId: id, id: In(ids) });
+        }
         p.status = 'open';
         await em.save(p);
         await em.insert(AuditLog, {
@@ -191,7 +222,7 @@ export class KpiService {
           action: 'kpi.calculated',
           targetType: 'kpi_period',
           targetId: id,
-          detail: JSON.stringify({ calculated, insufficientData, ruleVersion: p.ruleVersion }),
+          detail: JSON.stringify({ calculated, insufficientData, ruleVersion: p.ruleVersion, calculationRevision, removedIneligibleResults: stale.length }),
           ip: ctx.ip ?? null,
           userAgent: ctx.userAgent ?? null,
         });
@@ -220,7 +251,7 @@ export class KpiService {
    * Locks the period permanently; notifies interns with calculated
    * results; audit + activity in the SAME transaction.
    */
-  async finalize(id: string, actorId: string, ctx: ActorContext): Promise<KpiPeriod> {
+  async finalize(id: string, actorId: string | null, ctx: ActorContext): Promise<KpiPeriod> {
     return this.dataSource.transaction(async (em) => {
       const period = await this.lockPeriod(em, id);
       if (period.status === 'finalized' || period.status === 'closed') {
@@ -229,6 +260,12 @@ export class KpiService {
       if (!canTransitionKpiPeriod(period.status, 'finalized')) {
         throw conflict(KPI_ERROR_CODES.INVALID_TRANSITION, `Period cannot move from '${period.status}' to 'finalized'.`);
       }
+      const revision = await this.calculationRevision(em, id);
+      const successful = revision > 0 && await em.getRepository(AuditLog).createQueryBuilder('a')
+        .where('a.targetType = :type AND a.targetId = :id AND a.action = :action', { type: 'kpi_period', id, action: 'kpi.calculated' })
+        .andWhere("JSON_VALUE(CASE WHEN ISJSON(a.detail)=1 THEN a.detail ELSE N'{}' END, '$.calculationRevision') = :revision", { revision: String(revision) })
+        .getOne();
+      if (!successful) throw conflict(KPI_ERROR_CODES.CALCULATION_REQUIRED, 'Calculate the current period successfully before finalizing.');
       period.status = 'finalized';
       await em.save(period);
       const results = await em.getRepository(KpiResult).find({ where: { periodId: id, status: 'calculated' } });
@@ -306,6 +343,12 @@ export class KpiService {
   }
 
   // ─────────────────────────── internals ───────────────────────────────
+
+  private calculationRevision(em: EntityManager, id: string): Promise<number> {
+    return em.getRepository(AuditLog).count({ where: {
+      targetType: 'kpi_period', targetId: id, action: In(['kpi.calculation_started', 'kpi.calculation_invalidated']),
+    } });
+  }
 
   private async lockPeriod(em: EntityManager, id: string): Promise<KpiPeriod> {
     const period = await em

@@ -28,6 +28,8 @@ export type AiFetchLike = (
 export interface AiModelOptions {
   temperature?: number;
   maxOutputTokens?: number;
+  /** Limit reasoning for bounded JSON tasks on providers/models that support it. */
+  thinkingLevel?: 'low';
 }
 
 export interface AiStructuredRequest<T> {

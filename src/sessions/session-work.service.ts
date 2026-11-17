@@ -7,6 +7,7 @@ import { QueryTasksDto } from '../tasks/dto/task.dtos';
 import { TasksService } from '../tasks/tasks.service';
 import { SessionsService } from './sessions.service';
 import { PaginationQueryDto } from '../common/pagination/pagination-query.dto';
+import { presentActivity } from '../audit/activity-presentation';
 
 interface DeliveryRow {
   taskId: string; blocked: number; submissionId: string | null; submissionStatus: string;
@@ -78,6 +79,6 @@ export class SessionWorkService {
         FROM events e LEFT JOIN users u ON u.id=e.actorId ORDER BY e.createdAt DESC,e.id DESC OFFSET @3 ROWS FETCH NEXT @4 ROWS ONLY`, params),
       this.db.query(`${scope} SELECT COUNT(*) total FROM events`, params),
     ]);
-    return { items: rows.map(row => ({ ...row, id: row.id.toLowerCase() })), total: Number(counts[0]?.total ?? 0) };
+    return { items: rows.map(row => ({ ...presentActivity(row), id: row.id.toLowerCase() })), total: Number(counts[0]?.total ?? 0) };
   }
 }

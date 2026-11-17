@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { burndown } from './burndown';
 import { DataSource } from 'typeorm';
 import { PermissionsService } from '../rbac/permissions.service';
+import { presentActivity } from '../audit/activity-presentation';
 
 /** Counts use complete SQL sets, never the first paginated page. Every scope is actor-bound. */
 @Injectable()
@@ -24,7 +25,7 @@ export class DashboardService {
         (SELECT COUNT(*) FROM group_roles r WHERE r.groupId=g.id) roleCount FROM user_groups g`),
       this.db.query(`SELECT TOP(6) a.id,a.summary,a.action,a.createdAt,u.displayName FROM activity_events a LEFT JOIN users u ON u.id=a.actorId WHERE a.module IN ('groups','users','rbac') ORDER BY a.createdAt DESC`),
     ]);
-    return {roles,grants,groups,activity};
+    return {roles,grants,groups,activity: activity.map(presentActivity)};
   }
 
   async burndown(id:string) {
@@ -90,7 +91,7 @@ export class DashboardService {
       this.db.query(`SELECT TOP(6) ev.id,ev.summary,ev.action,ev.createdAt,u.displayName FROM activity_events ev LEFT JOIN users u ON u.id=ev.actorId ORDER BY ev.createdAt DESC`),
       this.db.query(`SELECT status,COUNT(*) count FROM users WHERE status<>'deleted' GROUP BY status`),
     ]);
-    return { metrics: metrics[0], users, roles, activity, statuses, generatedAt: new Date() };
+    return { metrics: metrics[0], users, roles, activity: activity.map(presentActivity), statuses, generatedAt: new Date() };
   }
 
   async instructor(actorId: string) {
@@ -136,6 +137,6 @@ export class DashboardService {
         WHERE t.deletedAt IS NULL AND t.projectId IN (${projectsScope})
         ORDER BY sub.submittedAt DESC,sub.id DESC`, args),
     ]);
-    return { metrics: metrics[0], sessions, students, activity, sprints, reviews, generatedAt: new Date() };
+    return { metrics: metrics[0], sessions, students, activity: activity.map(presentActivity), sprints, reviews, generatedAt: new Date() };
   }
 }

@@ -274,10 +274,10 @@ export class VirtualSalaryService {
   /** Balance derived from the ledger — NEVER a stored value (spec 31/40). */
   async balance(userId: string, kpiPeriodId?: string) {
     const unit = (await this.settingsService.get(SALARY_UNIT_SETTING)) ?? VIRTUAL_SALARY_UNIT_DEFAULT;
-    const rows = await this.ledger.find({ where: kpiPeriodId ? { userId, kpiPeriodId } : { userId } });
+    const rows = await this.ledger.find({ where: { userId } });
     const balance = sumLedgerAmounts(rows);
     const earnedThisPeriod = kpiPeriodId
-      ? balance
+      ? sumLedgerAmounts(rows.filter(row => row.kpiPeriodId?.toLowerCase() === kpiPeriodId.toLowerCase()))
       : rows.filter((r) => r.type === 'kpi_earning').reduce((sum, r) => sum + Number(r.amount), 0);
     const latestEntries = await this.ledger.find({
       where: { userId },

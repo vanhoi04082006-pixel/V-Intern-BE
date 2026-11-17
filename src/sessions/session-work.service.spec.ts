@@ -45,4 +45,12 @@ describe('SessionWorkService', () => {
     await expect(h.service.timeline('foreign', { page: 1, pageSize: 10 }, principal)).rejects.toThrow('forbidden');
     expect(h.db.query).not.toHaveBeenCalled();
   });
+  it('describes legacy student withdrawals without changing the stored event', async () => {
+    const h = harness();
+    const event = { id: 'EVENT-2', action: 'submission.withdraw', summary: 'Giảng viên đã review bài nộp', actorName: 'Sinh viên QA' };
+    h.db.query.mockResolvedValueOnce([event]).mockResolvedValueOnce([{ total: 1 }]);
+    const result = await h.service.timeline('session-1', { page: 1, pageSize: 10 }, principal);
+    expect(result.items[0]).toMatchObject({ action: 'submission.withdraw', summary: 'Sinh viên đã rút bài nộp để cập nhật code', actorName: 'Sinh viên QA' });
+    expect(event.summary).toBe('Giảng viên đã review bài nộp');
+  });
 });
