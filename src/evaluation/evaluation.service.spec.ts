@@ -92,6 +92,7 @@ function buildHarness(opts?: {
   };
   const criterionRepo: AnyRepo = {
     find: jest.fn(async () => criteria),
+    findBy: jest.fn(async () => criteria),
     findOne: jest.fn(async (args: { where: { id?: string; cycleId?: string; code?: string } }) =>
       criteria.find((c) => (args.where.id ? c.id === args.where.id : true) && (!args.where.code || c.code === args.where.code)) ?? null,
     ),
@@ -315,6 +316,14 @@ describe('EvaluationService (Phase 5, spec 7-14)', () => {
   it('intern self-view hides non-finalized evaluations', async () => {
     const { service } = buildHarness({ evaluation: { ...EVALUATION, status: 'draft' } as Evaluation });
     await expect(service.internGet('intern-1', 'eval-1')).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('explains finalized criterion scores with names, weights and score limits', async () => {
+    const { service, scores } = buildHarness({ evaluation: { ...EVALUATION, status: 'finalized' } as Evaluation, scores: SCORES_83_2 });
+    const result = await service.internGet('intern-1', 'eval-1');
+    expect(result.scores[0]).toMatchObject({ criterionName: 'T1', weight: 35, maxScore: 100, score: 85 });
+    expect(result.scores[0]).not.toHaveProperty('description');
+    expect(scores[0]).not.toHaveProperty('criterionName');
   });
 
   it('createEvaluation enforces intern-in-scope (assignment matching the cycle session)', async () => {

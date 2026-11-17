@@ -379,6 +379,57 @@ describe('Phase 5 evaluation + performance e2e (spec 80/81)', () => {
     expect(foreign.body.code).toBe('EVALUATION_NOT_FOUND');
   });
 
+  const expectedCriterionMetadata = [
+    { code: 'technical_quality', criterionName: 'Chất lượng kỹ thuật', weight: 35, maxScore: 100 },
+    { code: 'delivery_execution', criterionName: 'Mức độ hoàn thành công việc', weight: 30, maxScore: 100 },
+    { code: 'communication_teamwork', criterionName: 'Giao tiếp và làm việc nhóm', weight: 20, maxScore: 100 },
+    { code: 'growth_ownership', criterionName: 'Tinh thần học hỏi và trách nhiệm', weight: 15, maxScore: 100 },
+  ];
+
+  it('intern finalized list returns saved criterion names, numeric weights and maximums with each score', async () => {
+    const mine = await request(apiBase()).get('/api/v1/intern/me/evaluations').set('Authorization', `Bearer ${i1}`).expect(200);
+    const evaluation = mine.body.items.find((entry: { id: string }) => entry.id.toLowerCase() === evaluationId.toLowerCase());
+    expect(evaluation).toBeDefined();
+    for (const { code, ...metadata } of expectedCriterionMetadata) {
+      const score = evaluation.scores.find((entry: { criterionId: string }) => entry.criterionId.toLowerCase() === criterionIds[code].toLowerCase());
+      expect(score).toMatchObject(metadata);
+    }
+  });
+
+  it('intern finalized detail returns the same saved criterion metadata rather than anonymous score positions', async () => {
+    const one = await request(apiBase()).get(`/api/v1/intern/me/evaluations/${evaluationId}`).set('Authorization', `Bearer ${i1}`).expect(200);
+    expect(one.body.scores).toHaveLength(4);
+    for (const { code, ...metadata } of expectedCriterionMetadata) {
+      const score = one.body.scores.find((entry: { criterionId: string }) => entry.criterionId.toLowerCase() === criterionIds[code].toLowerCase());
+      expect(score).toMatchObject(metadata);
+    }
+  });
+
+  it('keeps criterion metadata private for foreign and own unfinished evaluations', async () => {
+    const foreign = await request(apiBase()).get(`/api/v1/intern/me/evaluations/${evaluationId}`).set('Authorization', `Bearer ${i2}`).expect(404);
+    expect(foreign.body.code).toBe('EVALUATION_NOT_FOUND');
+    expect(foreign.body).not.toHaveProperty('scores');
+    expect(JSON.stringify(foreign.body)).not.toContain('criterionName');
+
+    const draft = await request(apiBase()).post('/api/v1/evaluations').set('Authorization', `Bearer ${si}`).send({ cycleId, internId: i2UserId }).expect(201);
+    const unfinishedId = draft.body.id;
+    await request(apiBase()).patch(`/api/v1/evaluations/${unfinishedId}`).set('Authorization', `Bearer ${si}`).send({
+      scores: Object.values(criterionIds).map(criterionId => ({ criterionId, score: 50 })),
+      summary: 'Unfinished feedback stays internal.',
+    }).expect(200);
+    for (const status of ['draft', 'submitted']) {
+      if (status === 'submitted') {
+        await request(apiBase()).post(`/api/v1/evaluations/${unfinishedId}/submit`).set('Authorization', `Bearer ${si}`).expect(201);
+      }
+      const mine = await request(apiBase()).get('/api/v1/intern/me/evaluations').set('Authorization', `Bearer ${i2}`).expect(200);
+      expect(mine.body.items).toEqual([]);
+      const hidden = await request(apiBase()).get(`/api/v1/intern/me/evaluations/${unfinishedId}`).set('Authorization', `Bearer ${i2}`).expect(404);
+      expect(hidden.body.code).toBe('EVALUATION_NOT_FOUND');
+      expect(hidden.body).not.toHaveProperty('scores');
+      expect(JSON.stringify(hidden.body)).not.toContain('criterionName');
+    }
+  });
+
   it('closed cycle rejects new evaluations (spec 7)', async () => {
     const closed = await request(apiBase()).post(`/api/v1/evaluation-cycles/${cycleId}/status`).set('Authorization', `Bearer ${si}`).send({ status: 'closed' });
     expect(closed.status).toBe(201);

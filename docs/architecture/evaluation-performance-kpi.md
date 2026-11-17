@@ -20,6 +20,8 @@ Giảng viên chọn kỳ/sinh viên trong scope, nhập đầy đủ tiêu chí
 
 AI hỗ trợ có thể đề xuất, nhưng không finalize hoặc thay điểm chính thức. Không dùng AI review của một task thay cho evaluation cả kỳ.
 
+Hai API `/intern/me/evaluations` và `/intern/me/evaluations/{id}` chỉ trả kết quả đã chốt của người dùng hiện tại. Mỗi score bổ sung `criterionName`, `weight` và `maxScore` để sinh viên hiểu tên tiêu chí, trọng số và thang điểm; các trường là `null` nếu metadata không còn khả dụng. Tra cứu metadata theo tập criterion ID của các score đã được giới hạn phạm vi, bằng một truy vấn chung. Không đưa mô tả nội bộ của tiêu chí hoặc gợi ý AI vào kết quả sinh viên; 404 cho đánh giá của người khác hoặc chưa chốt được giữ nguyên.
+
 ## KPI v1 tính như thế nào?
 
 | Thành phần | Trọng số cấu hình | Nguồn |
